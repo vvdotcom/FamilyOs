@@ -1,0 +1,146 @@
+// Local visual/interaction regression checks for the supplied FamilyOS TV design.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { chromium } = require(process.env.FAMILYOS_PLAYWRIGHT || 'C:/Users/Kurst/AppData/Local/Temp/familyos-playwright-phase2/node_modules/playwright');
+const output = path.resolve(__dirname, '../artifacts/ui-design');
+const baseURL = process.env.FAMILYOS_PREVIEW_URL || 'http://127.0.0.1:8131';
+const executablePath = process.env.FAMILYOS_CHROMIUM || 'C:/Users/Kurst/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe';
+
+(async () => {
+  fs.mkdirSync(output, { recursive: true });
+  const browser = await chromium.launch({ executablePath });
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  const errors = []; const checks = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const check = (name, value) => { assert.ok(value, name); checks.push(name); console.log('PASS', name); };
+  const snap = async name => {
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(() => [...document.images].every(image => image.complete));
+    await page.evaluate(async () => {
+      await Promise.all([...document.images].map(image => image.decode().catch(() => {})));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+    await page.screenshot({ path: path.join(output, `${name}.png`) });
+  };
+  const menu = async route => {
+    await page.getByRole('button', { name: 'Open FamilyOS menu', exact: true }).click();
+    await page.getByRole('button', { name: route, exact: true }).last().click();
+  };
+  const font = text => page.getByText(text, { exact: true }).first().evaluate(element => {
+    const style = getComputedStyle(element); return { family: style.fontFamily, size: style.fontSize };
+  });
+  try {
+    await page.goto(baseURL);
+    await page.getByText('One thing needs attention.').waitFor();
+    const title = await font('One thing needs attention.');
+    check('Home uses the reference Bricolage face at 56px', title.family.includes('Bricolage-800-56') && title.size === '56px');
+    const label = await font('FAMILY BRIEFING');
+    check('Body labels use Figtree 800 at 20px', label.family.includes('Figtree-800') && label.size === '20px');
+    const hero = await page.getByTestId('home-briefing').boundingBox();
+    check('Home briefing matches reference 96/162/1728/235 geometry', hero.x === 96 && hero.y === 162 && hero.width === 1728 && hero.height === 235);
+    await snap('home-light-1920');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowRight'); await page.keyboard.press('Enter');
+    await page.getByLabel('Weekly family calendar', { exact: true }).waitFor();
+    check('Remote Up / Right / OK opens Calendar from Home', true);
+    await snap('calendar-light-1920');
+    await page.getByRole('radio', { name: 'Day', exact: true }).click();
+    check('Day view works', await page.getByLabel('Daily family calendar', { exact: true }).count() === 1);
+    await snap('calendar-day-light-1920');
+    await page.getByRole('radio', { name: 'Month', exact: true }).click();
+    check('Month view renders 42 selectable dates', await page.getByRole('button', { name: /^Open 2026-.*events$/ }).count() === 42);
+    await snap('calendar-month-light-1920');
+    await page.getByRole('button', { name: 'Open 2026-09-22, 6 events', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Show Emma', exact: true }).click();
+    check('Member filter hides Emma-only soccer event', await page.getByRole('button', { name: 'Open Soccer practice', exact: true }).count() === 0);
+    await page.getByRole('checkbox', { name: 'Show Emma', exact: true }).click();
+    await page.getByRole('button', { name: 'Open Soccer practice', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Water bottle, still needed', exact: true }).click();
+    check('Preparation checklist updates once per click', await page.getByRole('checkbox', { name: 'Water bottle, packed', exact: true }).getAttribute('aria-checked') === 'true');
+    await snap('event-details-light-1920');
+    await page.keyboard.press('Escape');
+    check('Back closes event details without leaving Calendar', await page.getByLabel('Daily family calendar', { exact: true }).count() === 1);
+    await page.getByRole('button', { name: 'Chores', exact: true }).click();
+    const choreTitle = await font('Today’s chores');
+    check('Board headings match Bricolage 800 at 68px', choreTitle.family.includes('Bricolage-800-68') && choreTitle.size === '68px');
+    await snap('chores-light-1920');
+    await page.getByRole('checkbox', { name: 'Complete Put shoes by the door', exact: true }).click();
+    check('Chore completion updates once per click', await page.getByRole('checkbox', { name: 'Mark incomplete Put shoes by the door', exact: true }).getAttribute('aria-checked') === 'true');
+    await page.getByRole('checkbox', { name: 'Complete Pack backpack', exact: true }).click();
+    check('Routine steps stay interactive', await page.getByRole('checkbox', { name: 'Mark incomplete Pack backpack', exact: true }).count() === 1);
+    await page.getByRole('button', { name: 'Coming up', exact: true }).click();
+    check('Future chores remain reachable', await page.getByRole('checkbox', { name: 'Complete Pack backpack', exact: true }).count() === 1);
+    await page.getByRole('button', { name: 'Meals', exact: true }).click();
+    await snap('meals-light-1920');
+    await page.getByRole('button', { name: 'TUE Dinner: Taco night', exact: true }).click();
+    await snap('recipe-light-1920');
+    await page.getByRole('checkbox', { name: '1 packet taco seasoning, have it', exact: true }).click();
+    await page.getByRole('button', { name: 'Add 5 missing items to Groceries', exact: true }).click();
+    await page.getByRole('button', { name: 'Open Groceries', exact: true }).click();
+    check('Recipe ingredients are added to the shared local list', await page.getByRole('checkbox', { name: 'Groceries: Taco seasoning', exact: true }).count() === 1);
+    await snap('lists-light-1920');
+    await page.getByRole('button', { name: 'Add item', exact: true }).click();
+    await page.getByRole('textbox', { name: 'List item', exact: true }).fill('Mangoes!');
+    await page.keyboard.press('Backspace');
+    check('Backspace edits text without triggering TV Back', await page.getByRole('textbox', { name: 'List item', exact: true }).inputValue() === 'Mangoes');
+    await page.keyboard.press('Enter');
+    check('Enter saves the list item exactly once', await page.getByRole('checkbox', { name: 'Groceries: Mangoes', exact: true }).count() === 1);
+    await page.getByRole('checkbox', { name: 'Groceries: Mangoes', exact: true }).click();
+    await page.getByRole('button', { name: 'Clear checked items', exact: true }).click();
+    check('Clear checked removes completed items', await page.getByRole('checkbox', { name: 'Groceries: Mangoes', exact: true }).count() === 0);
+    await page.getByRole('button', { name: 'Meals', exact: true }).click();
+    await page.getByRole('button', { name: 'SAT Breakfast: Plan', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Meal name', exact: true }).fill('French toast');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Escape');
+    check('Meal entry saves and Back returns to the weekly planner', await page.getByRole('button', { name: 'SAT Breakfast: French toast', exact: true }).count() === 1);
+    await page.getByRole('button', { name: 'Photos', exact: true }).click();
+    await snap('photos-light-1920');
+    check('Photos shows an honest empty state without ambient cards', await page.getByText('No photos yet', { exact: true }).count() === 1 && await page.getByText('UP NEXT TODAY', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Wake FamilyOS' }).count() === 0);
+    await page.keyboard.press('ArrowRight'); await page.keyboard.press('Enter');
+    check('Photos remote navigation reaches Settings', await page.getByRole('switch', { name: 'Dark mode', exact: true }).count() === 1);
+    for (const route of ['Home', 'Calendar', 'Chores', 'Meals', 'Lists', 'Photos', 'Settings']) {
+      await menu(route);
+      const nav = page.getByTestId('family-top-navigation');
+      check(route + ' shares all seven navigation tabs', await nav.getByRole('button').count() === 8 && await nav.getByRole('button', { name: route + ', current page', exact: true }).getAttribute('aria-selected') === 'true');
+      check(route + ' has condition icon and Fahrenheit, with no header theme control', await nav.getByTestId('weather-icon-sunny').count() === 1 && await nav.getByText('89°F', { exact: true }).count() === 1 && await nav.getByRole('button', { name: /Switch to .* theme/ }).count() === 0);
+    }
+    await menu('Family'); await snap('family-light-1920');
+    await menu('Settings'); await snap('settings-light-1920');
+    await page.getByRole('switch', { name: 'Dark mode', exact: true }).click();
+    check('Settings toggle enables dark mode', await page.getByRole('switch', { name: 'Dark mode', exact: true }).getAttribute('aria-checked') === 'true');
+    await snap('settings-dark-1920');
+    await menu('Photos'); await snap('photos-dark-1920');
+    await page.getByRole('button', { name: 'Home', exact: true }).click();
+    await snap('home-dark-1920');
+    await menu('Calendar'); await snap('calendar-dark-1920');
+    for (const route of ['Chores', 'Meals', 'Lists']) {
+      await page.getByRole('button', { name: route, exact: true }).click();
+      await snap(`${route.toLowerCase()}-dark-1920`);
+    }
+    await page.reload(); await page.getByText('One thing needs attention.').waitFor();
+    check('Theme persists on reload', await page.evaluate(() => localStorage.getItem('familyos.theme')) === 'dark');
+    await menu('Chores');
+    check('Household edits persist on reload', await page.getByRole('checkbox', { name: 'Mark incomplete Put shoes by the door', exact: true }).count() === 1);
+    await page.getByRole('button', { name: 'Meals', exact: true }).click();
+    check('Meal edits persist on reload', await page.getByRole('button', { name: 'SAT Breakfast: French toast', exact: true }).count() === 1);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await snap('meals-dark-1280');
+    await page.getByRole('button', { name: 'Home', exact: true }).click(); await snap('home-dark-1280');
+    const smallHero = await page.getByTestId('home-briefing').boundingBox();
+    check('720p scales the entire reference canvas uniformly', Math.abs(smallHero.width - 1152) < 1 && Math.abs(smallHero.x - 64) < 1);
+    await menu('Calendar');
+    await menu('Settings');
+    await page.getByRole('switch', { name: 'Dark mode', exact: true }).click();
+    check('Settings toggle returns to light mode', await page.getByRole('switch', { name: 'Dark mode', exact: true }).getAttribute('aria-checked') === 'false');
+    await menu('Calendar');
+    await snap('calendar-light-1280');
+    for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowRight'); await page.keyboard.press('Enter');
+    check('Remote navigation moves between top-level tabs', await page.getByText('Today’s chores', { exact: true }).count() === 1);
+    await snap('chores-light-1280');
+    check('No browser runtime errors', errors.length === 0);
+    fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ checks, errors, screenshots: fs.readdirSync(output).filter(name => name.endsWith('.png')) }, null, 2));
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

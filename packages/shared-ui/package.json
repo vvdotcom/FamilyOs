@@ -1,0 +1,50 @@
+{
+  "name": "@familyos/shared-ui",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.d.ts",
+  "scripts": {
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "typecheck:phase2": "tsc --noEmit -p tsconfig.phase2.json",
+    "test": "jest",
+    "clean": "rm -rf node_modules"
+  },
+  "dependencies": {
+    "@familyos/domain": "workspace:*"
+  },
+  "peerDependencies": {
+    "@amazon-devices/kepler-media-controls": "*",
+    "@amazon-devices/react-native-kepler": "*",
+    "@amazon-devices/react-native-w3cmedia": "*",
+    "@bam.tech/lrud": "*",
+    "@react-navigation/drawer": "*",
+    "@react-navigation/native": "*",
+    "@react-navigation/native-stack": "*",
+    "mitt": "*",
+    "react": "*",
+    "react-native": "*",
+    "react-native-gesture-handler": "*",
+    "react-native-keyevent": "*",
+    "react-native-pixel-perfect": "*",
+    "react-native-video": "*",
+    "react-tv-space-navigation": "*"
+  },
+  "peerDependenciesMeta": {
+    "@amazon-devices/kepler-media-controls": {
+      "optional": true
+    },
+    "@amazon-devices/react-native-kepler": {
+      "optional": true
+    },
+    "@amazon-devices/react-native-w3cmedia": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.2.0",
+    "typescript": "~5.7.0"
+  }
+}

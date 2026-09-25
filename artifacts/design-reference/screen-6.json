@@ -1,0 +1,599 @@
+{
+  "title": "Fire TV — Ambient screensaver",
+  "elements": [
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "width: 1920px; height: 1080px; position: relative; overflow: hidden; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0px, rgba(255, 255, 255, 0.08) 32px, rgba(255, 255, 255, 0) 32px, rgba(255, 255, 255, 0) 64px) rgb(233, 223, 204); font-family: Figtree, \"Segoe UI\", system-ui, sans-serif; color: rgb(31, 27, 22);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(233, 223, 204)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "position: absolute; left: 0px; top: 0px; width: 1920px; height: 1080px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: rgb(122, 106, 80);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(122, 106, 80)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(122, 106, 80)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 916,
+        "y": 472,
+        "width": 88,
+        "height": 88
+      }
+    },
+    {
+      "tag": "rect",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(122, 106, 80)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 927,
+        "y": 486.6666564941406,
+        "width": 66,
+        "height": 58.666656494140625
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(122, 106, 80)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 941.6666870117188,
+        "y": 501.3333435058594,
+        "width": 14.6666259765625,
+        "height": 14.666656494140625
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(122, 106, 80)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 941.6666870117188,
+        "y": 512.3333129882812,
+        "width": 51.33331298828125,
+        "height": 33
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "[FAMILY PHOTO SLIDESHOW]",
+      "inline": "font-size: 26px; font-weight: 700; letter-spacing: 0.08em;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "26px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "2.08px",
+      "color": "rgb(122, 106, 80)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 752.5625,
+        "y": 576,
+        "width": 414.859375,
+        "height": 32
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "",
+      "inline": "position: absolute; top: 54px; right: 96px; width: 64px; height: 64px; border-radius: 32px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: rgba(255, 255, 255, 0.88); color: rgb(31, 27, 22); display: flex; align-items: center; justify-content: center;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(255, 255, 255, 0.88)",
+      "rect": {
+        "x": 1760,
+        "y": 54,
+        "width": 64,
+        "height": 64
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1778,
+        "y": 72,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1783.4173583984375,
+        "y": 76.66666412353516,
+        "width": 17.916015625,
+        "height": 17.91596221923828
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "position: absolute; left: 96px; right: 96px; bottom: 54px; display: flex; align-items: flex-end; justify-content: space-between; gap: 48px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 96,
+        "y": 607,
+        "width": 1728,
+        "height": 419
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; flex-direction: column; gap: 12px; padding: 36px 48px 40px; border-radius: 40px; background: rgba(255, 255, 255, 0.88);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(255, 255, 255, 0.88)",
+      "rect": {
+        "x": 96,
+        "y": 697,
+        "width": 732.234375,
+        "height": 329
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "7:42",
+      "inline": "font-family: \"Bricolage Grotesque\", sans-serif; font-size: 220px; font-weight: 700; letter-spacing: -0.04em; line-height: 0.9;",
+      "font": "\"Bricolage Grotesque\", sans-serif",
+      "fontSize": "220px",
+      "weight": "700",
+      "lineHeight": "198px",
+      "spacing": "-8.8px",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 144,
+        "y": 733,
+        "width": 636.234375,
+        "height": 198
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "Wednesday, September 23 · Sunny 84°",
+      "inline": "font-size: 36px; font-weight: 600;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "36px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 144,
+        "y": 943,
+        "width": 636.234375,
+        "height": 43
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; flex-direction: column; align-items: flex-end; gap: 24px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1144,
+        "y": 607,
+        "width": 680,
+        "height": 419
+      }
+    },
+    {
+      "tag": "SECTION",
+      "text": "",
+      "inline": "width: 620px; display: flex; flex-direction: column; gap: 12px; padding: 30px; border-radius: 36px; background: rgba(255, 255, 255, 0.88);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(255, 255, 255, 0.88)",
+      "rect": {
+        "x": 1144,
+        "y": 607,
+        "width": 680,
+        "height": 327
+      }
+    },
+    {
+      "tag": "H2",
+      "text": "UP NEXT TODAY",
+      "inline": "margin: 0px 0px 6px; font-size: 22px; font-weight: 800; letter-spacing: 0.1em; color: rgb(95, 87, 75);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "22px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "2.2px",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1174,
+        "y": 637,
+        "width": 620,
+        "height": 27
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; align-items: center; gap: 18px; padding: 16px 20px; border-radius: 20px; background: rgb(220, 231, 247); color: rgb(27, 63, 120);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(27, 63, 120)",
+      "background": "rgb(220, 231, 247)",
+      "rect": {
+        "x": 1174,
+        "y": 682,
+        "width": 620,
+        "height": 66
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "12:00 PM",
+      "inline": "width: 120px; font-size: 24px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "24px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(27, 63, 120)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1194,
+        "y": 700.5,
+        "width": 120,
+        "height": 29
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "Lunch with Priya",
+      "inline": "flex-grow: 1; font-size: 28px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "28px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(27, 63, 120)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1332,
+        "y": 698,
+        "width": 370.5,
+        "height": 34
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "Maya",
+      "inline": "font-size: 22px; font-weight: 600;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "22px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(27, 63, 120)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1720.5,
+        "y": 701.5,
+        "width": 53.5,
+        "height": 27
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; align-items: center; gap: 18px; padding: 16px 20px; border-radius: 20px; background: rgb(217, 238, 218); color: rgb(31, 90, 42);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 90, 42)",
+      "background": "rgb(217, 238, 218)",
+      "rect": {
+        "x": 1174,
+        "y": 760,
+        "width": 620,
+        "height": 66
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "3:30 PM",
+      "inline": "width: 120px; font-size: 24px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "24px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 90, 42)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1194,
+        "y": 778.5,
+        "width": 120,
+        "height": 29
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "Soccer practice",
+      "inline": "flex-grow: 1; font-size: 28px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "28px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 90, 42)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1332,
+        "y": 776,
+        "width": 374.078125,
+        "height": 34
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "Theo",
+      "inline": "font-size: 22px; font-weight: 600;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "22px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 90, 42)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1724.078125,
+        "y": 779.5,
+        "width": 49.921875,
+        "height": 27
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; align-items: center; gap: 18px; padding: 16px 20px; border-radius: 20px; background: rgb(246, 231, 176); color: rgb(92, 69, 0);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(92, 69, 0)",
+      "background": "rgb(246, 231, 176)",
+      "rect": {
+        "x": 1174,
+        "y": 838,
+        "width": 620,
+        "height": 66
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "6:00 PM",
+      "inline": "width: 120px; font-size: 24px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "24px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(92, 69, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1194,
+        "y": 856.5,
+        "width": 120,
+        "height": 29
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "Taco night",
+      "inline": "flex-grow: 1; font-size: 28px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "28px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(92, 69, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1332,
+        "y": 854,
+        "width": 358.59375,
+        "height": 34
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "Family",
+      "inline": "font-size: 22px; font-weight: 600;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "22px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(92, 69, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1708.59375,
+        "y": 857.5,
+        "width": 65.40625,
+        "height": 27
+      }
+    },
+    {
+      "tag": "A",
+      "text": "Press any button to wake",
+      "inline": "display: flex; align-items: center; gap: 14px; padding: 12px 22px 12px 12px; border-radius: 32px; background: rgba(255, 255, 255, 0.88); font-size: 24px; font-weight: 600;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "24px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(255, 255, 255, 0.88)",
+      "rect": {
+        "x": 1454.390625,
+        "y": 958,
+        "width": 369.609375,
+        "height": 68
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "OK",
+      "inline": "height: 44px; min-width: 44px; padding: 0px 8px; box-sizing: border-box; border-radius: 12px; border: 2px solid rgb(201, 192, 176); color: rgb(31, 27, 22); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "18px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 1466.390625,
+        "y": 970,
+        "width": 46.71875,
+        "height": 44
+      }
+    }
+  ]
+}

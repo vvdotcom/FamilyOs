@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "noEmit": true,
+    "paths": {
+      "@familyos/domain": ["../domain/src/index.ts"],
+      "*": ["../../apps/vega/node_modules/*"]
+    },
+  "typeRoots": ["../../apps/vega/node_modules/@types", "../../node_modules/@types"]
+  },
+  "include": [
+    "src/screens/FamilyOsShell.tsx",
+    "src/screens/familyTypes.ts",
+    "src/screens/FamilyHomeScreen.tsx",
+    "src/screens/FamilyCalendarScreen.tsx",
+    "src/screens/FamilyChoresScreen.tsx",
+    "src/screens/FamilyMembersScreen.tsx",
+    "src/screens/FamilySettingsScreen.tsx",
+    "src/hooks/useBackToHome.ts",
+    "src/hooks/useReducedMotion.ts",
+    "src/navigation/familyNavigation.ts",
+    "src/components/FocusRing.tsx",
+    "src/components/TvButton.tsx",
+    "src/components/TvCard.tsx",
+    "src/components/MemberChip.tsx",
+    "src/components/SectionHeader.tsx",
+    "src/theme/**/*.ts",
+    "../domain/src/**/*.ts"
+  ]
+}

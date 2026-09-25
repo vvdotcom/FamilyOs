@@ -1,0 +1,16 @@
+export const designFonts = {
+  'Figtree-400': require('../assets/fonts/Figtree-400.ttf'),
+  'Figtree-500': require('../assets/fonts/Figtree-500.ttf'),
+  'Figtree-600': require('../assets/fonts/Figtree-600.ttf'),
+  'Figtree-700': require('../assets/fonts/Figtree-700.ttf'),
+  'Figtree-800': require('../assets/fonts/Figtree-800.ttf'),
+  'Bricolage-800-56': require('../assets/fonts/Bricolage-800-56.ttf'),
+  'Bricolage-800-64': require('../assets/fonts/Bricolage-800-64.ttf'),
+  'Bricolage-800-68': require('../assets/fonts/Bricolage-800-68.ttf'),
+  'Bricolage-800-34': require('../assets/fonts/Bricolage-800-34.ttf'),
+  'Bricolage-700-34': require('../assets/fonts/Bricolage-700-34.ttf'),
+  'Bricolage-700-38': require('../assets/fonts/Bricolage-700-38.ttf'),
+  'Bricolage-700-40': require('../assets/fonts/Bricolage-700-40.ttf'),
+  'Bricolage-700-44': require('../assets/fonts/Bricolage-700-44.ttf'),
+  'Bricolage-700-96': require('../assets/fonts/Bricolage-700-96.ttf'),
+};

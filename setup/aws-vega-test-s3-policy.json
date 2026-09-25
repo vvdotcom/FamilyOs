@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadOnlyFamilyOSVegaTestPackage",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::familyos-vega-test-237320501162-20260923/familyos-0.1.0-x86_64-release.vpkg"
+    }
+  ]
+}

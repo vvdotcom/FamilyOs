@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f4ef" />
+    <title>FamilyOS Account</title>
+    <link rel="stylesheet" href="/companion/assets/styles.css" />
+    <script src="/companion/assets/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="/companion" aria-label="FamilyOS home">
+        <span class="brand-mark" aria-hidden="true">F</span>
+        <span>FamilyOS</span>
+      </a>
+      <span class="topbar-note">Family calendar</span>
+    </header>
+
+    <main>
+      <section class="account-panel" aria-labelledby="page-title">
+        <h1 id="page-title">Your family, together</h1>
+        <p class="intro">Create a parent account to keep your household connected across devices.</p>
+
+        <div id="message" class="message" role="status" aria-live="polite" hidden></div>
+
+        <div id="auth-tabs" class="tabs" role="tablist" aria-label="Account access">
+          <button class="tab is-active" type="button" role="tab" aria-selected="true" data-show="sign-in">Sign in</button>
+          <button class="tab" type="button" role="tab" aria-selected="false" data-show="sign-up">Create account</button>
+        </div>
+
+        <form id="sign-in" class="form" data-panel>
+          <label for="signin-email">Email address</label>
+          <input id="signin-email" name="email" type="email" autocomplete="email" required />
+          <label for="signin-password">Password</label>
+          <input id="signin-password" name="password" type="password" autocomplete="current-password" required />
+          <button class="primary-button" type="submit">Sign in</button>
+          <button class="text-button" type="button" data-show="forgot">Forgot password?</button>
+        </form>
+
+        <form id="sign-up" class="form" data-panel hidden>
+          <label for="parent-name">Parent or guardian name</label>
+          <input id="parent-name" name="parentName" autocomplete="name" maxlength="80" required />
+          <label for="household-name">Household name</label>
+          <input id="household-name" name="householdName" autocomplete="organization" maxlength="80" required />
+          <label for="signup-email">Email address</label>
+          <input id="signup-email" name="email" type="email" autocomplete="email" required />
+          <label for="signup-password">Create password</label>
+          <input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required />
+          <p class="field-note">Use at least 12 characters. Children will be household profiles; they won’t need email accounts.</p>
+          <button class="primary-button" type="submit">Create parent account</button>
+        </form>
+
+        <form id="verify-email" class="form" data-panel hidden>
+          <p class="section-copy">Enter the six-digit code sent to <strong id="verify-address"></strong>.</p>
+          <label for="verify-code">Verification code</label>
+          <input id="verify-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+          <button class="primary-button" type="submit">Verify email</button>
+          <button id="resend-code" class="text-button" type="button">Send a new code</button>
+        </form>
+
+        <form id="forgot" class="form" data-panel hidden>
+          <p class="section-copy">We’ll send a reset code to the verified email on your account.</p>
+          <label for="forgot-email">Email address</label>
+          <input id="forgot-email" name="email" type="email" autocomplete="email" required />
+          <button class="primary-button" type="submit">Send reset code</button>
+          <button class="text-button" type="button" data-show="sign-in">Back to sign in</button>
+        </form>
+
+        <form id="reset-password" class="form" data-panel hidden>
+          <p class="section-copy">Enter the reset code sent to <strong id="reset-address"></strong>, then choose a new password.</p>
+          <label for="reset-code">Reset code</label>
+          <input id="reset-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+          <label for="new-password">New password</label>
+          <input id="new-password" name="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required />
+          <button class="primary-button" type="submit">Save new password</button>
+          <button class="text-button" type="button" data-show="sign-in">Cancel</button>
+        </form>
+
+        <section id="account" class="account-view" data-panel hidden>
+          <p class="section-copy">You’re signed in as a parent for:</p>
+          <h2 id="signed-in-household"></h2>
+          <p id="signed-in-email" class="account-email"></p>
+          <div class="account-divider"></div>
+          <p class="section-copy">Your Fire TV will be paired separately. You won’t need to enter this password with the remote.</p>
+          <button id="sign-out" class="secondary-button" type="button">Sign out</button>
+        </section>
+
+        <aside id="local-code" class="local-code" hidden>
+          <span class="local-code-label">Local test email</span>
+          <strong id="local-code-value" class="local-code-value"></strong>
+          <span class="local-code-note">In this local preview, the email is captured here instead of being sent.</span>
+        </aside>
+      </section>
+
+      <p class="local-note"><span class="local-dot" aria-hidden="true"></span>Local preview only · Not connected to AWS Cognito or Railway</p>
+    </main>
+  </body>
+</html>

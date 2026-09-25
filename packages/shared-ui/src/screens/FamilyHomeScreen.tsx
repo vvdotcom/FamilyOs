@@ -1,0 +1,468 @@
+import { WeatherIcon } from '../design/WeatherIcon';
+import React from 'react';
+import { useState } from 'react';
+import { View } from 'react-native';
+import { CalendarEvent, ProposedAction } from '@familyos/domain';
+import {
+  Avatar,
+  Check,
+  DButton,
+  DIcon,
+  DPanel,
+  DRow,
+  DText,
+  formatTime,
+  localDateKey,
+  memberColor,
+  useDesignPalette,
+} from '../design/DesignSystem';
+import { FamilyScreenProps } from './familyTypes';
+import { usePageBack } from '../hooks/usePageBack';
+
+export default function FamilyHomeScreen({
+  household,
+  conflicts,
+  now,
+  calendarState,
+  weatherState,
+  focusActive,
+  onNavigate,
+  onOpenEvent,
+  onTogglePreparationItem,
+  briefing,
+  onProposeAction,
+  onConfirmAction,
+  onCancelAction,
+}: FamilyScreenProps) {
+  const p = useDesignPalette(true);
+  const timezone = household.family.timezone;
+  const events = calendarState.status === 'unavailable' || calendarState.status === 'empty' ? [] : household.events;
+  const today = events
+    .filter((event) => localDateKey(event.startAt, timezone) === localDateKey(now, timezone))
+    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
+  // Simultaneous school entries share one timeline row, while both events remain in Calendar.
+  const rows = today
+    .filter(
+      (event, index) =>
+        today.findIndex((other) => other.title === event.title && other.startAt === event.startAt) === index,
+    )
+    .slice(0, 5);
+  const upcoming = today.filter((event) => Date.parse(event.endAt) > now.getTime());
+  const next = upcoming.find((event) => event.preparation.length > 0) ?? upcoming[0];
+  const conflict = conflicts.find((item) => item.type === 'responsibility_overlap');
+  const suggested = household.members.find((member) => member.id === conflict?.suggestedMemberId);
+  const conflictEvent = today.find((event) => event.category === 'pickup' && conflict?.eventIds.includes(event.id));
+  const [resolution, setResolution] = useState<'closed' | 'review' | 'confirm' | 'done'>('closed');
+  const [pendingAction, setPendingAction] = useState<{ action: ProposedAction; remote: boolean } | null>(null);
+  const [completedAction, setCompletedAction] = useState<ProposedAction | null>(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [working, setWorking] = useState(false);
+  const closeResolution = () => {
+    if (pendingAction && pendingAction.action.status === 'proposed') {
+      void onCancelAction?.(pendingAction.action, pendingAction.remote);
+    }
+    setPendingAction(null);
+    setActionMessage('');
+    setResolution('closed');
+  };
+  usePageBack(closeResolution, resolution !== 'closed');
+  const propose = async () => {
+    if (!conflict || !conflictEvent || !suggested || !onProposeAction) return;
+    setWorking(true);
+    setActionMessage('');
+    try {
+      setPendingAction(await onProposeAction(conflict.id, conflictEvent.id, suggested.id));
+      setResolution('confirm');
+    } catch {
+      setActionMessage('The pickup suggestion could not be prepared. Refresh and try again.');
+    } finally {
+      setWorking(false);
+    }
+  };
+  const confirm = async () => {
+    if (!pendingAction || !onConfirmAction) return;
+    setWorking(true);
+    setActionMessage('');
+    try {
+      await onConfirmAction(pendingAction.action, pendingAction.remote);
+      setCompletedAction(pendingAction.action);
+      setPendingAction(null);
+      setResolution('done');
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'The schedule changed. Review this pickup again.');
+    } finally {
+      setWorking(false);
+    }
+  };
+  const open = (event: CalendarEvent) => (onOpenEvent ? onOpenEvent(event.id) : onNavigate('Calendar'));
+
+  return (
+    <View style={{ flex: 1, gap: 28 }}>
+      <View
+        testID="home-briefing"
+        style={{
+          height: 235,
+          borderRadius: 36,
+          paddingHorizontal: 48,
+          paddingVertical: 40,
+          borderWidth: 2,
+          borderColor: p.briefingBorder,
+          backgroundColor: p.briefing,
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          gap: 48,
+        }}>
+        <View style={{ flex: 1, gap: 14, minWidth: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <DIcon name="sparkle" size={24} color={p.briefingLabel} />
+            <DText size={20} weight={800} color={p.briefingLabel} style={{ letterSpacing: 3.2 }}>
+              FAMILY BRIEFING
+            </DText>
+          </View>
+          <DText heading size={56} weight={800} color={p.ink} style={{ letterSpacing: -1.12 }} numberOfLines={1}>
+            {briefing?.headline ?? (conflict ? 'One thing needs attention.' : 'A little more room to breathe.')}
+          </DText>
+          <DText
+            size={30}
+            weight={500}
+            color={p.dark ? p.muted : '#34384A'}
+            style={{ lineHeight: 40.5 }}
+            numberOfLines={2}>
+            {briefing?.summary ??
+              (conflict
+                ? `${conflict.message}${suggested ? ` ${suggested.name} is available to help.` : ''}`
+                : `${upcoming.length} plans ahead. Your family’s day, all in one place.`)}
+          </DText>
+        </View>
+        <DButton
+          label={conflict ? 'Fix pickup' : 'Open calendar'}
+          onPress={() => {
+            setCompletedAction(null);
+            if (conflict && conflictEvent && suggested && onProposeAction) setResolution('review');
+            else if (conflictEvent) open(conflictEvent);
+            else onNavigate('Calendar');
+          }}
+          active={focusActive}
+          defaultFocus
+          radius={38}
+          style={{
+            height: 76,
+            paddingHorizontal: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: p.selected,
+          }}>
+          <DText size={28} weight={800} color={p.onSelected}>
+            {conflict ? 'Fix pickup' : 'Open calendar'}
+          </DText>
+        </DButton>
+      </View>
+
+      <DRow style={{ flex: 1, minHeight: 0, gap: 28 }}>
+        <DPanel home style={{ width: 1070, minWidth: 0, paddingVertical: 28, paddingHorizontal: 40, gap: 10 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <DText size={22} weight={800} color={p.muted} style={{ letterSpacing: 3.52 }}>
+              TODAY
+            </DText>
+            <DText size={22} color={p.muted}>
+              {rows.length} events
+            </DText>
+          </View>
+          <View style={{ gap: 6, position: 'relative' }}>
+            <View
+              style={{ position: 'absolute', left: 141, top: 30, bottom: 28, width: 2, backgroundColor: p.nextBorder }}
+            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', height: 24, gap: 22 }}>
+              <DText
+                size={18}
+                weight={800}
+                color={p.dark ? '#FFAA80' : '#C2410C'}
+                style={{ letterSpacing: 1.8, width: 130 }}>
+                NOW {formatTime(now, timezone, false)}
+              </DText>
+              <View style={{ width: 14, height: 14, backgroundColor: '#C2410C', borderRadius: 7 }} />
+              <View style={{ flex: 1, height: 1, backgroundColor: '#FB8A68' }} />
+            </View>
+            {rows.map((event) => {
+              const owner = household.members.find((member) => member.id === event.ownerMemberId);
+              const attention = event.id === conflictEvent?.id;
+              const family = event.memberIds.length === household.members.length;
+              const c = memberColor(family ? 'family' : owner?.id, p.dark);
+              return (
+                <DButton
+                  key={event.id}
+                  label={`Open ${event.title}`}
+                  onPress={() => open(event)}
+                  active={focusActive}
+                  radius={16}
+                  style={{
+                    height: 54,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 12,
+                    gap: 22,
+                    backgroundColor: attention ? p.warning : 'transparent',
+                  }}>
+                  <DText size={28} weight={700} color={p.ink} style={{ width: 118, textAlign: 'right' }}>
+                    {formatTime(event.startAt, timezone, false)}
+                  </DText>
+                  <View
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      borderWidth: 2,
+                      borderColor: p.card,
+                      backgroundColor: c.accent,
+                    }}
+                  />
+                  <DText size={30} weight={600} color={p.ink} numberOfLines={1} style={{ flex: 1 }}>
+                    {event.title}
+                  </DText>
+                  <DText size={24} weight={700} color={family ? p.muted : p.dark ? c.avatar : c.accent}>
+                    {family ? 'Everyone' : (owner?.name ?? 'Family')}
+                  </DText>
+                  {attention ? <DIcon name="alert" size={26} color={p.dark ? '#FFAA80' : '#C2410C'} /> : null}
+                </DButton>
+              );
+            })}
+            {!rows.length ? (
+              <DText size={26} color={p.muted} style={{ marginTop: 24 }}>
+                {calendarState.status === 'unavailable' ? calendarState.message : 'Nothing scheduled today.'}
+              </DText>
+            ) : null}
+          </View>
+        </DPanel>
+        <DPanel home style={{ flex: 1, minWidth: 0, paddingVertical: 28, paddingHorizontal: 36, gap: 14 }}>
+          <DText size={22} weight={800} color={p.muted} style={{ letterSpacing: 3.52 }}>
+            FAMILY
+          </DText>
+          {household.members.map((member) => {
+            const nextEvent = upcoming.find((event) => event.memberIds.includes(member.id));
+            const status =
+              suggested?.id === member.id
+                ? 'Available to help'
+                : nextEvent
+                  ? `${nextEvent.title.replace('Emma ', '')} ${formatTime(nextEvent.startAt, timezone, false)}`
+                  : 'Free today';
+            return (
+              <View key={member.id} style={{ height: 70, flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+                <Avatar id={member.id} initials={member.initials} size={56} pastel />
+                <DText size={30} weight={700} color={p.ink}>
+                  {member.name}
+                </DText>
+                <DText size={24} color={p.muted} numberOfLines={1} style={{ flex: 1, textAlign: 'right' }}>
+                  {status}
+                </DText>
+              </View>
+            );
+          })}
+        </DPanel>
+      </DRow>
+
+      <View
+        testID="home-next-up"
+        style={{
+          height: 133,
+          borderRadius: 36,
+          paddingHorizontal: 40,
+          paddingVertical: 26,
+          backgroundColor: p.nextUp,
+          borderWidth: 2,
+          borderColor: p.nextBorder,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 24,
+        }}>
+        <View style={{ flex: 1, gap: 8 }}>
+          <DText size={20} weight={800} color={p.muted} style={{ letterSpacing: 3.2 }}>
+            NEXT UP
+          </DText>
+          {next ? (
+            <DRow style={{ alignItems: 'center', gap: 18 }}>
+              <DIcon
+                name={next.category === 'sports' ? 'soccer' : 'calendar'}
+                size={36}
+                color={p.dark ? memberColor(next.ownerMemberId).avatar : memberColor(next.ownerMemberId).accent}
+              />
+              <DButton
+                label={`Open next event: ${next.title}`}
+                onPress={() => open(next)}
+                active={focusActive}
+                style={{ justifyContent: 'center' }}>
+                <DText size={38} weight={700} heading color={p.ink}>
+                  {next.title.replace(' practice', '')} · {formatTime(next.startAt, timezone)}
+                </DText>
+              </DButton>
+              {next.travelMinutes ? (
+                <View
+                  style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14, backgroundColor: p.warning }}>
+                  <DText size={24} weight={800} color={p.warningInk}>
+                    Leave by{' '}
+                    {formatTime(new Date(Date.parse(next.startAt) - next.travelMinutes * 60000), timezone, false)}
+                  </DText>
+                </View>
+              ) : null}
+            </DRow>
+          ) : (
+            <DText size={30} color={p.ink}>
+              You’re all caught up.
+            </DText>
+          )}
+        </View>
+        <DRow style={{ alignItems: 'center', gap: 16 }}>
+          {next?.preparation.slice(0, 2).map((item) => (
+            <DButton
+              key={item.id}
+              label={`${item.completed ? 'Uncheck' : 'Check'} ${item.label}`}
+              role="checkbox"
+              checked={item.completed}
+              onPress={() => onTogglePreparationItem(next.id, item.id)}
+              active={focusActive}
+              radius={31}
+              style={{
+                height: 62,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                borderWidth: 2,
+                borderColor: item.completed ? '#9DDCA7' : p.nextBorder,
+                backgroundColor: item.completed ? (p.dark ? '#253E2C' : '#E4F4E6') : p.card,
+              }}>
+              <Check done={item.completed} color="#2C7B3B" size={34} />
+              <DText
+                size={26}
+                weight={700}
+                color={p.ink}
+                style={item.completed ? { textDecorationLine: 'line-through' } : undefined}>
+                {item.label}
+              </DText>
+            </DButton>
+          ))}
+        </DRow>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, maxWidth: 350 }}>
+          {weatherState.data ? <WeatherIcon condition={weatherState.data.condition} size={30} color={p.muted} /> : null}
+          <DText size={24} color={p.muted}>
+            {weatherState.data
+              ? `${weatherState.data.condition} · ${weatherState.data.temperatureF}°F`
+              : 'Forecast unavailable'}
+          </DText>
+        </View>
+      </View>
+
+      {resolution !== 'closed' ? (
+        <View
+          style={{
+            position: 'absolute',
+            zIndex: 40,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#17130FBB',
+          }}>
+          <DPanel
+            style={{ width: 1040, padding: 44, gap: 22, borderRadius: 32, borderWidth: 2, borderColor: p.border }}>
+            <DText size={22} weight={800} color={p.muted} style={{ letterSpacing: 2 }}>
+              PICKUP SUGGESTION
+            </DText>
+            <DText heading size={46} weight={800}>
+              {resolution === 'done'
+                ? 'Pickup updated'
+                : resolution === 'confirm'
+                  ? 'Confirm the pickup change'
+                  : 'Review the pickup conflict'}
+            </DText>
+            {resolution === 'done' ? (
+              <DText size={30} color={p.muted}>
+                {completedAction
+                  ? `${household.members.find((member) => member.id === completedAction.toMemberId)?.name} is now assigned to ${household.events.find((event) => event.id === completedAction.eventId)?.title}.`
+                  : 'The new pickup assignment is saved.'}
+              </DText>
+            ) : (
+              <>
+                <DText size={28} color={p.muted}>
+                  {conflict?.message} {suggested?.name} is available. The schedule will change only after you confirm.
+                </DText>
+                {resolution === 'confirm' ? (
+                  <DPanel style={{ padding: 24, borderRadius: 20, gap: 8 }}>
+                    <DText size={24} weight={700}>
+                      Suggested change
+                    </DText>
+                    <DText size={30}>
+                      {household.members.find((member) => member.id === pendingAction?.action.fromMemberId)?.name} →{' '}
+                      {household.members.find((member) => member.id === pendingAction?.action.toMemberId)?.name} for{' '}
+                      {conflictEvent?.title}
+                    </DText>
+                  </DPanel>
+                ) : null}
+              </>
+            )}
+            {actionMessage ? (
+              <DText size={24} color={p.warningInk}>
+                {actionMessage}
+              </DText>
+            ) : null}
+            <DRow style={{ gap: 18, marginTop: 4 }}>
+              {resolution === 'done' ? (
+                <DButton
+                  label="Close pickup update"
+                  onPress={closeResolution}
+                  active={focusActive}
+                  defaultFocus
+                  style={{ height: 70, paddingHorizontal: 28, justifyContent: 'center', backgroundColor: p.selected }}>
+                  <DText size={26} weight={800} color={p.onSelected}>
+                    Done
+                  </DText>
+                </DButton>
+              ) : resolution === 'confirm' ? (
+                <DButton
+                  label="Confirm pickup change"
+                  onPress={() => void confirm()}
+                  active={focusActive}
+                  defaultFocus={!working}
+                  style={{ height: 70, paddingHorizontal: 28, justifyContent: 'center', backgroundColor: p.selected }}>
+                  <DText size={26} weight={800} color={p.onSelected}>
+                    {working ? 'Saving…' : 'Confirm pickup change'}
+                  </DText>
+                </DButton>
+              ) : (
+                <DButton
+                  label="Propose pickup change"
+                  onPress={() => void propose()}
+                  active={focusActive}
+                  defaultFocus={!working}
+                  style={{ height: 70, paddingHorizontal: 28, justifyContent: 'center', backgroundColor: p.selected }}>
+                  <DText size={26} weight={800} color={p.onSelected}>
+                    {working ? 'Preparing…' : `Suggest ${suggested?.name}`}
+                  </DText>
+                </DButton>
+              )}
+              {resolution !== 'done' ? (
+                <DButton
+                  label="Cancel pickup suggestion"
+                  onPress={closeResolution}
+                  active={focusActive}
+                  style={{
+                    height: 70,
+                    paddingHorizontal: 28,
+                    justifyContent: 'center',
+                    backgroundColor: p.card,
+                    borderWidth: 2,
+                    borderColor: p.border,
+                  }}>
+                  <DText size={26} weight={700}>
+                    {resolution === 'confirm' ? 'Cancel suggestion' : 'Close'}
+                  </DText>
+                </DButton>
+              ) : null}
+            </DRow>
+          </DPanel>
+        </View>
+      ) : null}
+    </View>
+  );
+}

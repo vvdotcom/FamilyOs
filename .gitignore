@@ -1,0 +1,39 @@
+node_modules/
+.expo/
+logs/
+dist/
+build/
+ios/
+android/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Package managers
+package-lock.json
+yarn-error.log
+.yarn/cache
+.yarn/install-state.gz
+
+# FamilyOS local provisioning state and downloaded VM assets
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.familyos/
+**/.familyos/
+.familyos-starter/
+*.iso
+*.vdi
+*.vmdk
+*.vpkg
+
+# macOS
+.DS_Store
+
+

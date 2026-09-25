@@ -1,0 +1,47 @@
+{
+  "name": "familyos",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "yarn@4.5.0",
+  "resolutions": {
+    "js-yaml": "^3.14.2",
+    "min-document": "^2.19.1",
+    "logkitty": "^0.7.1",
+    "node-fetch": "^2.6.7",
+    "ws": "^8.17.1"
+  },
+  "scripts": {
+    "dev": "yarn workspace @familyos/expo-multi-tv start",
+    "dev:android": "yarn workspace @familyos/expo-multi-tv android",
+    "dev:ios": "yarn workspace @familyos/expo-multi-tv ios",
+    "dev:web": "yarn workspace @familyos/expo-multi-tv web",
+    "dev:vega": "yarn workspace @familyos/vega start",
+    "build:all": "yarn workspaces foreach -Apt run build",
+    "build:vega": "yarn workspace @familyos/vega run build",
+    "build:vega:debug": "yarn workspace @familyos/vega run build:debug",
+    "test": "yarn workspace @familyos/expo-multi-tv test --runInBand --watchAll=false --passWithNoTests && yarn workspace @familyos/vega test --runInBand",
+    "lint": "yarn eslint packages/shared-ui/src apps/expo-multi-tv --ext .ts,.tsx && yarn workspace @familyos/vega run lint",
+    "test:all": "yarn test",
+    "lint:all": "yarn lint",
+    "typecheck": "yarn workspace @familyos/shared-ui typecheck:phase2 && yarn workspace @familyos/expo-multi-tv typecheck && yarn workspace @familyos/vega typecheck",
+    "clean:all": "yarn workspaces foreach -A run clean && rm -rf node_modules",
+    "bootstrap": "yarn install && yarn build:all",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.12.2",
+    "@typescript-eslint/parser": "^8.12.2",
+    "eslint": "^9.13.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-react": "^7.37.1",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "husky": "^9.1.6",
+    "prettier": "^3.3.3",
+    "typescript": "~5.7.0"
+  }
+}

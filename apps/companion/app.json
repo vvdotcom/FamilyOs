@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "FamilyOS Companion",
+    "slug": "familyos-companion",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.familyos.companion",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "FamilyOS connects to your development computer on your home Wi-Fi when you choose a local test server.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.familyos.companion"
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}

@@ -1,0 +1,1679 @@
+{
+  "title": "Companion — TV remote",
+  "elements": [
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "width: 390px; height: 844px; position: relative; overflow: hidden; background: rgb(247, 245, 240); color: rgb(31, 27, 22); font-family: Figtree, \"Segoe UI\", system-ui, sans-serif;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(247, 245, 240)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; flex-direction: column; gap: 16px; padding: 60px 20px 0px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 607.796875
+      }
+    },
+    {
+      "tag": "HEADER",
+      "text": "",
+      "inline": "display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 60,
+        "width": 350,
+        "height": 54.796875
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; flex-direction: column; gap: 2px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 60,
+        "width": 157.796875,
+        "height": 54.796875
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "LIVING ROOM FIRE TV",
+      "inline": "font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: rgb(95, 87, 75);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "13px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "1.04px",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 60,
+        "width": 157.796875,
+        "height": 15
+      }
+    },
+    {
+      "tag": "H1",
+      "text": "Remote",
+      "inline": "margin: 0px; font-family: \"Bricolage Grotesque\", sans-serif; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05;",
+      "font": "\"Bricolage Grotesque\", sans-serif",
+      "fontSize": "36px",
+      "weight": "800",
+      "lineHeight": "37.8px",
+      "spacing": "-0.72px",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 77,
+        "width": 157.796875,
+        "height": 37.796875
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "",
+      "inline": "width: 48px; height: 48px; flex-shrink: 0; border-radius: 24px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; align-items: center; justify-content: center;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 322,
+        "y": 66.796875,
+        "width": 48,
+        "height": 48
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 335,
+        "y": 79.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 339.2565002441406,
+        "y": 83.46353912353516,
+        "width": 14.07684326171875,
+        "height": 14.076828002929688
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: rgb(221, 240, 223); color: rgb(46, 122, 58); font-size: 14px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "14px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(46, 122, 58)",
+      "background": "rgb(221, 240, 223)",
+      "rect": {
+        "x": 20,
+        "y": 130.796875,
+        "width": 350,
+        "height": 40
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "14px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(46, 122, 58)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 34,
+        "y": 140.796875,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "14px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(46, 122, 58)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 35.66666793823242,
+        "y": 145.11383056640625,
+        "width": 16.666667938232422,
+        "height": 9.016372680664062
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "14px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(46, 122, 58)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 43.16666793823242,
+        "y": 156.2135467529297,
+        "width": 1.6666641235351562,
+        "height": 1.666656494140625
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "Connected on home Wi-Fi",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "14px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(46, 122, 58)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 64,
+        "y": 142.296875,
+        "width": 167.9375,
+        "height": 17
+      }
+    },
+    {
+      "tag": "SECTION",
+      "text": "",
+      "inline": "display: flex; flex-direction: column; gap: 8px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 186.796875,
+        "width": 350,
+        "height": 91
+      }
+    },
+    {
+      "tag": "H2",
+      "text": "ON THE TV NOW:",
+      "inline": "margin: 0px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: rgb(95, 87, 75);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "13px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "1.04px",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 186.796875,
+        "width": 350,
+        "height": 15
+      }
+    },
+    {
+      "tag": "SPAN",
+      "text": "CALENDAR",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "13px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "1.04px",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 147.8125,
+        "y": 186.796875,
+        "width": 79.25,
+        "height": 15
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: grid; grid-template-columns: repeat(5, minmax(0px, 1fr)); gap: 6px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 209.796875,
+        "width": 350,
+        "height": 68
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Calendar",
+      "inline": "height: 68px; border-radius: 16px; border: 1px solid rgb(31, 27, 22); background: rgb(31, 27, 22); color: rgb(255, 255, 255); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(31, 27, 22)",
+      "rect": {
+        "x": 20,
+        "y": 209.796875,
+        "width": 65.1875,
+        "height": 68
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 41.59375,
+        "y": 223.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "rect",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 44.34375,
+        "y": 228.3802032470703,
+        "width": 16.5,
+        "height": 14.666671752929688
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 44.34375,
+        "y": 226.546875,
+        "width": 16.5,
+        "height": 6.4166717529296875
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Chores",
+      "inline": "height: 68px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 91.1875,
+        "y": 209.796875,
+        "width": 65.203125,
+        "height": 68
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 112.78125,
+        "y": 223.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "rect",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 115.53125,
+        "y": 226.546875,
+        "width": 16.5,
+        "height": 16.5
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 120.11458587646484,
+        "y": 232.046875,
+        "width": 7.3333282470703125,
+        "height": 5.5
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Meals",
+      "inline": "height: 68px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 162.390625,
+        "y": 209.796875,
+        "width": 65.203125,
+        "height": 68
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 183.984375,
+        "y": 223.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 189.484375,
+        "y": 226.546875,
+        "width": 10.083328247070312,
+        "height": 16.5
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Lists",
+      "inline": "height: 68px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 233.59375,
+        "y": 209.796875,
+        "width": 65.203125,
+        "height": 68
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 255.1875,
+        "y": 223.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 263.4375,
+        "y": 229.296875,
+        "width": 10.083343505859375,
+        "height": 11
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 258.3958435058594,
+        "y": 228.3802032470703,
+        "width": 1.83331298828125,
+        "height": 1.833343505859375
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 258.3958435058594,
+        "y": 233.8802032470703,
+        "width": 1.83331298828125,
+        "height": 1.833343505859375
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 258.3958435058594,
+        "y": 239.3802032470703,
+        "width": 1.83331298828125,
+        "height": 1.833343505859375
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Photos",
+      "inline": "height: 68px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 304.796875,
+        "y": 209.796875,
+        "width": 65.1875,
+        "height": 68
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 326.390625,
+        "y": 223.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "rect",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 329.140625,
+        "y": 227.4635467529297,
+        "width": 16.5,
+        "height": 14.666656494140625
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 332.8072814941406,
+        "y": 231.1302032470703,
+        "width": 3.66668701171875,
+        "height": 3.6666717529296875
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 332.8072814941406,
+        "y": 233.8802032470703,
+        "width": 12.833343505859375,
+        "height": 8.25
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "position: relative; width: 232px; height: 232px; align-self: center; border-radius: 116px; background: rgb(255, 255, 255); border: 1px solid rgb(236, 230, 219); box-shadow: rgba(31, 27, 22, 0.08) 0px 2px 12px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 78,
+        "y": 293.796875,
+        "width": 234,
+        "height": 234
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "",
+      "inline": "position: absolute; top: 10px; left: 88px; width: 56px; height: 56px; border-radius: 28px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: transparent; color: rgb(31, 27, 22); display: flex; align-items: center; justify-content: center;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 167,
+        "y": 304.796875,
+        "width": 56,
+        "height": 56
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 180,
+        "y": 317.796875,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 187.5,
+        "y": 329.046875,
+        "width": 15,
+        "height": 7.5
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "",
+      "inline": "position: absolute; bottom: 10px; left: 88px; width: 56px; height: 56px; border-radius: 28px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: transparent; color: rgb(31, 27, 22); display: flex; align-items: center; justify-content: center;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 167,
+        "y": 460.796875,
+        "width": 56,
+        "height": 56
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 180,
+        "y": 473.796875,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 187.5,
+        "y": 485.046875,
+        "width": 15,
+        "height": 7.5
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "",
+      "inline": "position: absolute; top: 88px; left: 10px; width: 56px; height: 56px; border-radius: 28px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: transparent; color: rgb(31, 27, 22); display: flex; align-items: center; justify-content: center;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 89,
+        "y": 382.796875,
+        "width": 56,
+        "height": 56
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 102,
+        "y": 395.796875,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 113.25,
+        "y": 403.296875,
+        "width": 7.5,
+        "height": 15
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "",
+      "inline": "position: absolute; top: 88px; right: 10px; width: 56px; height: 56px; border-radius: 28px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: transparent; color: rgb(31, 27, 22); display: flex; align-items: center; justify-content: center;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 245,
+        "y": 382.796875,
+        "width": 56,
+        "height": 56
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 258,
+        "y": 395.796875,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 269.25,
+        "y": 403.296875,
+        "width": 7.5,
+        "height": 15
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "OK",
+      "inline": "position: absolute; top: 70px; left: 70px; width: 92px; height: 92px; border-radius: 46px; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; background: rgb(31, 27, 22); color: rgb(255, 255, 255); font-size: 22px; font-weight: 800;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "22px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(31, 27, 22)",
+      "rect": {
+        "x": 149,
+        "y": 364.796875,
+        "width": 92,
+        "height": 92
+      }
+    },
+    {
+      "tag": "DIV",
+      "text": "",
+      "inline": "display: grid; grid-template-columns: repeat(4, minmax(0px, 1fr)); gap: 8px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 20,
+        "y": 543.796875,
+        "width": 350,
+        "height": 64
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Back",
+      "inline": "height: 64px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 20,
+        "y": 543.796875,
+        "width": 81.5,
+        "height": 64
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 49.75,
+        "y": 555.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 53.41666793823242,
+        "y": 559.4635620117188,
+        "width": 4.583332061767578,
+        "height": 9.1666259765625
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 53.41666793823242,
+        "y": 564.046875,
+        "width": 14.665081024169922,
+        "height": 9.16668701171875
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Home",
+      "inline": "height: 64px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 109.5,
+        "y": 543.796875,
+        "width": 81.5,
+        "height": 64
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 139.25,
+        "y": 555.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 142,
+        "y": 558.546875,
+        "width": 16.5,
+        "height": 7.33331298828125
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 143.8333282470703,
+        "y": 564.9635620117188,
+        "width": 12.833343505859375,
+        "height": 9.1666259765625
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Hold to talk",
+      "inline": "height: 64px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 199,
+        "y": 543.796875,
+        "width": 81.5,
+        "height": 64
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 228.75,
+        "y": 555.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "rect",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 237,
+        "y": 558.546875,
+        "width": 5.5,
+        "height": 10.08331298828125
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 233.3333282470703,
+        "y": 565.8801879882812,
+        "width": 12.833343505859375,
+        "height": 9.16668701171875
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Options",
+      "inline": "height: 64px; border-radius: 16px; border: 1px solid rgb(236, 230, 219); background: rgb(255, 255, 255); color: rgb(31, 27, 22); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 700;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 288.5,
+        "y": 543.796875,
+        "width": 81.5,
+        "height": 64
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 318.25,
+        "y": 555.796875,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "700",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 322.8333435058594,
+        "y": 562.2135620117188,
+        "width": 12.83331298828125,
+        "height": 9.1666259765625
+      }
+    },
+    {
+      "tag": "NAV",
+      "text": "",
+      "inline": "position: absolute; left: 0px; bottom: 0px; width: 390px; height: 88px; box-sizing: border-box; padding: 8px 12px 24px; background: rgb(255, 255, 255); border-top: 1px solid rgb(236, 230, 219); display: grid; grid-template-columns: repeat(4, minmax(0px, 1fr)); gap: 4px;",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgb(255, 255, 255)",
+      "rect": {
+        "x": 0,
+        "y": 756,
+        "width": 390,
+        "height": 88
+      }
+    },
+    {
+      "tag": "A",
+      "text": "Today",
+      "inline": "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; color: rgb(95, 87, 75);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 12,
+        "y": 765,
+        "width": 88.5,
+        "height": 55
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 44.25,
+        "y": 771.5,
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "tag": "rect",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 47.25,
+        "y": 776.5,
+        "width": 18,
+        "height": 16
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 47.25,
+        "y": 774.5,
+        "width": 18,
+        "height": 7
+      }
+    },
+    {
+      "tag": "A",
+      "text": "Lists",
+      "inline": "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; color: rgb(95, 87, 75);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 104.5,
+        "y": 765,
+        "width": 88.5,
+        "height": 55
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 136.75,
+        "y": 771.5,
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 145.75,
+        "y": 777.5,
+        "width": 11,
+        "height": 12
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 140.25,
+        "y": 776.5,
+        "width": 2,
+        "height": 2
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 140.25,
+        "y": 782.5,
+        "width": 2,
+        "height": 2
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 140.25,
+        "y": 788.5,
+        "width": 2,
+        "height": 2
+      }
+    },
+    {
+      "tag": "A",
+      "text": "Remote",
+      "inline": "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; color: rgb(31, 27, 22);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 197,
+        "y": 765,
+        "width": 88.5,
+        "height": 55
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 229.25,
+        "y": 771.5,
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "tag": "rect",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 236.25,
+        "y": 773.5,
+        "width": 10,
+        "height": 20
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 239.25,
+        "y": 777.5,
+        "width": 4,
+        "height": 4
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "800",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(31, 27, 22)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 241.25,
+        "y": 785.5,
+        "width": 0,
+        "height": 3.010009765625
+      }
+    },
+    {
+      "tag": "A",
+      "text": "Settings",
+      "inline": "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; color: rgb(95, 87, 75);",
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 289.5,
+        "y": 765,
+        "width": 88.5,
+        "height": 55
+      }
+    },
+    {
+      "tag": "svg",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 321.75,
+        "y": 771.5,
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "tag": "path",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 325.75,
+        "y": 778.5,
+        "width": 16,
+        "height": 10
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 335.75,
+        "y": 776.5,
+        "width": 4,
+        "height": 4
+      }
+    },
+    {
+      "tag": "circle",
+      "text": "",
+      "inline": null,
+      "font": "Figtree, \"Segoe UI\", system-ui, sans-serif",
+      "fontSize": "12px",
+      "weight": "600",
+      "lineHeight": "normal",
+      "spacing": "normal",
+      "color": "rgb(95, 87, 75)",
+      "background": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 329.75,
+        "y": 786.5,
+        "width": 4,
+        "height": 4
+      }
+    }
+  ]
+}

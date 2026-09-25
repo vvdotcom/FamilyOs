@@ -1,0 +1,57 @@
+import mitt from 'mitt';
+type TVHardwareEvent = { eventType: string };
+type TVEventSubscription = { remove(): void };
+import { SupportedKeys } from './SupportedKeys';
+import { RemoteControlManagerInterface } from './RemoteControlManager.interface';
+
+const KEY_MAPPING: Record<string, SupportedKeys> = {
+  right: SupportedKeys.Right,
+  left: SupportedKeys.Left,
+  up: SupportedKeys.Up,
+  down: SupportedKeys.Down,
+  select: SupportedKeys.Enter,
+  swipeLeft: SupportedKeys.Left,
+  swipeRight: SupportedKeys.Right,
+  swipeUp: SupportedKeys.Up,
+  swipeDown: SupportedKeys.Down
+};
+
+class RemoteControlManager implements RemoteControlManagerInterface {
+  private eventEmitter = mitt<{ keyDown: SupportedKeys }>();
+  private tvEventSubscription?: TVEventSubscription;
+
+  constructor() {
+    const { TVEventHandler } = require('react-native') as {
+      TVEventHandler: { addListener(listener: (event: TVHardwareEvent) => void): TVEventSubscription | undefined };
+    };
+    this.tvEventSubscription = TVEventHandler.addListener(this.handleKeyDown);
+  }
+
+  private handleKeyDown = (evt: TVHardwareEvent): void => {
+    if (!evt) return;
+
+    const mappedKey = KEY_MAPPING[evt.eventType];
+    if (mappedKey) {
+      this.eventEmitter.emit('keyDown', mappedKey);
+    }
+  };
+
+  addKeydownListener = (listener: (event: SupportedKeys) => void): (() => void) => {
+    this.eventEmitter.on('keyDown', listener);
+    return () => this.removeKeydownListener(listener);
+  };
+
+  removeKeydownListener = (listener: (event: SupportedKeys) => void): void => {
+    this.eventEmitter.off('keyDown', listener);
+  };
+
+  emitKeyDown = (key: SupportedKeys): void => {
+    this.eventEmitter.emit('keyDown', key);
+  };
+
+  cleanup = (): void => {
+    this.tvEventSubscription?.remove();
+  };
+}
+
+export default new RemoteControlManager();

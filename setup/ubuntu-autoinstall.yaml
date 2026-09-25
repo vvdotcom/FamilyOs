@@ -1,0 +1,35 @@
+#cloud-config
+# VirtualBox expands VBOX tokens; bootstrap inserts the SSH public key.
+autoinstall:
+  version: 1
+  refresh-installer:
+    update: false
+  apt:
+    fallback: offline-install
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  identity:
+    hostname: '@@VBOX_INSERT_HOSTNAME_WITHOUT_DOMAIN@@'
+    username: '@@VBOX_INSERT_USER_LOGIN@@'
+    realname: '@@VBOX_INSERT_USER_FULL_NAME@@'
+    password: '@@VBOX_INSERT_USER_PASSWORD_SHACRYPT512@@'
+  storage:
+    layout:
+      name: direct
+    swap:
+      size: 0
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys:
+      - '__FAMILYOS_SSH_PUBLIC_KEY__'
+  user-data:
+    timezone: Etc/UTC
+  late-commands:
+    # Passwordless sudo is confined to this dedicated development guest.
+    - "printf 'familyos ALL=(ALL) NOPASSWD: ALL\\n' > /target/etc/sudoers.d/familyos"
+    - chmod 0440 /target/etc/sudoers.d/familyos
+    - curtin in-target --target=/target -- visudo -cf /etc/sudoers.d/familyos
+    - curtin in-target --target=/target -- systemctl enable ssh
+  shutdown: poweroff
