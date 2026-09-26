@@ -23,7 +23,7 @@ import {
 import { FamilyThemeProvider } from '../theme';
 import { DButton, DIcon, DRow, DText, IconName, formatTime, useDesignPalette } from '../design/DesignSystem';
 import { WeatherIcon } from '../design/WeatherIcon';
-import { createFamilyAgentContext, familyAgentClient } from '../api/familyAgentClient';
+import { createFamilyAgentContext, familyAgentClient, FamilyAgentError } from '../api/familyAgentClient';
 import { useBackToHome } from '../hooks/useBackToHome';
 import { PageBackContext } from '../hooks/usePageBack';
 import FamilyHomeScreen from './FamilyHomeScreen';
@@ -33,6 +33,7 @@ import FamilyMembersScreen from './FamilyMembersScreen';
 import FamilySettingsScreen from './FamilySettingsScreen';
 import { FamilyMealsScreen, FamilyListsScreen, FamilyPhotosScreen } from './FamilyPlannerScreens';
 import { FamilyRoute, focusRegionAfterDirection } from '../navigation/familyNavigation';
+import type { TVPairingView } from './familyTypes';
 import { loadHouseholdSnapshot, resetHouseholdSnapshot, saveHouseholdSnapshot } from './householdStorage';
 import { usePlannerData } from './plannerData';
 
@@ -64,6 +65,8 @@ function FamilyOsShellContent() {
   const [demoVersion, setDemoVersion] = useState(0);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [household, setHousehold] = useState<HouseholdSnapshot>(loadHouseholdSnapshot);
+  const householdRef = useRef(household);
+  householdRef.current = household;
   const [calendarState, setCalendarState] = useState<ProviderState<HouseholdSnapshot['events']>>({ status: 'loading' });
   const [weatherState, setWeatherState] = useState<ProviderState<WeatherForecast>>({ status: 'loading' });
   const clock = useMemo(() => createDemoClock(), [demoVersion]);
@@ -81,13 +84,93 @@ function FamilyOsShellContent() {
   );
   const [agentStatus, setAgentStatus] = useState<'checking' | 'available' | 'offline'>('checking');
   const [actionHistory, setActionHistory] = useState<ProposedAction[]>([]);
-  const planner = usePlannerData();
+  const [tvPairing, setTVPairing] = useState<TVPairingView & { challengeId?: string; pollingToken?: string }>({ status: 'checking' });
+  const planner = usePlannerData(false);
   const briefingInputRef = useRef({ household, conflicts, now });
   briefingInputRef.current = { household, conflicts, now };
   const briefingRequestId = useRef(0);
   const p = useDesignPalette();
 
-  useEffect(() => saveHouseholdSnapshot(household), [household]);
+  useEffect(() => {
+    let active = true;
+    void familyAgentClient.tvDeviceToken().then((token) => {
+      if (!active) return;
+      setTVPairing({ status: token ? 'paired' : 'unpaired' });
+      if (token) setRefreshVersion((value) => value + 1);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (tvPairing.status !== 'paired') return;
+    let active = true;
+    const syncHousehold = async () => {
+      try {
+        const token = await familyAgentClient.tvDeviceToken();
+        if (!token) return;
+        const response = await familyAgentClient.getHousehold();
+        if (!active) return;
+        const next = response.data;
+        const changed = JSON.stringify(next) !== JSON.stringify(householdRef.current);
+        planner.syncHousehold(next);
+        if (!changed) return;
+        householdRef.current = next;
+        setHousehold(next);
+        setCalendarState({
+          status: next.events.length ? 'available' : 'empty',
+          data: next.events,
+          source: 'FamilyOS household service',
+        });
+        setRefreshVersion((value) => value + 1);
+      } catch (error) {
+        if (active && error instanceof FamilyAgentError && error.status === 401) {
+          await familyAgentClient.clearTVDeviceToken();
+          const demo = resetHouseholdSnapshot();
+          householdRef.current = demo;
+          setHousehold(demo);
+          planner.reset();
+          setTVPairing({ status: 'unpaired', error: 'This TV session was revoked. Pair again to reconnect.' });
+        }
+        // Keep the last paired snapshot visible during a temporary connection failure.
+      }
+    };
+    void syncHousehold();
+    const interval = setInterval(() => void syncHousehold(), 5_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [tvPairing.status, refreshVersion]);
+
+  useEffect(() => {
+    if (tvPairing.status === 'unpaired') saveHouseholdSnapshot(household);
+  }, [household, tvPairing.status]);
+
+  useEffect(() => {
+    if (tvPairing.status !== 'waiting' || !tvPairing.challengeId || !tvPairing.pollingToken) return;
+    let active = true;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const response = await familyAgentClient.claimPairing(tvPairing.challengeId!, tvPairing.pollingToken!);
+        if (active && response.data.status === 'approved' && response.data.deviceToken) {
+          setTVPairing({ status: 'paired' });
+          setRefreshVersion((value) => value + 1);
+        }
+      } catch (error) {
+        if (active && error instanceof FamilyAgentError && [404, 410].includes(error.status || 0)) {
+          setTVPairing({ status: 'unpaired', error: error.message });
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+    void poll();
+    const interval = setInterval(() => void poll(), 2500);
+    return () => { active = false; clearInterval(interval); };
+  }, [tvPairing.status, tvPairing.challengeId, tvPairing.pollingToken]);
   useEffect(() => {
     let active = true;
     const requestId = ++briefingRequestId.current;
@@ -163,6 +246,34 @@ function FamilyOsShellContent() {
     setFocusRegion(next === 'Photos' ? 'navigation' : 'content');
     setMenuOpen(false);
   };
+  const startTVPairing = async () => {
+    setTVPairing({ status: 'creating' });
+    try {
+      const response = await familyAgentClient.createPairingChallenge('FamilyOS TV');
+      setTVPairing({
+        status: 'waiting',
+        code: response.data.code,
+        expiresAt: response.data.expiresAt,
+        challengeId: response.data.challengeId,
+        pollingToken: response.data.pollingToken,
+      });
+    } catch (error) {
+      setTVPairing({ status: 'unpaired', error: error instanceof Error ? error.message : 'Could not create a pairing code.' });
+    }
+  };
+  const unpairTV = async () => {
+    try {
+      await familyAgentClient.unpairTV();
+      const demo = resetHouseholdSnapshot();
+      householdRef.current = demo;
+      setHousehold(demo);
+      planner.reset();
+      setTVPairing({ status: 'unpaired' });
+      setRefreshVersion((value) => value + 1);
+    } catch (error) {
+      setTVPairing((current) => ({ ...current, error: error instanceof Error ? error.message : 'Could not unpair this TV.' }));
+    }
+  };
   const resetDemo = () => {
     void familyAgentClient.resetDemo().catch(() => undefined);
     setHousehold(resetHouseholdSnapshot());
@@ -179,6 +290,9 @@ function FamilyOsShellContent() {
     briefing,
     agentStatus,
     actionHistory,
+    tvPairing,
+    onStartPairing: startTVPairing,
+    onUnpairTV: () => { void unpairTV(); },
     focusActive: focusRegion === 'content' && !menuOpen,
     onNavigate: visit,
     onFocusNavigation: () => setFocusRegion('navigation'),

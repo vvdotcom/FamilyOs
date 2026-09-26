@@ -53,12 +53,17 @@ the deterministic briefing, and pickup changes still require an explicit confirm
 
 The Phase 5 account companion preview is served by that same local API at
 `http://127.0.0.1:8787/companion/`. Its local email outbox displays verification/reset codes
-for testing. It is not AWS Cognito, does not sync authenticated accounts to the TV, and must
-not be exposed publicly. Railway deployment preparation and the remaining completion gate
+for testing. The Expo phone app can connect over your private Wi-Fi for local pairing and
+sync checks; that separate device test needs a LAN-reachable development service. The browser
+preview runs against loopback and keeps its test session only in the current tab. This is a
+local simulator, not AWS Cognito, and must not be exposed publicly. Railway deployment preparation and the remaining completion gate
 are tracked in [the Phase 5 runbook](./docs/RAILWAY_DEPLOYMENT.md) and
 [Phase 5](./docs/phases/phase-5-integrations.md).
 An initial native SwiftUI account companion is in [apps/ios-companion](./apps/ios-companion/README.md);
 it also uses this local API and still needs to be built and exercised on a Mac with Xcode.
+For Expo Go testing on an iPhone or Android phone, use the cross-platform companion in
+[apps/companion](./apps/companion/README.md). It is separate from the Fire TV Expo app and
+does not require a custom native build for its current screens.
 
 On Windows, Vega runs inside the managed Ubuntu guest because Windows is not a native Vega
 SDK host:

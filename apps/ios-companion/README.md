@@ -1,14 +1,16 @@
-# FamilyOS iPhone companion (initial native slice)
+# FamilyOS iPhone companion
 
 This is a native SwiftUI iPhone app for the Phase 5 parent-account flows: create an
 account, verify the email code, sign in, recover a password, and sign out. It uses the
 FamilyOS warm cream/navy/amber palette and the same Figtree and Bricolage fonts as the
 phone-sized web companion. Light, dark, and system appearance are available in Settings.
 
-The initial version talks to the existing **local development API only**. It is not
-connected to AWS Cognito, production email delivery, cloud household storage, or Railway.
-The repository deliberately blocks public Railway startup until those production pieces
-are implemented and secured.
+For local development, the app talks to the local preview API. When its server address is
+an HTTPS FamilyOS deployment, account creation/sign-in opens Amazon Cognito in
+`ASWebAuthenticationSession`, uses OAuth authorization-code + PKCE, and sends the verified
+ID token to the FamilyOS API for a tenant-scoped cloud session. FamilyOS does not receive
+or store the account password. Cognito handles email verification and password recovery;
+the API stores household data in PostgreSQL and keeps only a hash of its opaque session token.
 
 ## Open and run
 
@@ -29,6 +31,13 @@ Xcode, the iOS simulator, signing, and a Mac are required to compile/install thi
 They are not available in the current Windows workspace, so the project must still be
 built and visually checked on a Mac before calling the iOS slice verified.
 
-The app stores its opaque session cookie in iOS Keychain, restricts cleartext HTTP to
+The app stores its opaque session token in iOS Keychain, restricts cleartext HTTP to
 private/local development hosts, and uses HTTPS for other server addresses. It does not
-store passwords.
+store passwords. Cognito's allowed callback and sign-out URLs must include
+`com.familyos.companion:/oauth2redirect`; the app client must permit OAuth authorization
+code grants and the `openid`, `email`, and `profile` scopes. Enable public self-registration
+only when the deployed service and account creation flow are ready.
+
+The Cognito public client ID and hosted domain are intentionally included in the app's
+`Info.plist`; neither is a secret. Never embed a Cognito client secret, AWS credential,
+Bedrock key, or database URL in the iOS bundle.

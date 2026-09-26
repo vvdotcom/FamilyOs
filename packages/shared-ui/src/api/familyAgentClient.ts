@@ -8,6 +8,7 @@ import {
   ProposedAction,
   Routine,
 } from '@familyos/domain';
+import { clearTVDeviceToken, getTVDeviceToken, setTVDeviceToken } from './tvDeviceSession';
 
 export interface FamilyAgentContext {
   date: string;
@@ -53,12 +54,14 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 8000
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const tvToken = await getTVDeviceToken();
     const response = await fetch(`${apiBase}${path}`, {
       ...init,
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(tvToken ? { Authorization: `Bearer ${tvToken}` } : {}),
         ...init.headers,
       },
     });
@@ -89,6 +92,25 @@ export const familyAgentClient = {
   getHealth: () =>
     request<{ status: string; ai_provider: string; bedrock_configured: boolean; model_configured: boolean }>('/health'),
   getHousehold: () => request<HouseholdSnapshot>('/v1/household'),
+  createPairingChallenge: (deviceName = 'FamilyOS TV') =>
+    request<{ challengeId: string; code: string; pollingToken: string; expiresAt: string }>(
+      '/v1/pairing/challenges',
+      { method: 'POST', body: JSON.stringify({ deviceName }) },
+    ),
+  claimPairing: async (challengeId: string, pollingToken: string) => {
+    const response = await request<{ status: 'pending' | 'approved'; expiresAt?: string; deviceId?: string; deviceToken?: string }>(
+      `/v1/pairing/challenges/${encodeURIComponent(challengeId)}/claim`,
+      { method: 'POST', body: JSON.stringify({ pollingToken }) },
+    );
+    if (response.data.deviceToken) await setTVDeviceToken(response.data.deviceToken);
+    return response;
+  },
+  tvDeviceToken: getTVDeviceToken,
+  unpairTV: async () => {
+    await request<{ unpaired: boolean }>('/v1/device/unpair', { method: 'POST', body: '{}' });
+    await clearTVDeviceToken();
+  },
+  clearTVDeviceToken,
   getEvents: (from?: string, to?: string) => {
     const query = new URLSearchParams();
     if (from) query.set('from', from);

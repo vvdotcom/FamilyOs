@@ -26,14 +26,15 @@ voice, and AWS adapters. Keep an isolated, deterministic offline demo available.
 - Fire TV and phone/browser clients cache permitted data for fast loading and offline
   viewing. Neither device is the sole source of truth. Store device sessions securely,
   separately from ordinary caches; never embed backend or cloud-service credentials.
-- A parent signs in through a phone/computer browser, creates the household, and explicitly
+- A parent signs in through the Expo phone app (or a future browser client), creates the household, and explicitly
   approves TV pairing. No account password entry is required on the TV remote.
 - A paired TV normally exposes a restricted shared-household view. Profile selection is
   not authentication and does not grant administrative access. Parent-only operations
   require server-verified authorization from this phase onward.
 - Phase 8 introduces the four-digit parent approval PIN. It must not serve as an internet
   login password or TV pairing secret. Phase 9 expands role permissions and temporary
-  parent mode; Phase 10 expands the minimal pairing page into the full phone companion.
+  parent mode; core companion screens now ship in Phase 5, while Phase 10 expands photo
+  management, imports, and advanced mobile controls.
 
 ## Dependencies and boundaries
 
@@ -48,6 +49,39 @@ voice, and AWS adapters. Keep an isolated, deterministic offline demo available.
   features into Phase 5.
 
 ## Work packages
+
+### Core phone companion moved forward from Phase 10 (2026-09-25)
+
+The user approved building a useful Expo Go companion in this phase rather than waiting
+for Phase 10. The Claude phone artboards are the visual reference:
+`https://claude.ai/artifact/Cr9rUV1PnWRjeGd7a6B9NR`.
+
+- [x] Implement Today, event creation/editing/deletion, household profiles, chores,
+  shared lists, grocery details, meal details/editing, Remote layout, and Settings.
+- [x] Match the reference's Bricolage/Figtree font families and weights, 36px page
+  titles, warm light/dark palettes, 20px gutters, and Today/Lists/Remote/Settings tabs.
+- [x] Use authenticated household reads and explicit cloud edits with revision checks.
+  Persist new members, events, chores, list items, and meals in the existing Postgres
+  household snapshot. Reject foreign member/household references and stale edits.
+- [x] Separate the development-only web design fixture from signed-in household data.
+- [ ] Verify these new screens on the actual iPhone against the deployed service,
+  including persistence after sign-out/restart and edits from another phone.
+- [x] Implement expiring six-digit TV pairing: TV challenge display, signed-in parent
+  approval in the phone companion, a read-only household-scoped device session, and
+  parent-managed device revocation or TV self-unpair.
+- [x] Sync calendar events, chores, shared-list items, and meals to the paired local TV
+  preview from the household API. The TV polls for updates while active; this local path
+  is for integration testing, not production deployment evidence.
+
+The first list/meal editing slice has also been pulled forward to make the reference
+screens useful. This does not complete Phase 7's imports, recurring meal scheduling,
+recipe library, calendar provider filters, or monthly overview. Phone updates currently
+appear on the TV within the TV's active refresh interval (5 seconds), not as realtime push.
+No persistent offline household cache or offline write queue is implemented here.
+
+Verification: 25 backend and 17 companion tests pass; TypeScript and iOS bundle export
+pass. Browser checks use the actual React Native Web screens with labeled in-memory
+sample data; they are not evidence of native phone/TV end-to-end synchronization.
 
 ### Local checkpoint (verified separately; not production completion)
 
@@ -65,8 +99,9 @@ local API/auth simulator only. The new SwiftUI client still needs an Xcode build
 iPhone/simulator walkthrough on a Mac; neither result counts toward the Phase 5 production
 completion gate.
 
-- [ ] Add parent account creation, sign-in, sign-out, and account recovery through a
-  browser-based identity flow; establish authenticated household ownership.
+- [ ] Finish device verification of parent account creation, sign-in, sign-out, and recovery
+  through Cognito; establish authenticated household ownership. Expo Go uses direct
+  email/password APIs, not a hosted-browser callback.
 - [ ] Configure and verify the real AWS Cognito user pool, email delivery/verification,
   password reset, OIDC token checks, session revocation, and the production companion flow.
 - [ ] Connect the GitHub repository/branch to Railway with auto-deploy on push, configure
@@ -74,10 +109,10 @@ completion gate.
   does not connect Railway to a GitHub repository.
 - [ ] Enforce household isolation, basic owner permissions, session expiry, token
   refresh/revocation, and protected API access on the backend—not only in the UI.
-- [ ] Build a minimal phone-friendly sign-in/pairing page. Show a QR code or short code
+- [x] Build the signed-in phone pairing experience. The TV shows a short code
   on TV backed by an expiring, single-use, rate-limited challenge. Require an authenticated
   owner to explicitly approve the named TV before issuing a scoped device session.
-- [ ] Add TV sign-out/unpair and parent-managed device revocation. Remove device sessions
+- [x] Add TV sign-out/unpair and parent-managed device revocation. Remove device sessions
   and private cached household data/photos on local unpair. Remote revocation must reject
   subsequent server requests and clear the device cache on reconnect; document that a
   disconnected device cannot be remotely wiped immediately.
@@ -86,7 +121,9 @@ completion gate.
 - [ ] Add versioned local TV/browser caches, last-sync indicators, offline/error states,
   and secure device-session storage. Signing out on a phone ends that phone session;
   revoking a paired TV is a separate, explicit action.
-- [ ] Synchronize household changes between TV, the minimal browser client, and backend.
+- [x] Synchronize household changes between local TV, the phone companion, and local API.
+  Production synchronization remains dependent on the cloud completion gate above.
+- [ ] Synchronize household changes between TV, the phone companion, and production backend.
   Queue only explicitly permitted offline edits, with idempotent retries, version checks,
   and visible conflict resolution; never silently overwrite a newer household change.
 - [ ] Require online server verification for protected account/permission operations.
@@ -116,7 +153,8 @@ completion gate.
 - Local unpair clears private caches and credentials without deleting the cloud household.
   Revoked devices cannot synchronize; disconnected-device limitations are documented.
 - Complete a local end-to-end account/pairing/sync walkthrough before the end-of-phase
-  Vega integration pass. Phase 6 repeats these flows on physical Fire TV hardware.
+  local integration pass. Physical Vega pairing, device-session checks, and hardware
+  verification are deferred to Phase 10 per the current project plan.
 - Ambient mode never traps focus and always wakes from remote input.
 - Provider failures fall back without exposing secrets or raw exceptions.
 - VVD package/install/launch and remote checklist pass on the actual simulator.
@@ -131,6 +169,6 @@ A parent can sign in, create a household, securely pair/unpair a TV, and see aut
 household changes persist in the cloud and synchronize across clients. Local caches keep
 ordinary viewing usable offline without bypassing protected actions. The app runs reliably
 in VVD, retains deterministic offline judging, and enables real providers without rewriting
-UI or domain logic. Full role management, PIN approvals, and the full companion remain in
-Phases 8–10.
+UI or domain logic. Full role management, PIN approvals, and expanded photo/import/mobile
+features remain in Phases 8–10; core companion screens are now part of Phase 5.
 

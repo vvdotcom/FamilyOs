@@ -29,6 +29,8 @@ final class AuthViewModel: ObservableObject {
     private var client: FamilyOSAPIClient?
     private var didRestoreSession = false
 
+    var usesCognito: Bool { (try? requireClient().usesCognito) ?? false }
+
     init() {
         let configured = UserDefaults.standard.string(forKey: Self.serverAddressKey)
             ?? Bundle.main.object(forInfoDictionaryKey: "FAMILYOS_API_BASE_URL") as? String
@@ -73,6 +75,21 @@ final class AuthViewModel: ObservableObject {
     }
 
     func createAccount() async {
+        if usesCognito {
+            await run {
+                let account = try await self.requireClient().signInWithCognito(
+                    emailHint: self.email.trimmingCharacters(in: .whitespacesAndNewlines),
+                    parentName: self.parentName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    householdName: self.householdName.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                self.account = account
+                self.password = ""
+                self.screen = .account
+                self.message = "Your parent account is ready. Email verification was handled securely by Cognito."
+                self.messageIsError = false
+            }
+            return
+        }
         await run {
             let result = try await self.requireClient().signUp(
                 email: self.email.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -91,6 +108,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func verifyEmail() async {
+        guard !usesCognito else { return }
         await run {
             let account = try await self.requireClient().verifyEmail(email: self.email, code: self.code)
             self.account = account
@@ -102,6 +120,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func resendVerification() async {
+        guard !usesCognito else { return }
         await run {
             try await self.requireClient().resendVerification(email: self.email)
             self.message = "If that account needs verification, a new code has been issued."
@@ -112,9 +131,19 @@ final class AuthViewModel: ObservableObject {
 
     func signIn() async {
         await run {
-            let account = try await self.requireClient().signIn(
-                email: self.email.trimmingCharacters(in: .whitespacesAndNewlines), password: self.password
-            )
+            let api = try self.requireClient()
+            let account: FamilyAccount
+            if api.usesCognito {
+                account = try await api.signInWithCognito(
+                    emailHint: self.email.trimmingCharacters(in: .whitespacesAndNewlines),
+                    parentName: self.parentName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    householdName: self.householdName.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+            } else {
+                account = try await api.signIn(
+                    email: self.email.trimmingCharacters(in: .whitespacesAndNewlines), password: self.password
+                )
+            }
             self.account = account
             self.password = ""
             self.screen = .account
@@ -124,6 +153,14 @@ final class AuthViewModel: ObservableObject {
     }
 
     func requestPasswordReset() async {
+        if usesCognito {
+            await signIn()
+            if account == nil {
+                message = "Use “Forgot your password?” on the secure Cognito sign-in page. After resetting it, sign in there to return to FamilyOS."
+                messageIsError = false
+            }
+            return
+        }
         await run {
             try await self.requireClient().requestPasswordReset(email: self.email.trimmingCharacters(in: .whitespacesAndNewlines))
             self.code = ""
@@ -136,6 +173,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func resetPassword() async {
+        guard !usesCognito else { return }
         await run {
             try await self.requireClient().resetPassword(email: self.email, code: self.code, newPassword: self.newPassword)
             self.password = ""
@@ -151,7 +189,7 @@ final class AuthViewModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
-            try await requireClient().signOut()
+            try await requireClient().signOut(alsoCognito: usesCognito)
             finishSignOut(message: "You’ve been signed out.", isError: false)
         } catch {
             // Forget this device's credential even when offline. The server will expire

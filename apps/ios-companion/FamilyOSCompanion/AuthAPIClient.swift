@@ -1,5 +1,8 @@
 import Foundation
 import Security
+import AuthenticationServices
+import CryptoKit
+import UIKit
 
 struct FamilyAccount: Decodable, Sendable {
     let accountId: String
@@ -58,6 +61,7 @@ private struct EmptyBody: Encodable {}
 enum FamilyOSAPIError: LocalizedError {
     case invalidServerAddress
     case missingSessionCookie
+    case cognitoNotConfigured
     case server(String)
     case unexpectedResponse
 
@@ -67,9 +71,201 @@ enum FamilyOSAPIError: LocalizedError {
             "Enter a valid HTTPS address, or a local development address such as http://127.0.0.1:8787."
         case .missingSessionCookie:
             "The server signed you in but did not return a session. Please try again."
+        case .cognitoNotConfigured:
+            "Secure sign-in is not configured in this iOS build yet."
         case .server(let message): message
         case .unexpectedResponse: "FamilyOS could not read the server response. Please try again."
         }
+    }
+}
+
+private struct CognitoSettings {
+    let hostedDomain: URL
+    let clientID: String
+    let redirectURI: URL
+
+    init?() {
+        guard
+            let rawDomain = Bundle.main.object(forInfoDictionaryKey: "FAMILYOS_COGNITO_HOSTED_DOMAIN") as? String,
+            let hostedDomain = URL(string: rawDomain), hostedDomain.scheme == "https",
+            let clientID = Bundle.main.object(forInfoDictionaryKey: "FAMILYOS_COGNITO_CLIENT_ID") as? String,
+            !clientID.isEmpty,
+            let rawRedirect = Bundle.main.object(forInfoDictionaryKey: "FAMILYOS_COGNITO_REDIRECT_URI") as? String,
+            let redirectURI = URL(string: rawRedirect), let scheme = redirectURI.scheme, !scheme.isEmpty
+        else { return nil }
+        self.hostedDomain = hostedDomain
+        self.clientID = clientID
+        self.redirectURI = redirectURI
+    }
+
+    var callbackScheme: String { redirectURI.scheme ?? "" }
+
+    func endpoint(_ path: String) -> URL? {
+        guard var components = URLComponents(url: hostedDomain, resolvingAgainstBaseURL: false) else { return nil }
+        components.path = "/" + path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return components.url
+    }
+}
+
+private struct CognitoTokenReply: Decodable {
+    let id_token: String?
+    let error: String?
+    let error_description: String?
+}
+
+private struct CognitoExchangeBody: Encodable {
+    let idToken: String
+    let parentName: String
+    let householdName: String
+}
+
+private struct CognitoExchangeReply: Decodable {
+    let authenticated: Bool
+    let account: FamilyAccount
+}
+
+/// Presents Cognito's managed login in iOS Authentication Services, with PKCE and no client secret.
+@MainActor
+private final class HostedAuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
+    static let shared = HostedAuthSession()
+    private var activeSession: ASWebAuthenticationSession?
+
+    func present(url: URL, callbackScheme: String) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            let authSession = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
+                self?.activeSession = nil
+                if let error { continuation.resume(throwing: error) }
+                else if let callbackURL { continuation.resume(returning: callbackURL) }
+                else { continuation.resume(throwing: FamilyOSAPIError.unexpectedResponse) }
+            }
+            authSession.presentationContextProvider = self
+            authSession.prefersEphemeralWebBrowserSession = false
+            activeSession = authSession
+            if !authSession.start() {
+                activeSession = nil
+                continuation.resume(throwing: FamilyOSAPIError.server("iOS could not open the secure sign-in window."))
+            }
+        }
+    }
+
+    func presentationAnchor(for _: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow) ?? UIWindow()
+    }
+}
+
+private struct CognitoHostedLogin {
+    private let settings: CognitoSettings
+
+    init() throws {
+        guard let settings = CognitoSettings() else { throw FamilyOSAPIError.cognitoNotConfigured }
+        self.settings = settings
+    }
+
+    func signIn(emailHint: String?) async throws -> String {
+        let verifier = try Self.randomURLSafeValue()
+        let state = try Self.randomURLSafeValue()
+        let nonce = try Self.randomURLSafeValue()
+        let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URLEncodedString()
+        guard let authorizeEndpoint = settings.endpoint("oauth2/authorize") else { throw FamilyOSAPIError.cognitoNotConfigured }
+        var components = URLComponents(url: authorizeEndpoint, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "client_id", value: settings.clientID),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "scope", value: "openid email"),
+            URLQueryItem(name: "redirect_uri", value: settings.redirectURI.absoluteString),
+            URLQueryItem(name: "code_challenge_method", value: "S256"),
+            URLQueryItem(name: "code_challenge", value: challenge),
+            URLQueryItem(name: "state", value: state),
+            URLQueryItem(name: "nonce", value: nonce),
+        ]
+        if let emailHint, !emailHint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            components?.queryItems?.append(URLQueryItem(name: "login_hint", value: emailHint))
+        }
+        guard let authorizationURL = components?.url else { throw FamilyOSAPIError.cognitoNotConfigured }
+
+        let callback = try await HostedAuthSession.shared.present(url: authorizationURL, callbackScheme: settings.callbackScheme)
+        guard callback.scheme == settings.callbackScheme,
+              callback.path == settings.redirectURI.path else { throw FamilyOSAPIError.unexpectedResponse }
+        let callbackParts = URLComponents(url: callback, resolvingAgainstBaseURL: false)
+        let values = Dictionary((callbackParts?.queryItems ?? []).map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { first, _ in first })
+        guard values["state"] == state else {
+            throw FamilyOSAPIError.server("The sign-in response could not be verified. Please try again.")
+        }
+        if let error = values["error_description"] ?? values["error"] {
+            throw FamilyOSAPIError.server(String(error.prefix(240)))
+        }
+        guard let code = values["code"], !code.isEmpty else { throw FamilyOSAPIError.unexpectedResponse }
+        return try await exchangeAuthorizationCode(code, verifier: verifier, expectedNonce: nonce)
+    }
+
+    func signOut() async throws {
+        guard let logoutEndpoint = settings.endpoint("logout") else { throw FamilyOSAPIError.cognitoNotConfigured }
+        var components = URLComponents(url: logoutEndpoint, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "client_id", value: settings.clientID),
+            URLQueryItem(name: "logout_uri", value: settings.redirectURI.absoluteString),
+        ]
+        guard let url = components?.url else { throw FamilyOSAPIError.cognitoNotConfigured }
+        _ = try await HostedAuthSession.shared.present(url: url, callbackScheme: settings.callbackScheme)
+    }
+
+    private func exchangeAuthorizationCode(_ code: String, verifier: String, expectedNonce: String) async throws -> String {
+        guard let tokenURL = settings.endpoint("oauth2/token") else { throw FamilyOSAPIError.cognitoNotConfigured }
+        var request = URLRequest(url: tokenURL)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        var body = URLComponents()
+        body.queryItems = [
+            URLQueryItem(name: "grant_type", value: "authorization_code"),
+            URLQueryItem(name: "client_id", value: settings.clientID),
+            URLQueryItem(name: "code", value: code),
+            URLQueryItem(name: "redirect_uri", value: settings.redirectURI.absoluteString),
+            URLQueryItem(name: "code_verifier", value: verifier),
+        ]
+        request.httpBody = body.percentEncodedQuery?.data(using: .utf8)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse,
+              let tokenReply = try? JSONDecoder().decode(CognitoTokenReply.self, from: data) else {
+            throw FamilyOSAPIError.unexpectedResponse
+        }
+        guard (200..<300).contains(response.statusCode), let idToken = tokenReply.id_token, !idToken.isEmpty else {
+            throw FamilyOSAPIError.server(String((tokenReply.error_description ?? "Cognito could not complete sign-in.").prefix(240)))
+        }
+        guard Self.idToken(idToken, containsNonce: expectedNonce) else {
+            throw FamilyOSAPIError.server("The sign-in response could not be verified. Please try again.")
+        }
+        return idToken
+    }
+
+    private static func idToken(_ token: String, containsNonce expectedNonce: String) -> Bool {
+        let parts = token.split(separator: ".")
+        guard parts.count == 3 else { return false }
+        var payload = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
+        guard let data = Data(base64Encoded: payload),
+              let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return claims["nonce"] as? String == expectedNonce
+    }
+
+    private static func randomURLSafeValue() throws -> String {
+        var bytes = Data(count: 32)
+        let status = bytes.withUnsafeMutableBytes { buffer in
+            SecRandomCopyBytes(kSecRandomDefault, buffer.count, buffer.baseAddress!)
+        }
+        guard status == errSecSuccess else { throw FamilyOSAPIError.server("iOS could not start secure sign-in.") }
+        return bytes.base64URLEncodedString()
+    }
+}
+
+private extension Data {
+    func base64URLEncodedString() -> String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }
 
@@ -127,6 +323,9 @@ struct FamilyOSAPIClient {
     private let rootURL: URL
     private let session: URLSession
     private let tokenStore = SessionTokenStore()
+    private let hostedLogin = try? CognitoHostedLogin()
+
+    var usesCognito: Bool { rootURL.scheme == "https" }
 
     init(baseAddress: String) throws {
         guard let root = Self.validatedBaseURL(baseAddress) else { throw FamilyOSAPIError.invalidServerAddress }
@@ -179,9 +378,22 @@ struct FamilyOSAPIClient {
         try await post("v1/auth/sign-in", body: SignInBody(email: email, password: password), createsSession: true)
     }
 
-    func signOut() async throws {
+    func signInWithCognito(emailHint: String, parentName: String, householdName: String) async throws -> FamilyAccount {
+        guard let hostedLogin else { throw FamilyOSAPIError.cognitoNotConfigured }
+        let idToken = try await hostedLogin.signIn(emailHint: emailHint)
+        let reply: CognitoExchangeReply = try await post(
+            "v1/auth/exchange",
+            body: CognitoExchangeBody(idToken: idToken, parentName: parentName, householdName: householdName),
+            createsSession: true
+        )
+        guard reply.authenticated else { throw FamilyOSAPIError.unexpectedResponse }
+        return reply.account
+    }
+
+    func signOut(alsoCognito: Bool = false) async throws {
         let _: MessageReply = try await post("v1/auth/sign-out", body: EmptyBody(), needsSession: true)
         tokenStore.clear()
+        if alsoCognito, let hostedLogin { try await hostedLogin.signOut() }
     }
 
     func sessionState() async throws -> SessionReply {

@@ -46,6 +46,7 @@ class CalendarEvent(StrictModel):
     travelMinutes: int | None = None
     preparation: list[PreparationItem] = Field(default_factory=list)
     source: Literal["demo", "manual", "google", "outlook"] = "demo"
+    allDay: bool = False
 
 
 class Chore(StrictModel):
@@ -100,12 +101,36 @@ class ProposedAction(StrictModel):
     confirmedAt: str | None = None
 
 
+class ListItem(StrictModel):
+    id: str = Field(min_length=1, max_length=80)
+    listName: str = Field(min_length=1, max_length=60)
+    title: str = Field(min_length=1, max_length=160)
+    category: str = Field(default="Other", max_length=60)
+    completed: bool = False
+    addedBy: str = Field(default="", max_length=80)
+
+
+class Meal(StrictModel):
+    id: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=120)
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    category: Literal["Breakfast", "Lunch", "Dinner"] = "Dinner"
+    cookIds: list[str] = Field(default_factory=list, max_length=30)
+    servings: int = Field(default=4, ge=1, le=100)
+    minutes: int = Field(default=30, ge=1, le=1440)
+    ingredients: list[str] = Field(default_factory=list, max_length=100)
+    instructions: list[str] = Field(default_factory=list, max_length=100)
+
+
 class HouseholdSnapshot(StrictModel):
     family: Family
     members: list[FamilyMember]
     events: list[CalendarEvent]
     chores: list[Chore]
     routines: list[Routine]
+    revision: int = 0
+    listItems: list[ListItem] = Field(default_factory=list)
+    meals: list[Meal] = Field(default_factory=list)
 
 
 class BriefingMember(StrictModel):
@@ -196,6 +221,28 @@ class ActionProposalRequest(StrictModel):
     conflictId: str = Field(min_length=1, max_length=240)
     eventId: str = Field(min_length=1, max_length=120)
     targetMemberId: str = Field(min_length=1, max_length=80)
+
+
+class CognitoExchangeBody(StrictModel):
+    idToken: str = Field(min_length=20, max_length=16_384)
+    parentName: str | None = Field(default=None, max_length=80)
+    householdName: str | None = Field(default=None, max_length=80)
+
+
+class PairingChallengeBody(StrictModel):
+    deviceName: str = Field(default="FamilyOS TV", min_length=1, max_length=60)
+
+
+class PairingApproveBody(StrictModel):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class PairingClaimBody(StrictModel):
+    pollingToken: str = Field(min_length=32, max_length=128)
+
+
+class EmptyBody(StrictModel):
+    pass
 
 
 class APIEnvelope(StrictModel):

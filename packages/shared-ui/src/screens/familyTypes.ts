@@ -11,6 +11,13 @@ import { FamilyRoute } from '../navigation/familyNavigation';
 
 export type { FamilyRoute } from '../navigation/familyNavigation';
 
+export type TVPairingView = {
+  status: 'checking' | 'unpaired' | 'creating' | 'waiting' | 'paired';
+  code?: string;
+  expiresAt?: string;
+  error?: string;
+};
+
 export interface FamilyScreenProps {
   household: HouseholdSnapshot;
   conflicts: Conflict[];
@@ -36,4 +43,7 @@ export interface FamilyScreenProps {
   ) => Promise<{ action: ProposedAction; remote: boolean }>;
   onConfirmAction?: (action: ProposedAction, remote: boolean) => Promise<void>;
   onCancelAction?: (action: ProposedAction, remote: boolean) => Promise<void>;
+  tvPairing?: TVPairingView;
+  onStartPairing?: () => void;
+  onUnpairTV?: () => void;
 }

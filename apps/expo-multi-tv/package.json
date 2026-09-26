@@ -17,7 +17,9 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "modulePaths": ["<rootDir>/node_modules"],
+    "modulePaths": [
+      "<rootDir>/node_modules"
+    ],
     "moduleNameMapper": {
       "^@familyos/domain$": "<rootDir>/../../packages/domain/src/index.ts"
     }

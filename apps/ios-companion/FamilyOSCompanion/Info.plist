@@ -21,7 +21,24 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>FAMILYOS_API_BASE_URL</key>
-	<string>http://127.0.0.1:8787</string>
+	<string>https://familyos-api-production.up.railway.app</string>
+	<key>FAMILYOS_COGNITO_CLIENT_ID</key>
+	<string>2imsmu2e7rdnfo79jd38mj08m</string>
+	<key>FAMILYOS_COGNITO_HOSTED_DOMAIN</key>
+	<string>https://us-west-28isguybvq.auth.us-west-2.amazoncognito.com</string>
+	<key>FAMILYOS_COGNITO_REDIRECT_URI</key>
+	<string>com.familyos.companion:/oauth2redirect</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.familyos.companion.cognito</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.familyos.companion</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

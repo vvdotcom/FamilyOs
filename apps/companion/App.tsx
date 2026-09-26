@@ -1,5 +1,6 @@
 import { useFonts } from 'expo-font';
-import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+import { SecureStore } from './src/storage';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,8 +14,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TextInputProps,
   View,
-  type TextInputProps,
+  useColorScheme,
 } from 'react-native';
 import {
   DEFAULT_API_URL,
@@ -22,6 +24,14 @@ import {
   readSavedAPIURL,
   saveAPIURL,
 } from './src/auth-api';
+import { CognitoAccounts, CognitoError } from './src/cognito';
+import HouseholdApp from './src/HouseholdApp';
+import DesignPreview from './src/DesignPreview';
+
+const appConfig = Constants.expoConfig?.extra ?? {};
+const COGNITO_CLIENT_ID = String(appConfig.familyosCognitoClientId ?? '');
+const cognito = new CognitoAccounts(COGNITO_CLIENT_ID, String(appConfig.familyosCognitoRegion ?? 'us-west-2'));
+const PENDING_HOUSEHOLD_KEY = 'familyos.pending-household';
 
 type Screen = 'sign-in' | 'sign-up' | 'verify' | 'forgot' | 'reset' | 'account';
 type Appearance = 'system' | 'light' | 'dark';
@@ -39,37 +49,46 @@ const APPEARANCE_KEY = 'familyos.appearance';
 function palette(dark: boolean) {
   return dark
     ? {
-        canvas: '#15191D', surface: '#22272B', field: '#191E22', ink: '#F6F2E8',
-        secondary: '#C0BBAF', line: '#454A4D', amber: '#D98D18', error: '#F08B75',
+        canvas: '#1A1714', surface: '#221E19', field: '#221E19', ink: '#F4EEE4',
+        secondary: '#B8AE9F', line: '#332C25', amber: '#F2B25C', error: '#F08B75',
         success: '#78B980', message: '#2B302E',
       }
     : {
-        canvas: '#F5F4EF', surface: '#FFFEFB', field: '#FFFFFF', ink: '#18243D',
-        secondary: '#5D6776', line: '#DEDDD7', amber: '#D98D18', error: '#A83E2A',
+        canvas: '#F7F5F0', surface: '#FFFFFF', field: '#FFFFFF', ink: '#1F1B16',
+        secondary: '#5F574B', line: '#ECE6DB', amber: '#D98D18', error: '#A83E2A',
         success: '#2F7940', message: '#F8F0DE',
       };
 }
 
 export default function App() {
+  if (__DEV__ && Platform.OS === 'web' && process.env.EXPO_PUBLIC_FAMILYOS_DESIGN_PREVIEW === '1') return <DesignPreview />;
+  return <AccountApp />;
+}
+
+function AccountApp() {
   const [fontsLoaded] = useFonts({
     'Figtree-400': require('./assets/fonts/Figtree-400.ttf'),
+    'Figtree-500': require('../../packages/shared-ui/src/assets/fonts/Figtree-500.ttf'),
     'Figtree-600': require('./assets/fonts/Figtree-600.ttf'),
     'Figtree-700': require('./assets/fonts/Figtree-700.ttf'),
+    'Figtree-800': require('../../packages/shared-ui/src/assets/fonts/Figtree-800.ttf'),
+    'Bricolage-700-34': require('../../packages/shared-ui/src/assets/fonts/Bricolage-700-34.ttf'),
     'Bricolage-800-34': require('./assets/fonts/Bricolage-800-34.ttf'),
   });
-  const systemScheme = require('react-native').useColorScheme() as 'light' | 'dark' | null;
-  const [appearance, setAppearance] = useState<Appearance>('system');
+  const systemScheme = useColorScheme();
+  const [appearance, setAppearance] = useState<Appearance>('light');
   const dark = appearance === 'system' ? systemScheme === 'dark' : appearance === 'dark';
-  const colors = palette(dark);
-  const styles = useMemo(() => makeStyles(colors), [colors.canvas]);
+  const colors = useMemo(() => palette(dark), [dark]);
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
 
   const [apiURL, setAPIURL] = useState(DEFAULT_API_URL);
   const api = useMemo(() => {
     try { return new FamilyOSAPI(apiURL); } catch { return null; }
   }, [apiURL]);
+  const [email, setEmail] = useState('');
+  const hostedAuth = Boolean(api?.usesCognito);
   const [screen, setScreen] = useState<Screen>('sign-in');
   const [account, setAccount] = useState<Account | null>(null);
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [parentName, setParentName] = useState('');
   const [householdName, setHouseholdName] = useState('');
@@ -120,30 +139,56 @@ export default function App() {
     setMessage('');
     setMessageIsError(false);
     try { await action(); }
-    catch (error) { tell(error instanceof Error ? error.message : 'Please try again.', true); }
+    catch (error) {
+      if (error instanceof CognitoError && error.code === 'UserNotConfirmedException') {
+        setPassword(''); setCode(''); setLocalCode(null); setScreen('verify');
+      }
+      tell(error instanceof Error ? error.message : 'Please try again.', true);
+    }
     finally { setBusy(false); }
   };
 
-  const getLocalCode = async (purpose: 'verify_email' | 'reset_password') => {
+  const getLocalCode = async (address: string, purpose: 'verify_email' | 'reset_password') => {
     if (!api) return null;
-    try { return (await api.localEmailCode(email.trim().toLowerCase(), purpose))?.code ?? null; }
+    try { return (await api.localEmailCode(address.trim().toLowerCase(), purpose))?.code ?? null; }
     catch { return null; }
   };
 
   const createAccount = () => perform(async () => {
     if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (!parentName.trim() || !householdName.trim()) throw new Error('Enter your name and household name.');
     if (password.length < 12) throw new Error('Use a password with at least 12 characters.');
+    if (api.usesCognito) {
+      const result = await cognito.signUp(email, password);
+      setPassword('');
+      await SecureStore.setItemAsync(PENDING_HOUSEHOLD_KEY, JSON.stringify({
+        email: email.trim().toLowerCase(), parentName: parentName.trim(), householdName: householdName.trim(),
+      }));
+      setCode(''); setLocalCode(null);
+      setScreen(result.UserConfirmed ? 'sign-in' : 'verify');
+      tell(result.UserConfirmed ? 'Your account is ready. Sign in to continue.' : `Enter the code sent to ${result.CodeDeliveryDetails?.Destination || email.trim()}.`);
+      return;
+    }
     const result = await api.signUp(email.trim(), password, parentName.trim(), householdName.trim());
     setEmail(result.email);
     setPassword('');
     setCode('');
-    setLocalCode(await getLocalCode('verify_email'));
+    const localDeliveryCode = await getLocalCode(result.email, 'verify_email');
+    setLocalCode(localDeliveryCode);
     setScreen('verify');
-    tell('Enter the six-digit email code to finish setting up ' + result.householdName + '.');
+    tell(localDeliveryCode
+      ? 'Use the local test code below to finish setting up ' + result.householdName + '.'
+      : 'The account was created, but this local preview has no email delivery. Verification must wait until email is configured.');
   });
 
   const verifyEmail = () => perform(async () => {
     if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (api.usesCognito) {
+      await cognito.confirm(email, code);
+      setCode(''); setPassword(''); setLocalCode(null); setScreen('sign-in');
+      tell('Email verified. Sign in with your password to finish setting up your household.');
+      return;
+    }
     const result = await api.verifyEmail(email.trim(), code);
     setAccount(result);
     setLocalCode(null);
@@ -153,13 +198,32 @@ export default function App() {
 
   const resendCode = () => perform(async () => {
     if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (api.usesCognito) {
+      const result = await cognito.resend(email);
+      tell(`A new verification code was sent to ${result.CodeDeliveryDetails?.Destination || email.trim()}.`);
+      return;
+    }
     await api.resendVerification(email.trim());
-    setLocalCode(await getLocalCode('verify_email'));
-    tell('If the account needs verification, a new code has been issued.');
+    const localDeliveryCode = await getLocalCode(email, 'verify_email');
+    setLocalCode(localDeliveryCode);
+    tell(localDeliveryCode
+      ? 'A new local test code is shown below.'
+      : 'This local preview has no email delivery, so a code cannot be received on this device yet.');
   });
 
   const signIn = () => perform(async () => {
     if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (api.usesCognito) {
+      const idToken = await cognito.signIn(email, password);
+      setPassword('');
+      const pending = JSON.parse(await SecureStore.getItemAsync(PENDING_HOUSEHOLD_KEY) || 'null');
+      const matchingProfile = pending?.email === email.trim().toLowerCase() ? pending : null;
+      const result = await api.exchangeCognitoSession(idToken, matchingProfile?.parentName || '', matchingProfile?.householdName || '');
+      if (matchingProfile) await SecureStore.deleteItemAsync(PENDING_HOUSEHOLD_KEY);
+      setAccount(result); setLocalCode(null); setScreen('account');
+      tell('You’re signed in.');
+      return;
+    }
     const result = await api.signIn(email.trim(), password);
     setAccount(result);
     setPassword('');
@@ -169,17 +233,28 @@ export default function App() {
 
   const sendResetCode = () => perform(async () => {
     if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (api.usesCognito) {
+      await cognito.forgotPassword(email);
+      setCode(''); setNewPassword(''); setPassword(''); setLocalCode(null); setScreen('reset');
+      tell('If this email has an eligible account, a password reset code has been sent.');
+      return;
+    }
     await api.forgotPassword(email.trim());
     setCode('');
     setNewPassword('');
-    setLocalCode(await getLocalCode('reset_password'));
+    const localDeliveryCode = await getLocalCode(email, 'reset_password');
+    setLocalCode(localDeliveryCode);
     setScreen('reset');
-    tell('If an eligible account exists, a reset code has been issued.');
+    tell(localDeliveryCode
+      ? 'Use the local test code below to reset your password.'
+      : 'This local preview has no email delivery, so a reset code cannot be received on this device yet.');
   });
 
   const resetPassword = () => perform(async () => {
     if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
-    await api.resetPassword(email.trim(), code, newPassword);
+    if (newPassword.length < 12) throw new Error('Use a password with at least 12 characters.');
+    if (api.usesCognito) await cognito.resetPassword(email, code, newPassword);
+    else await api.resetPassword(email.trim(), code, newPassword);
     setPassword('');
     setNewPassword('');
     setLocalCode(null);
@@ -200,16 +275,26 @@ export default function App() {
     }
   });
 
-  const saveSettings = () => perform(async () => {
-    const savedURL = await saveAPIURL(serverDraft);
-    await SecureStore.setItemAsync(APPEARANCE_KEY, appearance);
-    setAPIURL(savedURL);
-    setAccount(null);
-    setScreen('sign-in');
+  const saveSettings = () => {
+    if (busy) return;
+    setBusy(true);
     setSettingsError('');
-    setSettingsOpen(false);
-    tell('Settings saved. Sign in to this FamilyOS server.');
-  });
+    void (async () => {
+      try {
+        const savedURL = await saveAPIURL(serverDraft);
+        await SecureStore.setItemAsync(APPEARANCE_KEY, appearance);
+        setAPIURL(savedURL);
+        setAccount(null);
+        setScreen('sign-in');
+        setSettingsOpen(false);
+        tell('Settings saved. Sign in to this FamilyOS server.');
+      } catch (error) {
+        setSettingsError(error instanceof Error ? error.message : 'Could not save settings.');
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
 
   const screenTitle: Record<Screen, string> = {
     'sign-in': 'Your family, together',
@@ -230,6 +315,25 @@ export default function App() {
 
   if (!fontsLoaded || !initialized) {
     return <View style={[styles.loading, { backgroundColor: colors.canvas }]}><ActivityIndicator color={colors.amber} /></View>;
+  }
+
+  if (screen === 'account' && account && api) {
+    return <>
+      <HouseholdApp key={`${apiURL}:${account.accountId}`} api={api} account={account} dark={dark} appearance={appearance}
+        onAppearance={async value => { await SecureStore.setItemAsync(APPEARANCE_KEY, value); setAppearance(value); }}
+        onSignOut={signOut} onServerSettings={() => { setServerDraft(apiURL); setSettingsOpen(true); }} />
+      <Modal visible={settingsOpen} transparent animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBackdrop}>
+          <View style={styles.settingsSheet}>
+            <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>Server settings</Text><Pressable accessibilityRole="button" onPress={() => setSettingsOpen(false)}><Text style={styles.close}>Cancel</Text></Pressable></View>
+            <Field label="FamilyOS server" placeholder="https://…" value={serverDraft} onChangeText={setServerDraft} keyboardType="url" autoCapitalize="none" styles={styles} colors={colors}/>
+            <Text style={styles.help}>Changing servers signs you out on this phone.</Text>
+            {!!settingsError && <Text style={styles.settingsError}>{settingsError}</Text>}
+            <ActionButton title="Save server" busy={busy} onPress={saveSettings} styles={styles} colors={colors}/>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>;
   }
 
   return (
@@ -268,41 +372,42 @@ export default function App() {
               )}
 
               {screen === 'sign-in' && <View style={styles.form}>
-                <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} />
-                <Field label="Password" placeholder="Your password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" styles={styles} />
-                <ActionButton title="Sign in" busy={busy} onPress={signIn} styles={styles} />
+                <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} colors={colors} />
+                <Field label="Password" placeholder="Your password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" styles={styles} colors={colors} />
+                <ActionButton title="Sign in" busy={busy} onPress={signIn} styles={styles} colors={colors} />
+                {hostedAuth && <TextButton title="Verify my email" onPress={() => { setScreen('verify'); setCode(''); setPassword(''); setMessage(''); }} styles={styles} />}
                 <TextButton title="Forgot password?" onPress={() => { setScreen('forgot'); setMessage(''); }} styles={styles} />
               </View>}
 
               {screen === 'sign-up' && <View style={styles.form}>
-                <Field label="Parent or guardian name" placeholder="Your name" value={parentName} onChangeText={setParentName} autoComplete="name" styles={styles} />
-                <Field label="Household name" placeholder="The Parkers" value={householdName} onChangeText={setHouseholdName} autoComplete="organization" styles={styles} />
-                <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} />
-                <Field label="Create password" placeholder="At least 12 characters" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" styles={styles} />
-                <Text style={styles.help}>Use at least 12 characters. Children can be added as family profiles later; they won’t need email accounts.</Text>
-                <ActionButton title="Create parent account" busy={busy} onPress={createAccount} styles={styles} />
+                <Field label="Parent or guardian name" placeholder="Your name" value={parentName} onChangeText={setParentName} autoComplete="name" styles={styles} colors={colors} />
+                <Field label="Household name" placeholder="The Parkers" value={householdName} onChangeText={setHouseholdName} autoComplete="organization" styles={styles} colors={colors} />
+                <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} colors={colors} />
+                <Field label="Create password" placeholder="At least 12 characters" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" styles={styles} colors={colors} />
+                <Text style={styles.help}>{hostedAuth ? 'Use at least 12 characters with uppercase and lowercase letters, a number, and a symbol. We’ll email you a verification code.' : 'Use at least 12 characters. Children can be added as family profiles later; they won’t need email accounts.'}</Text>
+                <ActionButton title="Create parent account" busy={busy} onPress={createAccount} styles={styles} colors={colors} />
               </View>}
 
               {screen === 'verify' && <View style={styles.form}>
-                <Text style={styles.address}>{email}</Text>
-                <Field label="Six-digit verification code" placeholder="000000" value={code} onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} styles={styles} />
+                <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} colors={colors} />
+                <Field label="Six-digit verification code" placeholder="000000" value={code} onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} styles={styles} colors={colors} />
                 <LocalCode code={localCode} styles={styles} />
-                <ActionButton title="Verify email" busy={busy} onPress={verifyEmail} styles={styles} />
+                <ActionButton title="Verify email" busy={busy} onPress={verifyEmail} styles={styles} colors={colors} />
                 <TextButton title="Send a new code" onPress={resendCode} styles={styles} />
                 <TextButton title="Back to sign in" onPress={() => { setScreen('sign-in'); setMessage(''); }} styles={styles} />
               </View>}
 
               {screen === 'forgot' && <View style={styles.form}>
-                <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} />
-                <ActionButton title="Send reset code" busy={busy} onPress={sendResetCode} styles={styles} />
+                <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} colors={colors} />
+                <ActionButton title="Send reset code" busy={busy} onPress={sendResetCode} styles={styles} colors={colors} />
                 <TextButton title="Back to sign in" onPress={() => { setScreen('sign-in'); setMessage(''); }} styles={styles} />
               </View>}
 
               {screen === 'reset' && <View style={styles.form}>
-                <Field label="Six-digit reset code" placeholder="000000" value={code} onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} styles={styles} />
+                <Field label="Six-digit reset code" placeholder="000000" value={code} onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} styles={styles} colors={colors} />
                 <LocalCode code={localCode} styles={styles} />
-                <Field label="New password" placeholder="At least 12 characters" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" styles={styles} />
-                <ActionButton title="Save new password" busy={busy} onPress={resetPassword} styles={styles} />
+                <Field label="New password" placeholder="At least 12 characters" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" styles={styles} colors={colors} />
+                <ActionButton title="Save new password" busy={busy} onPress={resetPassword} styles={styles} colors={colors} />
                 <TextButton title="Cancel" onPress={() => { setScreen('sign-in'); setMessage(''); }} styles={styles} />
               </View>}
 
@@ -313,11 +418,11 @@ export default function App() {
                 <Text style={styles.address}>{account?.email}</Text>
                 <View style={styles.divider} />
                 <Text style={styles.help}>Your Fire TV will pair separately. You won’t need to type your password with the remote.</Text>
-                <ActionButton title="Sign out" busy={busy} secondary onPress={signOut} styles={styles} />
+                <ActionButton title="Sign out" busy={busy} secondary onPress={signOut} styles={styles} colors={colors} />
               </View>}
             </View>
 
-            <Text style={styles.footer}>Local preview · AWS Cognito, production email, and Railway are not connected</Text>
+            <Text style={styles.footer}>{hostedAuth ? 'Your account is secured by Amazon Cognito.' : 'Local preview · account and email flows use the development API'}</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -337,28 +442,29 @@ export default function App() {
                 </Pressable>
               ))}
             </View>
-            <Field label="FamilyOS server" placeholder="https://… or local address" value={serverDraft} onChangeText={setServerDraft} keyboardType="url" autoCapitalize="none" styles={styles} />
-            <Text style={styles.help}>Use HTTPS for a hosted service. For local testing, use your computer’s private Wi-Fi address and port 8787. The API must be reachable from this phone.</Text>
+            <Field label="FamilyOS server" placeholder="https://… or local address" value={serverDraft} onChangeText={setServerDraft} keyboardType="url" autoCapitalize="none" styles={styles} colors={colors} />
+            <Text style={styles.help}>{Platform.OS === 'web'
+              ? 'This browser preview uses temporary tab storage and connects only to a local development API.'
+              : 'Use HTTPS for a hosted service. For local testing, use your computer’s private Wi-Fi address and port 8787. The API must be reachable from this phone.'}</Text>
             {!!settingsError && <Text style={styles.settingsError}>{settingsError}</Text>}
-            <ActionButton title="Save settings" busy={busy} onPress={() => perform(async () => {
-              try { await saveSettings(); } catch (error) { setSettingsError(error instanceof Error ? error.message : 'Could not save settings.'); }
-            })} styles={styles} />
+            <ActionButton title="Save settings" busy={busy} onPress={saveSettings} styles={styles} colors={colors} />
           </View>
         </View>
       </Modal>
     </SafeAreaView>
   );
+}
 
-  function Tab({ label, selected, onPress, styles: tabStyles }: { label: string; selected: boolean; onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
+function Tab({ label, selected, onPress, styles: tabStyles }: { label: string; selected: boolean; onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
     return <Pressable onPress={onPress} style={tabStyles.tab} accessibilityRole="tab" accessibilityState={{ selected }}>
       <Text style={[tabStyles.tabText, selected && tabStyles.tabTextSelected]}>{label}</Text>
       <View style={[tabStyles.tabLine, selected && tabStyles.tabLineSelected]} />
     </Pressable>;
   }
 
-  function Field(props: {
+function Field(props: {
     label: string; placeholder: string; value: string; onChangeText: (value: string) => void;
-    styles: ReturnType<typeof makeStyles>; secureTextEntry?: boolean; keyboardType?: TextInputProps['keyboardType'];
+    styles: ReturnType<typeof makeStyles>; colors: ReturnType<typeof palette>; secureTextEntry?: boolean; keyboardType?: TextInputProps['keyboardType'];
     autoComplete?: TextInputProps['autoComplete']; autoCapitalize?: TextInputProps['autoCapitalize']; maxLength?: number;
   }) {
     return <View style={props.styles.fieldWrap}>
@@ -367,7 +473,7 @@ export default function App() {
         value={props.value}
         onChangeText={props.onChangeText}
         placeholder={props.placeholder}
-        placeholderTextColor={colors.secondary}
+        placeholderTextColor={props.colors.secondary}
         style={props.styles.input}
         secureTextEntry={props.secureTextEntry}
         keyboardType={props.keyboardType || 'default'}
@@ -376,24 +482,24 @@ export default function App() {
         autoCorrect={false}
         maxLength={props.maxLength}
         accessibilityLabel={props.label}
-        selectionColor={colors.amber}
+        selectionColor={props.colors.amber}
       />
     </View>;
   }
 
-  function ActionButton({ title, onPress, busy: buttonBusy, secondary, styles: buttonStyles }: {
-    title: string; onPress: () => void; busy: boolean; secondary?: boolean; styles: ReturnType<typeof makeStyles>;
+function ActionButton({ title, onPress, busy: buttonBusy, secondary, disabled, styles: buttonStyles, colors }: {
+    title: string; onPress: () => void; busy: boolean; secondary?: boolean; disabled?: boolean; styles: ReturnType<typeof makeStyles>; colors: ReturnType<typeof palette>;
   }) {
-    return <Pressable onPress={onPress} disabled={buttonBusy} accessibilityRole="button" style={[buttonStyles.button, secondary && buttonStyles.secondaryButton, buttonBusy && buttonStyles.disabled]}>
+    return <Pressable onPress={onPress} disabled={buttonBusy || disabled} accessibilityRole="button" accessibilityState={{ disabled: Boolean(buttonBusy || disabled), busy: buttonBusy }} style={[buttonStyles.button, secondary && buttonStyles.secondaryButton, (buttonBusy || disabled) && buttonStyles.disabled]}>
       {buttonBusy ? <ActivityIndicator color={secondary ? colors.ink : '#FFFFFF'} /> : <Text style={[buttonStyles.buttonText, secondary && buttonStyles.secondaryButtonText]}>{title}</Text>}
     </Pressable>;
   }
 
-  function TextButton({ title, onPress, styles: textButtonStyles }: { title: string; onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
+function TextButton({ title, onPress, styles: textButtonStyles }: { title: string; onPress: () => void; styles: ReturnType<typeof makeStyles> }) {
     return <Pressable onPress={onPress} accessibilityRole="button" style={textButtonStyles.textButton}><Text style={textButtonStyles.textButtonText}>{title}</Text></Pressable>;
   }
 
-  function LocalCode({ code: value, styles: codeStyles }: { code: string | null; styles: ReturnType<typeof makeStyles> }) {
+function LocalCode({ code: value, styles: codeStyles }: { code: string | null; styles: ReturnType<typeof makeStyles> }) {
     if (!value) return null;
     return <View style={codeStyles.codeCard}>
       <Text style={codeStyles.label}>Local test email</Text>
@@ -402,7 +508,7 @@ export default function App() {
     </View>;
   }
 
-  function makeStyles(theme: ReturnType<typeof palette>) {
+function makeStyles(theme: ReturnType<typeof palette>, dark: boolean) {
     return StyleSheet.create({
       safe: { flex: 1 },
       flex: { flex: 1 },
@@ -430,12 +536,12 @@ export default function App() {
       input: { minHeight: 48, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: theme.line, borderRadius: 8, backgroundColor: theme.field, color: theme.ink, fontFamily: 'Figtree-400', fontSize: 16 },
       help: { color: theme.secondary, fontFamily: 'Figtree-400', fontSize: 13, lineHeight: 19 },
       button: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.ink, borderRadius: 8, backgroundColor: theme.ink, marginTop: 3, paddingHorizontal: 14 },
-      buttonText: { color: '#FFFFFF', fontFamily: 'Figtree-700', fontSize: 15 },
+      buttonText: { color: dark ? '#1A1714' : '#FFFFFF', fontFamily: 'Figtree-700', fontSize: 15 },
       secondaryButton: { backgroundColor: 'transparent', borderColor: theme.line },
       secondaryButtonText: { color: theme.ink },
       disabled: { opacity: 0.6 },
       textButton: { alignSelf: 'flex-start', minHeight: 34, justifyContent: 'center' },
-      textButtonText: { color: theme.ink, fontFamily: 'Figtree-600', fontSize: 14, textDecorationLine: 'underline', textDecorationColor: theme.amber, textUnderlineOffset: 3 },
+      textButtonText: { color: theme.ink, fontFamily: 'Figtree-600', fontSize: 14, textDecorationLine: 'underline', textDecorationColor: theme.amber },
       message: { flexDirection: 'row', alignItems: 'stretch', gap: 10, padding: 11, marginBottom: 15, borderRadius: 7, backgroundColor: theme.message },
       errorMessage: { backgroundColor: dark ? '#382823' : '#F9E8E4' },
       messageRule: { width: 3, borderRadius: 2, backgroundColor: theme.amber },
@@ -463,5 +569,4 @@ export default function App() {
       appearanceTextSelected: { color: '#FFFFFF' },
       settingsError: { color: theme.error, fontFamily: 'Figtree-400', fontSize: 13 },
     });
-  }
 }

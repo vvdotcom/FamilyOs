@@ -3,6 +3,7 @@
     "name": "FamilyOS Companion",
     "slug": "familyos-companion",
     "version": "0.1.0",
+    "scheme": "com.familyos.companion",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -18,6 +19,12 @@
     "android": {
       "package": "com.familyos.companion"
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": ["expo-secure-store"],
+    "extra": {
+      "familyosCognitoRegion": "us-west-2",
+      "familyosCognitoClientId": "2imsmu2e7rdnfo79jd38mj08m",
+      "familyosCognitoDomain": "https://us-west-28isguybvq.auth.us-west-2.amazoncognito.com",
+      "familyosCognitoRedirectUri": "com.familyos.companion:/oauth2redirect"
+    }
   }
 }

@@ -1,0 +1,12 @@
+{
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "ios": { "simulator": false }
+    },
+    "preview-simulator": {
+      "extends": "preview",
+      "ios": { "simulator": true }
+    }
+  }
+}

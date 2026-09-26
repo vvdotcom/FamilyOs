@@ -18,13 +18,18 @@ existing family-agent household API still serves seeded demo data and isn't auth
 these sample accounts. Do not expose the local service to the Internet or use real family
 credentials/data with this preview.
 
-Start the API with local auth enabled:
+Start the API with local auth enabled. The default loopback server is sufficient for browser
+preview tests on this computer. To test Expo Go on a phone over the same trusted Wi-Fi, a
+LAN-reachable development service is required; enable the development email-code endpoint and
+bind to your computer's network interfaces only for that test. Never use the LAN setting on a
+public network or production deployment.
 
 ```powershell
 $env:FAMILYOS_AUTH_MODE = 'local'
 $env:FAMILYOS_AUTH_DB_PATH = '.familyos/familyos-auth.sqlite3'
 $env:FAMILYOS_LOCAL_AUTH_SHOW_CODES = 'true'
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8787 --reload --env-file ..\..\.env
+$env:FAMILYOS_LOCAL_AUTH_LAN_TESTING = 'true'
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload --env-file ..\..\.env
 ```
 
 The local account tests run with:
@@ -47,9 +52,9 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8787 --reload --env-file 
 The workspace `.env` is local and ignored by Git. Set `AWS_BEARER_TOKEN_BEDROCK`
 there to use Bedrock; never place it in an Expo environment file or client code.
 Without the token, model ID, or service access, the API returns a deterministic
-briefing instead. The TV app reads only `EXPO_PUBLIC_FAMILYOS_API_URL`. Cross-device
-access is deferred until Phase 5 adds household authorization; keep the service bound
-to `127.0.0.1` for this phase.
+briefing instead. The TV app reads only `EXPO_PUBLIC_FAMILYOS_API_URL`. Keep local
+development on a trusted private Wi-Fi network; production household access uses the
+protected Cognito/PostgreSQL mode described below.
 
 Expo reads its public API URL from `apps/expo-multi-tv/.env` (see that directory's
 `.env.example`). This file contains no Bedrock credentials.
@@ -73,6 +78,13 @@ briefing route to send a minimized summary context. It omits locations, notes, p
 and credentials. Bedrock receives only that context and can only return text; all
 availability and conflict checks remain deterministic Python code.
 
-The Railway Docker build and remaining production blockers are documented in
-[`docs/RAILWAY_DEPLOYMENT.md`](../../docs/RAILWAY_DEPLOYMENT.md). Railway deployment is
-intentionally blocked until Cognito, PostgreSQL, and protected household APIs are ready.
+## Railway production mode
+
+The production service uses a public Cognito app client with the native iOS
+authorization-code + PKCE flow, validates Cognito ID tokens, and stores household
+snapshots and hashed FamilyOS sessions in Railway PostgreSQL. Production fails closed
+unless `FAMILYOS_AUTH_MODE=cognito`, `FAMILYOS_DEMO_MODE=false`, secure cookies, Cognito
+issuer/client ID, and `DATABASE_URL` are configured. Local demo auth, reset, and email-code
+routes are unavailable in production. See
+[`docs/RAILWAY_DEPLOYMENT.md`](../../docs/RAILWAY_DEPLOYMENT.md) for the AWS identifiers,
+Railway variables, callback URL, deployment process, and remaining end-to-end checks.

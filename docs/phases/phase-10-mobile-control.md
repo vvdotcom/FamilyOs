@@ -10,12 +10,20 @@ the family to upload and manage photos shown by the TV's ambient mode.
 - Reuse Phase 5 authentication/pairing, Phase 9 permissions, Phase 3 event data, Phase 5 ambient mode,
   and the Phase 7 import contracts where they are exposed on the companion.
 - The original scope is a responsive web companion. A native iOS client is also now in scope;
-  its first implementation slice is account access and settings, while event entry, pairing,
-  document capture, and photo management remain planned. Remote TV power control is out of scope.
-- All work below is planned and not yet implemented; see `single.md` section 39.
+  core phone screens and basic household editing have moved into Phase 5 at the user's
+  request. Document capture and photo management remain here. Remote TV power control is out of scope.
+- A standard React Native/Expo Go companion now provides the initial account/settings slice in
+  `apps/companion`. It is separate from the TV-targeted Expo app and the optional SwiftUI
+  starter. Local API use is supported; production sign-in still depends on Phase 5.
+- The Expo Go companion now includes the Claude-designed Today, calendar editor, chores,
+  household members, lists, meals, Remote layout, and Settings screens. Core data edits use
+  the protected backend. TV pairing/control is still unimplemented; its buttons are disabled.
+  The remaining expanded scope below still needs implementation and device testing.
 
 ## Work packages
 
+- [ ] Verify the Expo Go companion in the iOS/Android Expo Go apps and complete local auth
+  walkthroughs. Source is in `apps/companion`, pinned to Expo SDK 57 for Expo Go compatibility.
 - [ ] Build and validate the initial native SwiftUI iPhone app for parent account creation,
   email verification, sign-in, password recovery, sign-out, and local server/theme settings.
   The initial source project is in `apps/ios-companion`; it is not complete until built and
@@ -30,6 +38,8 @@ the family to upload and manage photos shown by the TV's ambient mode.
   integrations already implemented, including connection status and disconnect controls.
 - [ ] Add event creation/editing with family members, timezones, dates, responsibility,
   and preparation items. Confirm changes and show sync/pending/error status on phone and TV.
+  Basic title/date/time/location/member editing is now in Phase 5; responsibility,
+  preparation, recurrence, notifications, and end-to-end TV sync remain outstanding.
 - [ ] Expose Phase 7 document capture/import on the companion where appropriate, preserving
   the same draft review and explicit confirmation before saving.
 - [ ] Let authorized family members upload, preview, organize, choose, and remove photos
@@ -43,6 +53,9 @@ the family to upload and manage photos shown by the TV's ambient mode.
   user-initiated import action that requires it.
 - [ ] Synchronize companion changes to the household backend and connected TV, with safe
   retries and explicit handling of conflicting edits or lost connections.
+- [ ] Perform the real Vega TV verification pass: install the Vega build, pair it with the
+  companion, verify remote navigation/reconnect behavior, and record evidence from actual
+  Fire TV/Vega hardware. The local browser TV preview is only a development checkpoint.
 - [ ] Provide sign-out, device/session revocation, phone accessibility, and documented
   pairing recovery; verify the TV remains usable with its own remote.
 
@@ -50,8 +63,9 @@ the family to upload and manage photos shown by the TV's ambient mode.
 
 - Check phone layouts, keyboard accessibility, setup, event entry, pairing expiry/reuse,
   sign-out, permissions, and cross-household access rejection.
-- Build and run the native iOS target on a supported simulator and a personal iPhone; verify
-  email-code, session-cookie/Keychain, sign-out, server settings, and light/dark appearance.
+- Build and run the Expo Go app on a phone and the optional native iOS target on a supported
+  simulator/personal iPhone; verify email-code, secure session, sign-out, server settings,
+  and light/dark appearance.
 - Test event synchronization, duplicate submissions, concurrent edits, offline recovery,
   and credential-safe integration callbacks.
 - Test photo validation, orientation, storage limits, private access, deletion, offline
@@ -64,3 +78,4 @@ the family to upload and manage photos shown by the TV's ambient mode.
 An authorized parent can set up the household and enter events from a phone browser.
 Authorized family members can manage private photos for ambient display, changes reach
 the TV reliably, and child access remains limited by the Phase 9 permissions.
+

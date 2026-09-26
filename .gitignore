@@ -25,6 +25,12 @@ yarn-error.log
 .venv/
 __pycache__/
 .pytest_cache/
+.pytest-*/
+.codex-npm-cache/
+.codex-corepack/
+*.egg-info/
+.env.*
+!.env.example
 .familyos/
 **/.familyos/
 .familyos-starter/
@@ -35,5 +41,4 @@ __pycache__/
 
 # macOS
 .DS_Store
-
 

@@ -28,8 +28,10 @@ its exit criteria pass or a platform-specific blocker is recorded in
 - Phase 8 introduces a limited parent approval code. Phase 9 extends that foundation into
   account roles and permissions; Phase 10 reuses them for the companion page.
 - Phase 5 establishes parent sign-in, cloud household ownership/storage, secure TV pairing,
-  local caches, and synchronization. Its minimal phone pairing page grows into the full
-  Phase 10 companion; real cloud data must not precede basic backend authorization.
+  local caches, and synchronization. At the user's request, the core Expo Go companion
+  screens (Today, event editing, profiles, chores, lists, meals, and Settings) have moved
+  here from Phase 10. Phase 10 now expands photo management, imports, and advanced mobile
+  controls; real cloud data must not precede basic backend authorization.
 - Phase 5 remains explicitly **in progress** until the user completes live AWS Cognito,
   Railway deployment/auto-deploy from GitHub pushes, and companion account creation,
   sign-in, and sign-out against the deployed service. Local simulation does not satisfy this gate.

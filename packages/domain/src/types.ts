@@ -109,10 +109,34 @@ export interface FamilyBriefing {
   provider: 'deterministic' | 'ai';
 }
 
+export interface HouseholdListItem {
+  id: string;
+  listName: string;
+  title: string;
+  category: string;
+  completed: boolean;
+  addedBy: string;
+}
+
+export interface HouseholdMeal {
+  id: string;
+  title: string;
+  date: string;
+  category: 'Breakfast' | 'Lunch' | 'Dinner';
+  cookIds: string[];
+  servings: number;
+  minutes: number;
+  ingredients: string[];
+  instructions: string[];
+}
+
 export interface HouseholdSnapshot {
   family: Family;
   members: FamilyMember[];
   events: CalendarEvent[];
   chores: Chore[];
   routines: Routine[];
+  revision?: number;
+  listItems?: HouseholdListItem[];
+  meals?: HouseholdMeal[];
 }

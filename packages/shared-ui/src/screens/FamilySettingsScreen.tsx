@@ -14,6 +14,9 @@ export default function FamilySettingsScreen({
   agentStatus = 'checking',
   briefing,
   actionHistory = [],
+  tvPairing = { status: 'unpaired' },
+  onStartPairing,
+  onUnpairTV,
 }: FamilyScreenProps & { onResetDemo: () => void }) {
   const p = useDesignPalette();
   const { mode, setMode } = useFamilyTheme();
@@ -36,8 +39,33 @@ export default function FamilySettingsScreen({
             {household.family.name}
           </DText>
           <DText size={24} color={p.muted}>
-            Your family data stays in this local demo for now.
+            {tvPairing.status === 'paired' ? 'This TV is linked to your family household.' : 'Your family data stays in this local demo for now.'}
           </DText>
+          <View style={{ height: 1, backgroundColor: p.border }} />
+          <DText size={34} heading weight={700}>TV connection</DText>
+          {tvPairing.status === 'paired' ? (
+            <>
+              <DText size={24} color={p.muted}>Connected to your household. Calendar, chores, lists, and meals refresh about every 5 seconds.</DText>
+              <DAction label="Unpair this TV" onPress={onUnpairTV ?? (() => {})} active={focusActive} />
+            </>
+          ) : tvPairing.status === 'waiting' && tvPairing.code ? (
+            <>
+              <DText size={24} color={p.muted}>Enter this code in the signed-in FamilyOS phone app. It expires in 10 minutes.</DText>
+              <DText heading size={88} weight={800} style={{ letterSpacing: 8 }}>{tvPairing.code}</DText>
+              <DText size={22} color={p.muted} accessibilityLiveRegion="polite">Waiting for phone approval…</DText>
+            </>
+          ) : (
+            <>
+              <DText size={24} color={p.muted}>{tvPairing.error || (tvPairing.status === 'checking' ? 'Checking this TV’s connection…' : 'Pair with the phone to show your household data on this TV.')}</DText>
+              <DAction
+                label={tvPairing.status === 'creating' ? 'Creating code…' : 'Show pairing code'}
+                onPress={() => {
+                  if (tvPairing.status === 'unpaired') onStartPairing?.();
+                }}
+                active={focusActive}
+              />
+            </>
+          )}
           <View style={{ height: 1, backgroundColor: p.border }} />
           <DText size={34} heading weight={700}>
             Appearance

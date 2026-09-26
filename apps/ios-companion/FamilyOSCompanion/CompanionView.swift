@@ -143,9 +143,9 @@ struct CompanionView: View {
     }
 
     private var environmentLabel: String {
-        auth.serverAddress.contains("127.0.0.1") || auth.serverAddress.contains("localhost")
-            ? "Local development only"
-            : "Connected to configured server"
+        if auth.usesCognito { return "Secure FamilyOS cloud sign-in" }
+        return auth.serverAddress.contains("127.0.0.1") || auth.serverAddress.contains("localhost")
+            ? "Local development only" : "Connected to configured server"
     }
 
     private var accountTabs: some View {
@@ -186,8 +186,16 @@ struct CompanionView: View {
     private var signInForm: some View {
         VStack(spacing: 13) {
             AuthField(label: "Email address", placeholder: "you@example.com", text: $auth.email, contentType: .emailAddress, keyboard: .emailAddress)
-            AuthField(label: "Password", placeholder: "Your password", text: $auth.password, contentType: .password, secure: true)
-            actionButton("Sign in") { await auth.signIn() }
+            if auth.usesCognito {
+                Text("FamilyOS never handles your password. Sign in securely with Amazon Cognito.")
+                    .font(FamilyType.body(13)).lineSpacing(3)
+                    .foregroundStyle(FamilyPalette.secondary(scheme))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                actionButton("Continue to secure sign in") { await auth.signIn() }
+            } else {
+                AuthField(label: "Password", placeholder: "Your password", text: $auth.password, contentType: .password, secure: true)
+                actionButton("Sign in") { await auth.signIn() }
+            }
             linkButton("Forgot password?") { auth.show(.forgotPassword) }
         }
     }
@@ -197,13 +205,20 @@ struct CompanionView: View {
             AuthField(label: "Parent or guardian name", placeholder: "Your name", text: $auth.parentName, contentType: .name)
             AuthField(label: "Household name", placeholder: "The Parkers", text: $auth.householdName, contentType: .organizationName)
             AuthField(label: "Email address", placeholder: "you@example.com", text: $auth.email, contentType: .emailAddress, keyboard: .emailAddress)
-            AuthField(label: "Create password", placeholder: "At least 12 characters", text: $auth.password, contentType: .newPassword, secure: true)
+            if auth.usesCognito {
+                Text("Set your password and verify your email in Amazon Cognito’s secure sign-up flow.")
+                    .font(FamilyType.body(13)).lineSpacing(3)
+                    .foregroundStyle(FamilyPalette.secondary(scheme))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                AuthField(label: "Create password", placeholder: "At least 12 characters", text: $auth.password, contentType: .newPassword, secure: true)
+            }
             Text("Children can be added as family profiles later; they won’t need email accounts.")
                 .font(FamilyType.body(13))
                 .lineSpacing(3)
                 .foregroundStyle(FamilyPalette.secondary(scheme))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            actionButton("Create parent account") { await auth.createAccount() }
+            actionButton(auth.usesCognito ? "Continue to secure sign-up" : "Create parent account") { await auth.createAccount() }
         }
     }
 
@@ -224,8 +239,17 @@ struct CompanionView: View {
 
     private var forgotForm: some View {
         VStack(spacing: 13) {
-            AuthField(label: "Email address", placeholder: "you@example.com", text: $auth.email, contentType: .emailAddress, keyboard: .emailAddress)
-            actionButton("Send reset code") { await auth.requestPasswordReset() }
+            if auth.usesCognito {
+                Text("Password recovery is handled by Amazon Cognito. Open its sign-in page and choose “Forgot your password?”; after resetting, sign in there to return to FamilyOS.")
+                    .font(FamilyType.body(14)).lineSpacing(4)
+                    .foregroundStyle(FamilyPalette.secondary(scheme))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                AuthField(label: "Email address", placeholder: "you@example.com", text: $auth.email, contentType: .emailAddress, keyboard: .emailAddress)
+                actionButton("Open secure sign-in & recovery") { await auth.requestPasswordReset() }
+            } else {
+                AuthField(label: "Email address", placeholder: "you@example.com", text: $auth.email, contentType: .emailAddress, keyboard: .emailAddress)
+                actionButton("Send reset code") { await auth.requestPasswordReset() }
+            }
             linkButton("Back to sign in") { auth.show(.signIn) }
         }
     }
@@ -403,7 +427,9 @@ struct CompanionSettingsView: View {
                     }
                 }
                 Section {
-                    Text("Account creation and sign-in are connected to the local FamilyOS preview API. AWS Cognito, production email, household sync, and Railway are not configured yet.")
+                    Text(auth.usesCognito
+                         ? "Sign-in, email verification, and password recovery use Amazon Cognito. Household data syncs through your configured FamilyOS server."
+                         : "This address uses the local FamilyOS preview account flow. Enter an HTTPS Railway address to use Cognito sign-in and cloud household storage.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

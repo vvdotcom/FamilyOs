@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import type { HouseholdSnapshot } from '@familyos/domain';
 
 export type ListItem = { id: string; text: string; done: boolean };
 export type FamilyList = { id: string; name: string; color: string; items: ListItem[] };
@@ -98,10 +99,10 @@ export function loadPlanner(): PlannerSnapshot {
   return createPlannerDemo();
 }
 let itemSequence = 0;
-export function usePlannerData() {
+export function usePlannerData(persist = true) {
   const [data, setData] = useState(loadPlanner);
   useEffect(() => {
-    if (Platform.OS === 'web')
+    if (persist && Platform.OS === 'web')
       try {
         globalThis.localStorage?.setItem(storageKey, JSON.stringify(data));
       } catch {
@@ -110,6 +111,27 @@ export function usePlannerData() {
   }, [data]);
   return {
     data,
+    syncHousehold: (household: HouseholdSnapshot) => {
+      const groups = new Map<string, FamilyList>();
+      (household.listItems || []).forEach((item) => {
+        const list = groups.get(item.listName) || {
+          id: `household-${groups.size}`,
+          name: item.listName,
+          color: ['#2F5FA8', '#B45118', '#2C7B3B', '#6B45A8'][groups.size % 4],
+          items: [],
+        };
+        list.items.push({ id: item.id, text: item.title, done: item.completed });
+        groups.set(item.listName, list);
+      });
+      const meals = Object.fromEntries(
+        (household.meals || []).map((meal) => [`${meal.date}:${meal.category}`, meal.title]),
+      );
+      setData({
+        version: 1,
+        meals,
+        lists: groups.size ? Array.from(groups.values()) : [],
+      });
+    },
     reset: () => setData(createPlannerDemo()),
     setMeal: (key: string, title: string) =>
       setData((current) => ({ ...current, meals: { ...current.meals, [key]: title.trim() } })),

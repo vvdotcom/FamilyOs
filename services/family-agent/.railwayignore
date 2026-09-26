@@ -1,0 +1,14 @@
+# Keep local authentication databases, test data, and development artifacts out of uploads.
+.env
+.env.*
+.familyos/
+.codex-*/
+.npm-cache/
+.pytest_cache/
+.pytest-*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+tests/

@@ -123,5 +123,25 @@ def test_deployment_environment_fails_closed(monkeypatch, tmp_path):
     monkeypatch.setenv("FAMILYOS_AUTH_MODE", "local")
     monkeypatch.setenv("FAMILYOS_AUTH_DB_PATH", str(tmp_path / "blocked.sqlite3"))
     monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
-    with pytest.raises(RuntimeError, match="intentionally blocked"):
+    with pytest.raises(RuntimeError, match="blocked unless Cognito authentication"):
         importlib.reload(importlib.import_module("app.main"))
+
+
+def test_native_bearer_session_requires_token_and_is_revoked_on_signout(client: TestClient):
+    create_verified_account(client)
+    browser_reply = client.post('/v1/auth/sign-in', json={
+        'email': 'parent@example.test', 'password': 'family-secret-123',
+    })
+    assert 'sessionToken' not in browser_reply.json()['data']
+    client.cookies.clear()
+    reply = client.post('/v1/auth/sign-in', headers={'X-FamilyOS-Session-Transport': 'bearer'}, json={
+        'email': 'parent@example.test', 'password': 'family-secret-123',
+    })
+    token = reply.json()['data']['sessionToken']
+    assert reply.headers['cache-control'] == 'no-store'
+    assert 'set-cookie' not in reply.headers
+    assert client.get('/v1/auth/session').json()['data']['authenticated'] is False
+    headers = {'Authorization': f'Bearer {token}'}
+    assert client.get('/v1/auth/session', headers=headers).json()['data']['authenticated'] is True
+    assert client.post('/v1/auth/sign-out', headers=headers).status_code == 200
+    assert client.get('/v1/auth/session', headers=headers).json()['data']['authenticated'] is False
