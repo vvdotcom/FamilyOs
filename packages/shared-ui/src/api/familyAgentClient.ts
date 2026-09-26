@@ -7,6 +7,7 @@ import {
   HouseholdSnapshot,
   ProposedAction,
   Routine,
+  WeatherForecast,
 } from '@familyos/domain';
 import { clearTVDeviceToken, getTVDeviceToken, setTVDeviceToken } from './tvDeviceSession';
 
@@ -90,7 +91,15 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 8000
 
 export const familyAgentClient = {
   getHealth: () =>
-    request<{ status: string; ai_provider: string; bedrock_configured: boolean; model_configured: boolean }>('/health'),
+    request<{
+      status: string;
+      ai_provider: string;
+      bedrock_configured: boolean;
+      model_configured: boolean;
+      weather_provider: string;
+      weather_configured: boolean;
+    }>('/health'),
+  getWeather: () => request<WeatherForecast>('/v1/weather', {}, 12000),
   getHousehold: () => request<HouseholdSnapshot>('/v1/household'),
   createPairingChallenge: (deviceName = 'FamilyOS TV') =>
     request<{ challengeId: string; code: string; pollingToken: string; expiresAt: string }>(

@@ -4,7 +4,6 @@ import { SpatialNavigationNode, SpatialNavigationRoot } from 'react-tv-space-nav
 import {
   createDemoClock,
   createDemoCalendarProvider,
-  createDemoWeatherProvider,
   createDeterministicBriefing,
   confirmReassignment,
   detectConflicts,
@@ -69,6 +68,8 @@ function FamilyOsShellContent() {
   householdRef.current = household;
   const [calendarState, setCalendarState] = useState<ProviderState<HouseholdSnapshot['events']>>({ status: 'loading' });
   const [weatherState, setWeatherState] = useState<ProviderState<WeatherForecast>>({ status: 'loading' });
+  const weatherCacheRef = useRef<WeatherForecast | undefined>(undefined);
+  if (weatherState.data) weatherCacheRef.current = weatherState.data;
   const clock = useMemo(() => createDemoClock(), [demoVersion]);
   const now = useMemo(() => clock.now(), [clock]);
   const conflicts = useMemo(() => detectConflicts(household.members, household.events, { now }), [household, now]);
@@ -175,17 +176,28 @@ function FamilyOsShellContent() {
     let active = true;
     const requestId = ++briefingRequestId.current;
     setCalendarState({ status: 'loading' });
-    setWeatherState({ status: 'loading' });
+    if (!weatherCacheRef.current) setWeatherState({ status: 'loading' });
     void loadCalendarData(createDemoCalendarProvider(household), household.events).then((result) => {
       if (!active || requestId !== briefingRequestId.current) return;
       setCalendarState(result);
       if (result.data) setHousehold((current) => ({ ...current, events: result.data! }));
     });
-    void loadWeatherData(createDemoWeatherProvider(), 'Tucson, AZ', now.toISOString()).then((result) => {
-      if (active) setWeatherState(result);
-    });
+    const weatherProvider = {
+      name: 'National Weather Service',
+      async getForecast() {
+        return (await familyAgentClient.getWeather()).data;
+      },
+    };
+    const refreshWeather = () => {
+      void loadWeatherData(weatherProvider, 'Tucson, AZ', now.toISOString(), weatherCacheRef.current).then((result) => {
+        if (active) setWeatherState(result);
+      });
+    };
+    refreshWeather();
+    const weatherInterval = setInterval(refreshWeather, 15 * 60 * 1000);
     return () => {
       active = false;
+      clearInterval(weatherInterval);
     };
   }, [demoVersion, refreshVersion]);
 

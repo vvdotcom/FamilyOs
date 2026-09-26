@@ -22,6 +22,7 @@ from .models import (
 )
 from .pairing import PairingRegistry
 from .production import CognitoSessionService, CognitoTokenVerifier, PostgresHouseholdStore
+from .weather import NWSWeatherProvider, WeatherNotConfigured, WeatherUnavailable
 
 AUTH_MODE = os.getenv("FAMILYOS_AUTH_MODE", "local").strip().lower()
 DEMO_MODE = os.getenv("FAMILYOS_DEMO_MODE", "true").lower() == "true"
@@ -34,6 +35,7 @@ if os.getenv("RAILWAY_ENVIRONMENT") and not IS_PRODUCTION:
     )
 
 briefings = SafeBriefingService()
+weather_provider = NWSWeatherProvider.from_environment()
 app = FastAPI(title="FamilyOS Family Agent", version="0.1.0")
 
 if DEMO_MODE:
@@ -119,6 +121,8 @@ async def health(request: Request):
         "ai_provider": briefings.provider_name,
         "bedrock_configured": briefings.bedrock_configured,
         "model_configured": bool(os.getenv("FAMILYOS_BEDROCK_MODEL_ID")),
+        "weather_provider": "nws" if weather_provider.configured else "disabled",
+        "weather_configured": weather_provider.configured,
         "database_ready": database_ready,
     })
 
@@ -292,6 +296,22 @@ async def get_local_dev_email(email: str, purpose: Purpose, request: Request):
 async def get_household(request: Request):
     request.state.private_household = True
     return success(request, household_snapshot(request))
+
+
+@app.get("/v1/weather", response_model=APIEnvelope)
+async def get_weather(request: Request, response: Response):
+    request.state.private_household = True
+    require_household(request)
+    response.headers["Cache-Control"] = "no-store"
+    if not weather_provider.configured:
+        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set the household weather location to enable forecasts.")
+    try:
+        forecast = await weather_provider.get_forecast()
+    except WeatherNotConfigured as error:
+        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set the household weather location to enable forecasts.") from error
+    except WeatherUnavailable as error:
+        raise DomainError(503, "WEATHER_UNAVAILABLE", "The weather service is temporarily unavailable.") from error
+    return success(request, forecast, provider="nws")
 
 
 @app.post("/v1/pairing/challenges", response_model=APIEnvelope)

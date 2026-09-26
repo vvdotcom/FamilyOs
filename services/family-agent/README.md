@@ -52,9 +52,23 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8787 --reload --env-file 
 The workspace `.env` is local and ignored by Git. Set `AWS_BEARER_TOKEN_BEDROCK`
 there to use Bedrock; never place it in an Expo environment file or client code.
 Without the token, model ID, or service access, the API returns a deterministic
-briefing instead. The TV app reads only `EXPO_PUBLIC_FAMILYOS_API_URL`. Keep local
-development on a trusted private Wi-Fi network; production household access uses the
-protected Cognito/PostgreSQL mode described below.
+briefing instead. A configured Bedrock key is not proof that the model can be called;
+verify it with a live request after every key rotation.
+
+Weather is fetched server-side from the National Weather Service (no API key). Set
+`FAMILYOS_WEATHER_LATITUDE`, `FAMILYOS_WEATHER_LONGITUDE`, and
+`FAMILYOS_WEATHER_LOCATION` to the household's city-center coordinates and display
+label. The checked-in `.env.example` leaves these blank. The ignored local `.env` uses
+Tucson as a demo fixture, matching the current TV preview; replace it for a different
+test location. The first version uses one location per service deployment, so configure
+the appropriate location before serving a real household. Keep all location values and
+Bedrock credentials on the backend, never in Expo variables. In Railway, set these as
+service variables separately from the repository; the ignored local `.env` is never
+uploaded as part of a code deployment.
+
+The TV app reads only `EXPO_PUBLIC_FAMILYOS_API_URL`. Keep local development on a
+trusted private Wi-Fi network; production household access uses the protected
+Cognito/PostgreSQL mode described below.
 
 Expo reads its public API URL from `apps/expo-multi-tv/.env` (see that directory's
 `.env.example`). This file contains no Bedrock credentials.
@@ -72,7 +86,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8787 --reload --env-file 
 
 The API is available at `http://127.0.0.1:8787`. Success responses use `data` and
 `meta.request_id`; errors return a stable code and safe message without a stack trace.
-Routes include `/health`, household/events/chores/routines/conflicts, GET and POST
+Routes include `/health`, household/events/chores/routines/conflicts, `/v1/weather`, GET and POST
 briefing, propose/confirm/cancel action, and demo reset. The TV app uses the POST
 briefing route to send a minimized summary context. It omits locations, notes, photos,
 and credentials. Bedrock receives only that context and can only return text; all

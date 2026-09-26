@@ -9,12 +9,14 @@ sign-in, and sign-out flows tested against that deployed service. See
 ## Outcome
 
 Turn the local MVP into a cloud-backed household product with parent sign-in, secure TV
-pairing, local caching, synchronization, ambient behavior, and optional calendar, weather,
-voice, and AWS adapters. Keep an isolated, deterministic offline demo available.
+pairing, local caching, synchronization, ambient behavior, and weather, voice, and AWS
+adapters. Keep an isolated, deterministic offline demo available. The built-in FamilyOS
+calendar remains part of the household experience; connecting an external calendar is
+deferred to the optional Phase 11 work package.
 
 ## Specification coverage
 
-- `single.md` sections 2.7, 13, 15–18, 20 / EPIC 9–10 and 12–13, 21, and 30–31.
+- `single.md` sections 2.7, 13, 15–18, 20 / EPIC 9–10 and 13, 21, and 30–31.
 - Approved scope addition: introduce basic account ownership and access in Phase 5 before
   storing real household data in the cloud, rather than waiting until Phase 9.
 
@@ -133,11 +135,17 @@ completion gate.
   on any remote key.
 - [ ] Complete Vega manifest, package, VVD automation, virtual-remote smoke coverage, and
   performance observations.
-- [ ] Add Google Calendar OAuth and mapping behind the provider abstraction, including
-  disconnect and demo-safety behavior.
-- [ ] Add production weather provider behavior without making the demo network-dependent.
-- [ ] Complete Bedrock mode and optionally add Strands/AgentCore adapters. Choose the
-  household database independently; DynamoDB is an option, not a second source of truth.
+- [x] Add the backend-only National Weather Service provider and authenticated TV endpoint.
+  Local development uses a configurable Tucson demo location; no API key or TV-side secret
+  is required. Production requires setting a deployment location; household-specific
+  location preferences remain future work.
+- [x] Keep Bedrock behind the server, with deterministic briefing fallback and no secret
+  in Expo configuration. Live credential/model invocation still needs periodic verification.
+- [x] Verify the configured local Bedrock Converse call with Nova Lite in `us-west-2`.
+- [ ] Configure and verify the Railway Bedrock and weather variables and confirm both
+  integrations through the hosted API.
+- [ ] Optionally add Strands/AgentCore adapters. Choose the household database
+  independently; DynamoDB is an option, not a second source of truth.
 - [ ] Add a developer/demo command palette and evaluate the compatible voice stretch path.
 
 ## Verification checkpoints
