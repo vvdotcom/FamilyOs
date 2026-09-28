@@ -83,7 +83,12 @@ export type IconName =
   | 'trash'
   | 'share'
   | 'people'
-  | 'refresh';
+  | 'refresh'
+  | 'star'
+  | 'sparkle'
+  | 'run'
+  | 'ball'
+  | 'import';
 const paths: Partial<Record<IconName, string>> = {
   plus: 'M12 5v14M5 12h14',
   right: 'M9 6l6 6-6 6',
@@ -108,6 +113,11 @@ const paths: Partial<Record<IconName, string>> = {
   share: 'M12 3v13M7 8l5-5 5 5M5 13v7h14v-7',
   people: 'M2.5 20a6.5 6.5 0 0113 0M16 14.5a5 5 0 015.5 5.5',
   refresh: 'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0112-1l2 6M4 12l2 6a7 7 0 0012-1',
+  star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+  sparkle: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18',
+  run: 'M13 5.5a1.5 1.5 0 100-.01M9 20l3-6 3 3v4M7 11l3-3 4 1 3 3M12 14l-2-3',
+  ball: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7l3.5 2.5-1.3 4h-4.4l-1.3-4z',
+  import: 'M12 4v11M7 10l5 5 5-5M5 20h14',
 };
 export function Icon({ name, size = 24, color }: { name: IconName; size?: number; color?: string }) {
   const t = useTheme();
@@ -307,3 +317,77 @@ export const layout = StyleSheet.create({
   divider: { height: 1 },
   section: { gap: 8 },
 });
+
+/** Two or three mutually exclusive views of one screen, e.g. Chores | Rewards. */
+export function Segmented<T extends string>({ options, value, onChange }: {
+  options: { id: T; label: string; badge?: number }[];
+  value: T;
+  onChange: (id: T) => void;
+}) {
+  const t = useTheme();
+  return (
+    <View accessibilityRole="tablist" style={{ flexDirection: 'row', padding: 4, borderRadius: 14, backgroundColor: t.soft, gap: 4 }}>
+      {options.map((option) => {
+        const active = option.id === value;
+        return (
+          <Pressable
+            key={option.id}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={option.badge ? `${option.label}, ${option.badge} waiting` : option.label}
+            onPress={() => onChange(option.id)}
+            style={{
+              flex: 1, minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6,
+              backgroundColor: active ? t.card : 'transparent',
+              shadowColor: '#000', shadowOpacity: active ? 0.06 : 0, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
+            }}
+          >
+            <Copy size={14} weight={active ? 800 : 600} color={active ? t.ink : t.muted}>{option.label}</Copy>
+            {option.badge ? <Badge count={option.badge} /> : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function Badge({ count }: { count: number }) {
+  const t = useTheme();
+  if (!count) return null;
+  return (
+    <View style={{ minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: t.danger, alignItems: 'center', justifyContent: 'center' }}>
+      <Copy size={11} weight={800} color="#FFFFFF">{count > 9 ? '9+' : count}</Copy>
+    </View>
+  );
+}
+
+/** A tappable navigation row with an icon tile, used for the grouped Family menu. */
+export function NavRow({ icon, title, subtitle, onPress, badge, last = false, tint }: {
+  icon: IconName;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  badge?: number;
+  last?: boolean;
+  tint?: { backgroundColor: string; color: string };
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={badge ? `${title}, ${badge} waiting` : title}
+      onPress={onPress}
+      style={({ pressed }) => [layout.row, { paddingHorizontal: 14, paddingVertical: 12, minHeight: 60, borderBottomWidth: last ? 0 : 1, borderColor: t.line, opacity: pressed ? 0.7 : 1 }]}
+    >
+      <View style={{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: tint?.backgroundColor || t.soft }}>
+        <Icon name={icon} size={20} color={tint?.color || t.ink} />
+      </View>
+      <View style={layout.grow}>
+        <Copy weight={700}>{title}</Copy>
+        {subtitle ? <Copy size={13} color={t.muted}>{subtitle}</Copy> : null}
+      </View>
+      <Badge count={badge || 0} />
+      <Icon name="right" size={18} color={t.muted} />
+    </Pressable>
+  );
+}

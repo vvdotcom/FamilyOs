@@ -1,0 +1,617 @@
+{
+  "summary": {
+    "provider": "demo",
+    "photos": 60,
+    "accuracy": 0.667,
+    "false_looks_done_rate": 0.0,
+    "unclear_rate": 0.267,
+    "fallbacks": 0,
+    "by_chore": {
+      "Clear the table": 0.4,
+      "Make the bed": 0.8,
+      "Put toys away": 0.8
+    }
+  },
+  "rows": [
+    {
+      "file": "make-bed-00.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-01.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-02.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-03.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-04.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-05.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-06.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-07.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-08.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": true,
+      "verdict": "not_done",
+      "confidence": 0.65,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-09.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "looks_done",
+      "hard": true,
+      "verdict": "not_done",
+      "confidence": 0.65,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-10.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.95,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-11.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.77,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-12.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-13.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.94,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-14.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.95,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-15.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.84,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-16.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.84,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-17.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.85,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-18.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "make-bed-19.jpg",
+      "chore": "Make the bed",
+      "hint": "blanket pulled flat, pillows at the top, nothing on the floor",
+      "label": "not_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-00.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-01.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-02.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-03.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-04.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-05.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-06.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-07.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-08.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": true,
+      "verdict": "not_done",
+      "confidence": 0.95,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-09.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "looks_done",
+      "hard": true,
+      "verdict": "not_done",
+      "confidence": 0.95,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-10.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.84,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-11.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.87,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-12.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.95,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-13.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.77,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-14.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.95,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-15.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.81,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-16.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-17.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "not_done",
+      "confidence": 0.89,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-18.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "toys-away-19.jpg",
+      "chore": "Put toys away",
+      "hint": "floor is clear and toys are in the bin",
+      "label": "not_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-00.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-01.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-02.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-03.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-04.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-05.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-06.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-07.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": false,
+      "verdict": "looks_done",
+      "confidence": 0.8,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-08.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-09.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "looks_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-10.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-11.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-12.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-13.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-14.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-15.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-16.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-17.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": false,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-18.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    },
+    {
+      "file": "clear-table-19.jpg",
+      "chore": "Clear the table",
+      "hint": "table is empty and wiped",
+      "label": "not_done",
+      "hard": true,
+      "verdict": "unclear",
+      "confidence": 0.4,
+      "provider": "demo"
+    }
+  ]
+}

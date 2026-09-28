@@ -5,6 +5,18 @@
 Provide phone-friendly companion access for household setup and event entry, and allow
 the family to upload and manage photos shown by the TV's ambient mode.
 
+## Status — 2026-09-28
+
+Implemented in the Expo companion: family photo upload (downscaled and re-encoded on the phone, EXIF/GPS
+stripped again on the server, private per-household storage with a 150 MB quota), show-on-TV, ordering,
+rotation, removal; a TV slideshow of selected photos using the device token; document/photo capture for
+imports; event responsibility (pickup/drop-off/drive), preparation checklists, weekly recurrence, and team
+fields. Removed photos disappear from the TV on its next 5-second sync. Not done: the optional SwiftUI app
+(needs a Mac), the responsive web companion (the user asked to focus on Expo iOS), calendar-integration
+connections (optional, Phase 11), and offline photo caching beyond the platform image cache.
+
+Automated checks: backend `python -m pytest` (89 passing), companion `node --test apps/companion/tests/*.test.cjs` (23) and `tsc`, TV `yarn test` (Expo TV 15, Vega 20) and `typecheck:phase2`. Not yet done: Expo Go on a physical iPhone and Vega/Fire TV regression of the changed TV screens (both scheduled with the user).
+
 ## Dependencies and scope
 
 - Reuse Phase 5 authentication/pairing, Phase 9 permissions, Phase 3 event data, Phase 5 ambient mode,

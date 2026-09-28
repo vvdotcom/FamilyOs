@@ -16,9 +16,9 @@ export interface FamilyMember {
   accentColor: string;
 }
 
-export type EventCategory = 'school' | 'appointment' | 'pickup' | 'sports' | 'meal' | 'family';
+export type EventCategory = 'school' | 'appointment' | 'pickup' | 'dropoff' | 'drive' | 'sports' | 'meal' | 'family' | 'move';
 export type ResponsibilityType = 'pickup' | 'dropoff' | 'drive';
-export type EventSource = 'demo' | 'manual' | 'google' | 'outlook';
+export type EventSource = 'demo' | 'manual' | 'google' | 'outlook' | 'import' | 'voice';
 
 export interface PreparationItem {
   id: string;
@@ -41,6 +41,13 @@ export interface CalendarEvent {
   travelMinutes?: number;
   preparation: PreparationItem[];
   source: EventSource;
+  allDay?: boolean;
+  seriesId?: string | null;
+  teamId?: string | null;
+  sportKind?: 'practice' | 'game' | null;
+  arrivalMinutes?: number | null;
+  uniform?: string | null;
+  moveRoutineId?: string | null;
 }
 
 export type ChoreStatus = 'pending' | 'completed';
@@ -55,6 +62,8 @@ export interface Chore {
   points?: number;
   recurrence?: 'daily' | 'weekly';
   completedAt?: string;
+  verifyWithPhoto?: boolean;
+  photoHint?: string | null;
 }
 
 export interface RoutineStep {
@@ -130,6 +139,98 @@ export interface HouseholdMeal {
   instructions: string[];
 }
 
+export interface HouseholdReward {
+  id: string;
+  title: string;
+  stars: number;
+  available: boolean;
+}
+
+export interface HouseholdRedemption {
+  id: string;
+  memberId: string;
+  rewardId: string;
+  stars: number;
+  status: 'pending' | 'approved' | 'rejected' | 'fulfilled';
+  requestedAt: string;
+}
+
+export interface StarTransaction {
+  id: string;
+  memberId: string;
+  delta: number;
+  reason: 'chore_earned' | 'chore_reversed' | 'reward_redeemed' | 'adjustment' | 'move_completed';
+  sourceId: string;
+  createdAt: string;
+}
+
+/** A change requested by voice (or another indirect source). Nothing changes until someone confirms it. */
+export interface HouseholdProposal {
+  id: string;
+  source: 'voice' | 'companion' | 'tv';
+  kind: 'pickup_swap' | 'event' | 'reschedule' | 'chore_done';
+  status: 'pending' | 'confirmed' | 'rejected' | 'expired';
+  summary: string;
+  requestedBy: string;
+  createdAt: string;
+  expiresAt: string;
+  resultMessage?: string | null;
+}
+
+export interface ChoreVerification {
+  id: string;
+  choreId: string;
+  memberId: string;
+  photoId?: string | null;
+  verdict: 'looks_done' | 'unclear' | 'not_done';
+  reason: string;
+  confidence: number;
+  provider: 'demo' | 'bedrock' | 'fallback';
+  status: 'pending' | 'approved' | 'rejected' | 'retake';
+  submittedAt: string;
+}
+
+export interface FamilyNightSettings {
+  weekday: number; // Monday = 0
+  time: string;
+  activityType: 'movie' | 'game' | 'other';
+  pickerOrder: string[];
+  pickerIndex: number;
+}
+
+export interface FamilyNightPoll {
+  id: string; // YYYY-MM-DD
+  activityType: 'movie' | 'game' | 'other';
+  suggestions: Array<{ id: string; title: string; byMemberId: string }>;
+  votes: Record<string, string>;
+  status: 'open' | 'tie' | 'decided';
+  tiedSuggestionIds: string[];
+  winnerSuggestionId?: string | null;
+  decidedBy?: 'majority' | 'picker' | null;
+  pickerMemberId?: string | null;
+}
+
+export interface HouseholdPhoto {
+  id: string;
+  caption: string;
+  width: number;
+  height: number;
+  order: number;
+  selected: boolean;
+  rotation: 0 | 90 | 180 | 270;
+}
+
+export interface HouseholdTeam {
+  id: string;
+  name: string;
+  activity: string;
+  memberIds: string[];
+  uniform?: string | null;
+  gear: string[];
+  driverIds: string[];
+  rotationIndex: number;
+}
+
 export interface HouseholdSnapshot {
   family: Family;
   members: FamilyMember[];
@@ -139,4 +240,13 @@ export interface HouseholdSnapshot {
   revision?: number;
   listItems?: HouseholdListItem[];
   meals?: HouseholdMeal[];
+  rewards?: HouseholdReward[];
+  redemptions?: HouseholdRedemption[];
+  starTransactions?: StarTransaction[];
+  proposals?: HouseholdProposal[];
+  choreVerifications?: ChoreVerification[];
+  familyNight?: FamilyNightSettings | null;
+  familyNightPolls?: FamilyNightPoll[];
+  photos?: HouseholdPhoto[];
+  teams?: HouseholdTeam[];
 }

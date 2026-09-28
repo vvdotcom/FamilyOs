@@ -127,12 +127,17 @@ def detect_conflicts(snapshot: HouseholdSnapshot, now: datetime | None = None) -
 
     for responsibility in [item for item in events if item.responsibleMemberId and item.responsibilityType]:
         member_id = responsibility.responsibleMemberId or ""
-        busy = next((item for item in events if item.id != responsibility.id and member_id in item.memberIds
+        # A driver is also busy when they are responsible for another overlapping event.
+        busy = next((item for item in events if item.id != responsibility.id
+                     and (member_id in item.memberIds or item.responsibleMemberId == member_id)
                      and overlaps(item, responsibility)), None)
         if busy:
             candidate = next((member.id for member in snapshot.members if member.role == "adult"
                               and member.id != member_id and is_available(snapshot, responsibility, member.id)), None)
-            title = "Pickup conflict" if responsibility.responsibilityType == "pickup" else "Family conflict"
+            if busy.responsibleMemberId == member_id and member_id not in busy.memberIds:
+                title = "Driver needed in two places"
+            else:
+                title = "Pickup conflict" if responsibility.responsibilityType == "pickup" else "Family conflict"
             conflicts.append(make_conflict("responsibility_overlap", [busy, responsibility], [member_id], title,
                 f"{member_name(snapshot, member_id)} is busy during {responsibility.title}.", candidate))
         else:
@@ -143,13 +148,52 @@ def detect_conflicts(snapshot: HouseholdSnapshot, now: datetime | None = None) -
                 conflicts.append(make_conflict("travel_buffer", [previous[0], responsibility], [member_id],
                     "Travel time is tight", f"There may not be enough time between {previous[0].title} and {responsibility.title}."))
 
+    # Venue-to-venue travel: back-to-back events at different places need their travel time.
+    for member in snapshot.members:
+        mine = [item for item in events if member.id in item.memberIds and not item.allDay]
+        for first, second in zip(mine, mine[1:]):
+            if not (first.location and second.location and second.travelMinutes):
+                continue
+            if first.location.strip().casefold() == second.location.strip().casefold():
+                continue
+            gap = (parse(second.startAt) - parse(first.endAt)).total_seconds() / 60
+            if 0 <= gap < second.travelMinutes:
+                conflicts.append(make_conflict("travel_buffer", [first, second], [member.id],
+                    "Not enough travel time",
+                    f"{member.name} needs about {second.travelMinutes} minutes to get from {first.title} to {second.title}."))
+
     for event in events:
         remaining = [item.label for item in event.preparation if not item.completed]
         until_start = (parse(event.startAt) - current).total_seconds() / 60
         if remaining and 0 <= until_start <= 60:
             conflicts.append(make_conflict("preparation", [event], event.memberIds,
                 f"{event.title} preparation", f"Still needed: {', '.join(remaining)}."))
-    return sorted(conflicts, key=lambda item: (parse(item.startsAt), item.id))
+    unique = {item.id: item for item in conflicts}
+    return sorted(unique.values(), key=lambda item: (parse(item.startsAt), item.id))
+
+
+def sports_reminders(snapshot: HouseholdSnapshot, now: datetime | None = None, horizon_minutes: int = 180) -> list[dict[str, object]]:
+    """Speakable 'leave soon' reminders for sports events starting within the horizon."""
+    current = now or demo_now()
+    reminders = []
+    for event in sorted(snapshot.events, key=lambda item: parse(item.startAt)):
+        if event.category != "sports":
+            continue
+        until = (parse(event.startAt) - current).total_seconds() / 60
+        if not 0 <= until <= horizon_minutes:
+            continue
+        lead = (event.travelMinutes or 0) + (event.arrivalMinutes or 0)
+        leave_in = max(0, round(until - lead))
+        missing = [item.label for item in event.preparation if not item.completed]
+        driver = member_name(snapshot, event.responsibleMemberId) if event.responsibleMemberId else None
+        text = f"Leave for {event.title} in {leave_in} minutes"
+        if missing:
+            text += f"; {', '.join(missing[:3])} not packed"
+        if event.uniform:
+            text += f"; wear {event.uniform}"
+        reminders.append({"eventId": event.id, "leaveInMinutes": leave_in, "missing": missing,
+                          "driver": driver, "text": text + "."})
+    return reminders
 
 
 def is_available(snapshot: HouseholdSnapshot, target_event: CalendarEvent, member_id: str) -> bool:

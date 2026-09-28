@@ -3449,9 +3449,10 @@ Do not declare final readiness until real hardware QA passes.
 
 ---
 
-## EPIC 12 — Google Calendar Integration
+## EPIC 12 — Optional External Google Calendar Integration (Phase 11)
 
-This is P1. Build after the local demo is excellent.
+This integration is optional and deferred to Phase 11, after the core household calendar,
+cloud account flow, and release demo work. It does not block Phase 5 or Phase 11 completion.
 
 ### Story 12.1 — Provider
 
@@ -3855,6 +3856,7 @@ AWS_REGION=
 AWS_BEARER_TOKEN_BEDROCK=
 FAMILYOS_BEDROCK_MODEL_ID=
 
+# Optional Phase 11 external Google Calendar integration; leave unset unless enabled.
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=
@@ -4049,7 +4051,7 @@ If time becomes constrained, prioritize in this order:
 7. Deterministic briefing
 8. Bedrock briefing
 9. Ambient mode
-10. Google Calendar
+10. Optional external Google Calendar integration (Phase 11, only if selected)
 11. Strands/AgentCore
 12. Voice stretch goal
 ```
@@ -4294,7 +4296,9 @@ That is the core of FamilyOS.
 # 39. Approved Roadmap Extension — 2026-09-23
 
 The original MVP remains Phases 1–6. The following user-approved additions extend the
-roadmap to ten phases and are planned work, not implemented features:
+product roadmap through Phase 10 and are planned work, not implemented features. Phase 11
+is reserved for final documentation, demo, and release packaging after product/device work;
+external Google Calendar integration is optional within that phase.
 
 7. [Improvements](docs/phases/phase-7-improvements.md): shared household lists, a weekly
    meal plan and dashboard dinner summary, photo/email/flyer import into reviewed events,
@@ -4308,6 +4312,10 @@ roadmap to ten phases and are planned work, not implemented features:
 10. [Mobile control](docs/phases/phase-10-mobile-control.md): a small phone-friendly web
     companion for setup and event entry, plus family photo upload and management for
     ambient display. A separate native mobile application is not required.
+11. [Documentation, demo, and optional calendar integration](docs/phases/phase-11-documentation-demo.md):
+    consolidate reproducible setup/deployment guidance, architecture/privacy/testing evidence,
+    screenshots and troubleshooting, rehearse and capture the three-minute demo, prepare
+    evidence-backed release tags, and optionally connect an external calendar.
 
 These additions extend the earlier MVP scope without making Phases 7–10 prerequisites
 for the Phase 6 MVP release. Existing privacy, remote accessibility, and explicit
@@ -4315,4 +4323,6 @@ confirmation requirements also apply to these features.
 
 Development uses the local web target and automated checks through Phases 1–4, with
 Vega integration testing at the end of Phase 5 and final Vega/device validation in
-Phase 6. Later-phase TV changes require fresh platform regression before release.
+Phase 6. Real Vega hardware verification is scheduled for Phase 10. Phase 11 packages
+up-to-date documentation and demos after the latest product and platform checks. Later-phase
+TV changes require fresh platform regression before release.

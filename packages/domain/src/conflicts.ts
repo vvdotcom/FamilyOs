@@ -34,12 +34,15 @@ export function detectConflicts(
 
   for (const responsibility of ordered.filter((item) => item.responsibleMemberId && item.responsibilityType)) {
     const responsibleMemberId = responsibility.responsibleMemberId!;
+    // A driver is also busy when responsible for another overlapping event (same rule as the server).
     const busyEvent = ordered.find((item) => item.id !== responsibility.id
-      && item.memberIds.includes(responsibleMemberId) && overlaps(item, responsibility));
+      && (item.memberIds.includes(responsibleMemberId) || item.responsibleMemberId === responsibleMemberId)
+      && overlaps(item, responsibility));
     if (busyEvent) {
       const candidate = suggestReassignment(responsibility, members, ordered, options.preferredAdultId);
+      const doubleBooked = busyEvent.responsibleMemberId === responsibleMemberId && !busyEvent.memberIds.includes(responsibleMemberId);
       conflicts.push(makeConflict('responsibility_overlap', [busyEvent, responsibility], [responsibleMemberId],
-        `${responsibility.responsibilityType === 'pickup' ? 'Pickup' : 'Family'} conflict`,
+        doubleBooked ? 'Driver needed in two places' : `${responsibility.responsibilityType === 'pickup' ? 'Pickup' : 'Family'} conflict`,
         `${memberName(responsibleMemberId, members)} is busy during ${responsibility.title}.`, candidate?.id));
     } else if (bufferMs > 0) {
       const previousEvent = ordered.filter((item) => item.id !== responsibility.id
@@ -53,6 +56,22 @@ export function detectConflicts(
     }
   }
 
+  // Venue-to-venue travel: back-to-back events at different places need their travel time.
+  for (const member of members) {
+    const mine = ordered.filter((item) => item.memberIds.includes(member.id) && !item.allDay);
+    for (let i = 1; i < mine.length; i += 1) {
+      const first = mine[i - 1];
+      const second = mine[i];
+      if (!first.location || !second.location || !second.travelMinutes) continue;
+      if (first.location.trim().toLowerCase() === second.location.trim().toLowerCase()) continue;
+      const gap = (Date.parse(second.startAt) - Date.parse(first.endAt)) / 60_000;
+      if (gap >= 0 && gap < second.travelMinutes) {
+        conflicts.push(makeConflict('travel_buffer', [first, second], [member.id], 'Not enough travel time',
+          `${member.name} needs about ${second.travelMinutes} minutes to get from ${first.title} to ${second.title}.`));
+      }
+    }
+  }
+
   for (const item of ordered) {
     const remaining = item.preparation.filter((entry) => !entry.completed);
     const timeUntilStart = Date.parse(item.startAt) - now;
@@ -62,7 +81,8 @@ export function detectConflicts(
     }
   }
 
-  return conflicts.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.id.localeCompare(b.id));
+  const unique = [...new Map(conflicts.map((item) => [item.id, item])).values()];
+  return unique.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.id.localeCompare(b.id));
 }
 
 export function suggestReassignment(

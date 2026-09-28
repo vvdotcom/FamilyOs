@@ -73,8 +73,8 @@ export default function FamilyHomeScreen({
     try {
       setPendingAction(await onProposeAction(conflict.id, conflictEvent.id, suggested.id));
       setResolution('confirm');
-    } catch {
-      setActionMessage('The pickup suggestion could not be prepared. Refresh and try again.');
+    } catch (error) {
+      setActionMessage(error instanceof Error && error.message ? error.message : 'The pickup suggestion could not be prepared. Refresh and try again.');
     } finally {
       setWorking(false);
     }
@@ -294,14 +294,30 @@ export default function FamilyHomeScreen({
                   {next.title.replace(' practice', '')} · {formatTime(next.startAt, timezone)}
                 </DText>
               </DButton>
-              {next.travelMinutes ? (
+              {next.travelMinutes || next.arrivalMinutes ? (
                 <View
                   style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14, backgroundColor: p.warning }}>
                   <DText size={24} weight={800} color={p.warningInk}>
                     Leave by{' '}
-                    {formatTime(new Date(Date.parse(next.startAt) - next.travelMinutes * 60000), timezone, false)}
+                    {formatTime(
+                      new Date(Date.parse(next.startAt) - ((next.travelMinutes || 0) + (next.arrivalMinutes || 0)) * 60000),
+                      timezone,
+                      false,
+                    )}
                   </DText>
                 </View>
+              ) : null}
+              {next.category === 'move' ? (
+                <DButton
+                  label="Start movement break"
+                  onPress={() => onNavigate('Move')}
+                  active={focusActive}
+                  radius={31}
+                  style={{ height: 62, paddingHorizontal: 22, justifyContent: 'center', backgroundColor: p.selected }}>
+                  <DText size={24} weight={800} color={p.onSelected}>
+                    Start now
+                  </DText>
+                </DButton>
               ) : null}
             </DRow>
           ) : (

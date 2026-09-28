@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,7 +16,7 @@ from jwt.exceptions import PyJWKClientError
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from .auth import SESSION_DAYS
+from .auth import ELEVATED_IDLE_MINUTES, SESSION_DAYS
 from .domain import DemoRepository, DomainError
 from .models import CalendarEvent, HouseholdSnapshot, ProposedAction
 
@@ -68,6 +69,68 @@ class PostgresHouseholdStore:
 
     def _pairing_digest(self, value: str) -> str:
         return hmac.new(self._pairing_key, value.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    def _parent_code_hash(self, owner_sub: str, code: str, salt: bytes) -> bytes:
+        keyed = hmac.new(self._pairing_key, f"{owner_sub}:parent-access:{code}".encode("ascii"), hashlib.sha256).digest()
+        return hashlib.scrypt(keyed, salt=salt, n=2**14, r=8, p=1, dklen=32)
+
+    def set_parent_access_code(self, owner_sub: str, code: str) -> None:
+        if not re.fullmatch(r"\d{4}", code or ""):
+            raise DomainError(422, "INVALID_ACCESS_CODE", "Choose a four-digit parent access code.")
+        salt = secrets.token_bytes(16)
+        with self._connect() as connection:
+            row = connection.execute(
+                """INSERT INTO familyos_parent_access_codes(owner_sub, salt, code_hash)
+                   VALUES (%s, %s, %s) ON CONFLICT(owner_sub) DO NOTHING RETURNING owner_sub""",
+                (owner_sub, salt, self._parent_code_hash(owner_sub, code, salt)),
+            ).fetchone()
+        if row is None:
+            raise DomainError(409, "ACCESS_CODE_ALREADY_SET", "A parent access code is already set. Verify the current code before changing it.")
+
+    def parent_access_code_configured(self, owner_sub: str) -> bool:
+        with self._connect() as connection:
+            return connection.execute(
+                "SELECT 1 FROM familyos_parent_access_codes WHERE owner_sub = %s", (owner_sub,)
+            ).fetchone() is not None
+
+    def verify_parent_access_code(self, owner_sub: str, code: str) -> None:
+        failure = None
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT salt, code_hash, attempts, locked_until FROM familyos_parent_access_codes WHERE owner_sub = %s FOR UPDATE",
+                (owner_sub,),
+            ).fetchone()
+            if row is None:
+                failure = DomainError(409, "ACCESS_CODE_NOT_SET", "Set a parent access code before approving a reward.")
+            elif row["locked_until"] and row["locked_until"] > datetime.now(timezone.utc):
+                failure = DomainError(429, "ACCESS_CODE_COOLDOWN", "Too many incorrect codes. Wait one minute and try again.")
+            elif not (re.fullmatch(r"\d{4}", code or "") and hmac.compare_digest(
+                    row["code_hash"], self._parent_code_hash(owner_sub, code, row["salt"]))):
+                attempts = int(row["attempts"]) + 1
+                locked_until = datetime.now(timezone.utc) + timedelta(minutes=1) if attempts >= 5 else None
+                connection.execute(
+                    "UPDATE familyos_parent_access_codes SET attempts = %s, locked_until = %s WHERE owner_sub = %s",
+                    (0 if locked_until else attempts, locked_until, owner_sub),
+                )
+                failure = DomainError(401, "ACCESS_CODE_INCORRECT", "That parent access code is incorrect.")
+            else:
+                connection.execute(
+                    "UPDATE familyos_parent_access_codes SET attempts = 0, locked_until = NULL WHERE owner_sub = %s",
+                    (owner_sub,),
+                )
+        if failure:
+            raise failure
+
+    def change_parent_access_code(self, owner_sub: str, old_code: str, new_code: str) -> None:
+        self.verify_parent_access_code(owner_sub, old_code)
+        if not re.fullmatch(r"\d{4}", new_code or ""):
+            raise DomainError(422, "INVALID_ACCESS_CODE", "Choose a four-digit parent access code.")
+        salt = secrets.token_bytes(16)
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE familyos_parent_access_codes SET salt = %s, code_hash = %s, attempts = 0, locked_until = NULL WHERE owner_sub = %s",
+                (salt, self._parent_code_hash(owner_sub, new_code, salt), owner_sub),
+            )
 
     def create_pairing_challenge(self, device_name: str, requester: str) -> dict[str, str]:
         code = f"{secrets.randbelow(1_000_000):06d}"
@@ -185,11 +248,12 @@ class PostgresHouseholdStore:
             row = connection.execute(
                 """UPDATE familyos_devices SET last_seen_at = now()
                    WHERE token_hash = %s AND revoked_at IS NULL AND expires_at > now()
-                   RETURNING id, owner_sub, device_name""", (token_hash,)
+                   RETURNING id, owner_sub, device_name, elevated_until""", (token_hash,)
             ).fetchone()
         if row is None:
             return None
-        return {"deviceId": str(row["id"]), "ownerSub": str(row["owner_sub"]), "deviceName": str(row["device_name"])}
+        return {"deviceId": str(row["id"]), "ownerSub": str(row["owner_sub"]), "deviceName": str(row["device_name"]),
+                "elevated": bool(row["elevated_until"] and row["elevated_until"] > datetime.now(timezone.utc))}
 
     def paired_devices(self, owner_sub: str) -> list[dict[str, str | None]]:
         with self._connect() as connection:
@@ -340,15 +404,16 @@ class PostgresHouseholdStore:
             ).fetchone()
         return self._account(row) if row else None
 
-    def create_session(self, owner_sub: str) -> str:
+    def create_session(self, owner_sub: str, elevated: bool = False) -> str:
         token = secrets.token_urlsafe(48)
         token_hash = hashlib.sha256(token.encode("ascii")).hexdigest()
-        expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+        expires = datetime.now(timezone.utc) + (timedelta(hours=8) if elevated else timedelta(days=SESSION_DAYS))
         with self._connect() as connection:
             connection.execute("DELETE FROM familyos_sessions WHERE expires_at <= now()")
             connection.execute(
-                "INSERT INTO familyos_sessions(token_hash, owner_sub, expires_at) VALUES (%s, %s, %s)",
-                (token_hash, owner_sub, expires),
+                """INSERT INTO familyos_sessions(token_hash, owner_sub, expires_at, elevated, last_used_at)
+                   VALUES (%s, %s, %s, %s, now())""",
+                (token_hash, owner_sub, expires, elevated),
             )
         return token
 
@@ -358,12 +423,139 @@ class PostgresHouseholdStore:
         token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
         with self._connect() as connection:
             row = connection.execute(
-                """SELECT h.* FROM familyos_sessions s
+                """SELECT h.*, s.elevated, s.last_used_at FROM familyos_sessions s
                    JOIN familyos_households h ON h.owner_sub = s.owner_sub
                    WHERE s.token_hash = %s AND s.revoked_at IS NULL AND s.expires_at > now()""",
                 (token_hash,),
             ).fetchone()
-        return self._account(row) if row else None
+            if row is None:
+                return None
+            idle_limit = datetime.now(timezone.utc) - timedelta(minutes=ELEVATED_IDLE_MINUTES)
+            if row["elevated"] and (row["last_used_at"] is None or row["last_used_at"] <= idle_limit):
+                connection.execute("UPDATE familyos_sessions SET revoked_at = now() WHERE token_hash = %s", (token_hash,))
+                return None
+            connection.execute("UPDATE familyos_sessions SET last_used_at = now() WHERE token_hash = %s", (token_hash,))
+        return {**self._account(row), "elevated": bool(row["elevated"])}
+
+    def revoke_all_sessions(self, owner_sub: str) -> None:
+        with self._connect() as connection:
+            connection.execute("UPDATE familyos_sessions SET revoked_at = now() WHERE owner_sub = %s AND revoked_at IS NULL", (owner_sub,))
+            connection.execute("UPDATE familyos_child_sessions SET revoked_at = now() WHERE owner_sub = %s AND revoked_at IS NULL", (owner_sub,))
+
+    def reset_parent_access_code(self, owner_sub: str, new_code: str) -> None:
+        if not re.fullmatch(r"\d{4}", new_code or ""):
+            raise DomainError(422, "INVALID_ACCESS_CODE", "Choose a four-digit parent access code.")
+        salt = secrets.token_bytes(16)
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO familyos_parent_access_codes(owner_sub, salt, code_hash) VALUES (%s, %s, %s)
+                   ON CONFLICT(owner_sub) DO UPDATE SET salt = EXCLUDED.salt, code_hash = EXCLUDED.code_hash,
+                   attempts = 0, locked_until = NULL""",
+                (owner_sub, salt, self._parent_code_hash(owner_sub, new_code, salt)),
+            )
+
+    # Paired-TV parent mode --------------------------------------------------------------------
+    def elevate_device(self, token: str | None, minutes: int = 5) -> datetime:
+        with self._connect() as connection:
+            row = connection.execute(
+                """UPDATE familyos_devices SET elevated_until = now() + make_interval(mins => %s)
+                   WHERE token_hash = %s AND revoked_at IS NULL AND expires_at > now() RETURNING elevated_until""",
+                (minutes, self._pairing_digest(token or "")),
+            ).fetchone()
+        if row is None:
+            raise DomainError(401, "DEVICE_SESSION_INVALID", "This TV is no longer paired.")
+        return row["elevated_until"]
+
+    def device_elevated(self, device_id: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                """UPDATE familyos_devices SET elevated_until = now() + interval '5 minutes'
+                   WHERE id = %s AND elevated_until > now() RETURNING id""", (device_id,)
+            ).fetchone()
+        return row is not None
+
+    def lock_device(self, token: str | None) -> None:
+        with self._connect() as connection:
+            connection.execute("UPDATE familyos_devices SET elevated_until = NULL WHERE token_hash = %s",
+                               (self._pairing_digest(token or ""),))
+
+    # Voice (MCP) connections ------------------------------------------------------------------
+    def create_voice_token(self, owner_sub: str, label: str, member_id: str | None):
+        token = "fos_voice_" + secrets.token_urlsafe(32)
+        token_id = uuid4().hex
+        with self._connect() as connection:
+            count = connection.execute(
+                "SELECT count(*) AS amount FROM familyos_voice_tokens WHERE owner_sub = %s AND revoked_at IS NULL", (owner_sub,)
+            ).fetchone()["amount"]
+            if count >= 5:
+                raise DomainError(409, "VOICE_LIMIT", "Disconnect an existing voice connection before adding another.")
+            row = connection.execute(
+                """INSERT INTO familyos_voice_tokens(id, token_hash, owner_sub, member_id, label)
+                   VALUES (%s, %s, %s, %s, %s) RETURNING created_at""",
+                (token_id, hashlib.sha256(token.encode("ascii")).hexdigest(), owner_sub, member_id, label.strip()[:60] or "Alexa+"),
+            ).fetchone()
+        return token, {"id": token_id, "label": label.strip()[:60] or "Alexa+", "memberId": member_id,
+                       "createdAt": row["created_at"].isoformat(), "lastUsedAt": None}
+
+    def voice_tokens(self, owner_sub: str):
+        with self._connect() as connection:
+            rows = connection.execute(
+                """SELECT id, label, member_id, created_at, last_used_at FROM familyos_voice_tokens
+                   WHERE owner_sub = %s AND revoked_at IS NULL ORDER BY created_at DESC""", (owner_sub,)
+            ).fetchall()
+        return [{"id": row["id"], "label": row["label"], "memberId": row["member_id"],
+                 "createdAt": row["created_at"].isoformat(),
+                 "lastUsedAt": row["last_used_at"].isoformat() if row["last_used_at"] else None} for row in rows]
+
+    def revoke_voice_token(self, owner_sub: str, token_id: str) -> None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """UPDATE familyos_voice_tokens SET revoked_at = now()
+                   WHERE id = %s AND owner_sub = %s AND revoked_at IS NULL RETURNING id""", (token_id, owner_sub)
+            ).fetchone()
+        if row is None:
+            raise DomainError(404, "VOICE_NOT_FOUND", "That voice connection could not be found.")
+
+    def voice_token(self, token: str | None):
+        if not token or not token.startswith("fos_voice_") or len(token) > 200:
+            return None
+        with self._connect() as connection:
+            row = connection.execute(
+                """UPDATE familyos_voice_tokens SET last_used_at = now()
+                   WHERE token_hash = %s AND revoked_at IS NULL RETURNING id, owner_sub, member_id, label""",
+                (hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest(),),
+            ).fetchone()
+        return {"id": row["id"], "owner": row["owner_sub"], "memberId": row["member_id"], "label": row["label"]} if row else None
+
+    # Private photo storage --------------------------------------------------------------------
+    def put_photo(self, owner_sub: str, photo_id: str, variants: dict[str, bytes]) -> None:
+        with self._connect() as connection:
+            for variant, content in variants.items():
+                connection.execute(
+                    """INSERT INTO familyos_photo_blobs(owner_sub, photo_id, variant, content) VALUES (%s, %s, %s, %s)
+                       ON CONFLICT (owner_sub, photo_id, variant) DO UPDATE SET content = EXCLUDED.content""",
+                    (owner_sub, photo_id, variant, content),
+                )
+
+    def get_photo(self, owner_sub: str, photo_id: str, variant: str) -> bytes | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT content FROM familyos_photo_blobs WHERE owner_sub = %s AND photo_id = %s AND variant = %s",
+                (owner_sub, photo_id, variant),
+            ).fetchone()
+        return bytes(row["content"]) if row else None
+
+    def delete_photo(self, owner_sub: str, photo_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute("DELETE FROM familyos_photo_blobs WHERE owner_sub = %s AND photo_id = %s", (owner_sub, photo_id))
+
+    def photo_usage(self, owner_sub: str) -> int:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT coalesce(sum(octet_length(content)), 0) AS total FROM familyos_photo_blobs WHERE owner_sub = %s",
+                (owner_sub,),
+            ).fetchone()
+        return int(row["total"])
 
     def revoke_session(self, token: str | None) -> None:
         if not token:
@@ -372,6 +564,41 @@ class PostgresHouseholdStore:
         with self._connect() as connection:
             connection.execute(
                 "UPDATE familyos_sessions SET revoked_at = now() WHERE token_hash = %s AND revoked_at IS NULL",
+                (token_hash,),
+            )
+
+    def create_parent_session(self, owner_sub: str, elevated: bool = False) -> str:
+        return self.create_session(owner_sub, elevated)
+
+    def create_child_session(self, owner_sub: str, member_id: str) -> str:
+        token = secrets.token_urlsafe(48)
+        token_hash = hashlib.sha256(token.encode("ascii")).hexdigest()
+        expires = datetime.now(timezone.utc) + timedelta(hours=8)
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO familyos_child_sessions(token_hash, owner_sub, member_id, expires_at) VALUES (%s, %s, %s, %s)",
+                (token_hash, owner_sub, member_id, expires),
+            )
+        return token
+
+    def child_session(self, token: str | None) -> dict[str, str] | None:
+        if not token or len(token) > 256:
+            return None
+        token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT owner_sub, member_id FROM familyos_child_sessions WHERE token_hash = %s AND revoked_at IS NULL AND expires_at > now()",
+                (token_hash,),
+            ).fetchone()
+        return {"ownerSub": str(row["owner_sub"]), "memberId": str(row["member_id"])} if row else None
+
+    def revoke_child_session(self, token: str | None) -> None:
+        if not token:
+            return
+        token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE familyos_child_sessions SET revoked_at = now() WHERE token_hash = %s AND revoked_at IS NULL",
                 (token_hash,),
             )
 
@@ -455,10 +682,17 @@ class PostgresHouseholdStore:
             lambda repository: repository.propose(conflict_id, event_id, target_member_id),
         )
 
-    def companion_edit(self, owner_sub: str, edit):
+    def companion_edit(self, owner_sub: str, edit, actor: str = "parent"):
         from .companion import apply_edit
         def operation(repository):
-            repository._data = apply_edit(repository._data, edit)
+            repository._data = apply_edit(repository._data, edit, actor)
+            return repository.snapshot()
+        return self._mutate(owner_sub, operation)
+
+    def transform(self, owner_sub: str, change: Callable[[HouseholdSnapshot], HouseholdSnapshot]) -> HouseholdSnapshot:
+        """Apply ``change`` to the latest snapshot while the household row is locked."""
+        def operation(repository):
+            repository._data = change(repository._data)
             return repository.snapshot()
         return self._mutate(owner_sub, operation)
 
@@ -492,3 +726,34 @@ class CognitoSessionService:
 
     def sign_out(self, token: str | None) -> None:
         self.store.revoke_session(token)
+
+    def verify_recent_sign_in(self, id_token: str | None, owner_sub: str, max_age_seconds: int = 600) -> None:
+        """Parent-code recovery needs a fresh password sign-in by the same Cognito user."""
+        if not id_token:
+            raise DomainError(401, "REAUTH_REQUIRED", "Sign in again with your password to reset the parent code.")
+        claims = self.verifier.verify_id_token(id_token)
+        issued = int(claims.get("auth_time") or claims.get("iat") or 0)
+        if claims.get("sub") != owner_sub or datetime.now(timezone.utc).timestamp() - issued > max_age_seconds:
+            raise DomainError(401, "REAUTH_REQUIRED", "Sign in again with your password to reset the parent code.")
+
+
+class CognitoAccessTokenVerifier:
+    """Verifies Cognito OAuth access tokens issued to linked voice clients (for example Alexa+)."""
+
+    def __init__(self, issuer: str, client_ids: set[str]) -> None:
+        self.issuer = issuer.rstrip("/")
+        self.client_ids = client_ids
+        self._jwks = PyJWKClient(f"{self.issuer}/.well-known/jwks.json", cache_keys=True, lifespan=300)
+
+    def verify(self, raw_token: str) -> dict[str, object] | None:
+        if not self.client_ids or not raw_token or len(raw_token) > 16_384:
+            return None
+        try:
+            key = self._jwks.get_signing_key_from_jwt(raw_token).key
+            claims = jwt.decode(raw_token, key, algorithms=["RS256"], issuer=self.issuer, leeway=60,
+                                options={"require": ["exp", "iat", "iss", "sub", "token_use", "client_id"], "verify_aud": False})
+        except (jwt.PyJWTError, PyJWKClientError, ValueError, KeyError):
+            return None
+        if claims.get("token_use") != "access" or claims.get("client_id") not in self.client_ids:
+            return None
+        return claims

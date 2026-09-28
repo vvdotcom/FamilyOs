@@ -15,6 +15,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.delenv("RAILWAY_PROJECT_ID", raising=False)
     main = importlib.reload(importlib.import_module("app.main"))
     with TestClient(main.app) as test_client:
+        test_client.app.state.auth_store = main.auth_store
         yield test_client
 
 
@@ -145,3 +146,101 @@ def test_native_bearer_session_requires_token_and_is_revoked_on_signout(client: 
     assert client.get('/v1/auth/session', headers=headers).json()['data']['authenticated'] is True
     assert client.post('/v1/auth/sign-out', headers=headers).status_code == 200
     assert client.get('/v1/auth/session', headers=headers).json()['data']['authenticated'] is False
+
+
+def test_parent_access_code_is_hashed_and_rate_limited(client: TestClient):
+    create_verified_account(client)
+    account_id = client.get('/v1/auth/session').json()['data']['account']['accountId']
+    assert client.post('/v1/access-code', json={'code': '12'}).status_code == 422
+    configured = client.post('/v1/access-code', json={'code': '4826'})
+    assert configured.status_code == 200
+    assert '4826' not in configured.text
+    with client.app.state.auth_store._connection() as connection:
+        row = connection.execute('SELECT salt, code_hash FROM parent_access_codes WHERE account_id = ?', (account_id,)).fetchone()
+        assert row is not None and row['salt'] != b'4826' and row['code_hash'] != b'4826'
+    for _ in range(5):
+        assert client.post('/v1/access-code/change', json={'oldCode': '0000', 'newCode': '4827'}).status_code == 401
+    limited = client.post('/v1/access-code/change', json={'oldCode': '4826', 'newCode': '4827'})
+    assert limited.status_code == 429
+
+
+def test_local_reward_approval_requires_code_and_deducts_once(client: TestClient):
+    create_verified_account(client)
+    response = client.post('/v1/access-code', json={'code': '4826'})
+    assert response.status_code == 200
+    snapshot = client.get('/v1/household').json()['data']
+    revision = snapshot['revision']
+    child = {
+        'id': 'kid-1', 'familyId': snapshot['family']['id'], 'name': 'Sam', 'initials': 'S',
+        'role': 'child', 'accentColor': '#2E7A3A',
+    }
+    result = client.post('/v1/companion/edit', json={'expectedRevision': revision, 'kind': 'member', 'value': child})
+    revision = result.json()['data']['revision']
+    chore = {'id': 'tidy-room', 'familyId': snapshot['family']['id'], 'title': 'Tidy room',
+             'assignedToMemberId': 'kid-1', 'status': 'pending', 'points': 5}
+    result = client.post('/v1/companion/edit', json={'expectedRevision': revision, 'kind': 'chore', 'value': chore})
+    revision = result.json()['data']['revision']
+    result = client.post('/v1/companion/edit', json={'expectedRevision': revision, 'kind': 'chore',
+        'value': {**chore, 'status': 'completed'}})
+    snapshot = result.json()['data']
+    assert sum(item['delta'] for item in snapshot['starTransactions'] if item['memberId'] == 'kid-1') == 5
+    reward = {'id': 'movie-night', 'title': 'Movie night', 'stars': 5, 'available': True}
+    result = client.post('/v1/companion/edit', json={'expectedRevision': snapshot['revision'], 'kind': 'reward', 'value': reward})
+    request = client.post('/v1/redemptions/request', json={'memberId': 'kid-1', 'rewardId': 'movie-night'})
+    assert request.status_code == 200
+    redemption_id = request.json()['data']['request']['id']
+    pending = client.get('/v1/household').json()['data']
+    assert sum(item['delta'] for item in pending['starTransactions'] if item['memberId'] == 'kid-1') == 5
+    wrong = client.post(f'/v1/redemptions/{redemption_id}/decision', json={'action': 'approve', 'code': '0000'})
+    assert wrong.status_code == 401
+    approved = client.post(f'/v1/redemptions/{redemption_id}/decision', json={'action': 'approve', 'code': '4826'})
+    assert approved.status_code == 200
+    final = approved.json()['data']['household']
+    assert sum(item['delta'] for item in final['starTransactions'] if item['memberId'] == 'kid-1') == 0
+    assert client.post(f'/v1/redemptions/{redemption_id}/decision', json={'action': 'approve', 'code': '4826'}).status_code == 409
+
+
+def test_child_mode_is_server_scoped_and_parent_unlock_rotates_session(client: TestClient):
+    create_verified_account(client)
+    assert client.post('/v1/access/child-session', json={'memberId': 'missing'}).status_code == 409
+    assert client.post('/v1/access-code', json={'code': '4826'}).status_code == 200
+    household = client.get('/v1/household').json()['data']
+    adult = household['members'][0]
+    child = {
+        'id': 'kid-mode', 'familyId': household['family']['id'], 'name': 'Riley', 'initials': 'R',
+        'role': 'child', 'accentColor': '#2E7A3A',
+    }
+    edit = client.post('/v1/companion/edit', json={'expectedRevision': household['revision'], 'kind': 'member', 'value': child})
+    household = edit.json()['data']
+    chore = {'id': 'kid-chore', 'familyId': household['family']['id'], 'title': 'Put shoes away',
+             'assignedToMemberId': 'kid-mode', 'status': 'pending', 'points': 2}
+    household = client.post('/v1/companion/edit', json={'expectedRevision': household['revision'], 'kind': 'chore', 'value': chore}).json()['data']
+    code = client.post('/v1/access/child-session', json={'memberId': 'kid-mode'}).json()['data']['sessionToken']
+    headers = {'Authorization': f'Bearer {code}'}
+    session = client.get('/v1/auth/session', headers=headers).json()['data']
+    assert session['accessMode'] == 'child' and session['memberId'] == 'kid-mode'
+    assert client.post('/v1/companion/edit', headers=headers, json={
+        'expectedRevision': household['revision'], 'kind': 'chore', 'value': {**chore, 'status': 'completed'},
+    }).status_code == 403
+    completed = client.post('/v1/companion/edit', headers=headers, json={
+        'expectedRevision': household['revision'], 'kind': 'completeChore',
+        'value': {'id': 'kid-chore', 'memberId': 'kid-mode'},
+    })
+    assert completed.status_code == 200
+    assert completed.json()['data']['starTransactions'][0]['delta'] == 2
+    assert client.post('/v1/access/parent-mode', headers=headers, json={'code': '0000'}).status_code == 401
+    restored = client.post('/v1/access/parent-mode', headers=headers, json={'code': '4826'})
+    assert restored.status_code == 200
+    parent_token = restored.json()['data']['sessionToken']
+    parent_headers = {'Authorization': f'Bearer {parent_token}'}
+    parent_session = client.get('/v1/auth/session', headers=parent_headers).json()['data']
+    assert parent_session['accessMode'] == 'parent' and parent_session['elevated'] is True
+    # The phone keeps its child session to lock again; it never gains parent rights.
+    assert client.get('/v1/auth/session', headers=headers).json()['data']['accessMode'] == 'child'
+    assert client.post('/v1/companion/edit', headers=headers, json={
+        'expectedRevision': completed.json()['data']['revision'], 'kind': 'chore', 'value': chore,
+    }).status_code == 403
+    assert client.post('/v1/companion/edit', headers=parent_headers, json={
+        'expectedRevision': completed.json()['data']['revision'], 'kind': 'chore', 'value': chore,
+    }).status_code == 200
+    assert adult['role'] == 'adult'

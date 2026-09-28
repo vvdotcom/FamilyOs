@@ -18,6 +18,7 @@ from .domain import DomainError
 
 Purpose = Literal["verify_email", "reset_password"]
 SESSION_DAYS = 14
+ELEVATED_IDLE_MINUTES = 15
 MAX_CODE_ATTEMPTS = 5
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
@@ -129,6 +130,14 @@ class LocalAuthStore:
                     expires_at TEXT NOT NULL,
                     revoked_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS child_sessions (
+                    token_hash TEXT PRIMARY KEY,
+                    account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                    member_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    revoked_at TEXT
+                );
                 CREATE TABLE IF NOT EXISTS dev_email_outbox (
                     id TEXT PRIMARY KEY,
                     email TEXT NOT NULL,
@@ -139,8 +148,38 @@ class LocalAuthStore:
                 );
                 CREATE INDEX IF NOT EXISTS dev_email_lookup
                     ON dev_email_outbox(email, purpose, created_at);
+                CREATE TABLE IF NOT EXISTS parent_access_codes (
+                    account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+                    salt BLOB NOT NULL,
+                    code_hash BLOB NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    locked_until TEXT
+                );
+                CREATE TABLE IF NOT EXISTS voice_tokens (
+                    id TEXT PRIMARY KEY,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                    member_id TEXT,
+                    label TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    last_used_at TEXT,
+                    revoked_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS photo_blobs (
+                    owner TEXT NOT NULL,
+                    photo_id TEXT NOT NULL,
+                    variant TEXT NOT NULL,
+                    content BLOB NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (owner, photo_id, variant)
+                );
                 """
             )
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)")}
+            if "elevated" not in columns:
+                connection.execute("ALTER TABLE sessions ADD COLUMN elevated INTEGER NOT NULL DEFAULT 0")
+            if "last_used_at" not in columns:
+                connection.execute("ALTER TABLE sessions ADD COLUMN last_used_at TEXT")
 
     def _normalize_email(self, email: str) -> str:
         value = email.strip().lower()
@@ -155,6 +194,71 @@ class LocalAuthStore:
     def _code_hash(self, account_id: str, purpose: Purpose, code: str) -> str:
         value = f"{account_id}:{purpose}:{code}".encode("utf-8")
         return hmac.new(self._pepper, value, hashlib.sha256).hexdigest()
+
+    def _parent_code_hash(self, code: str, salt: bytes) -> bytes:
+        keyed = hmac.new(self._pepper, b"familyos-parent-access:" + code.encode("ascii"), hashlib.sha256).digest()
+        return hashlib.scrypt(keyed, salt=salt, n=2**14, r=8, p=1, dklen=32)
+
+    def set_parent_access_code(self, account_id: str, code: str) -> None:
+        if not re.fullmatch(r"\d{4}", code or ""):
+            raise DomainError(422, "INVALID_ACCESS_CODE", "Choose a four-digit parent access code.")
+        salt = secrets.token_bytes(16)
+        with self._connection() as connection:
+            existing = connection.execute(
+                "SELECT 1 FROM parent_access_codes WHERE account_id = ?", (account_id,)
+            ).fetchone()
+            if existing:
+                raise DomainError(409, "ACCESS_CODE_ALREADY_SET", "A parent access code is already set. Verify the current code before changing it.")
+            connection.execute(
+                "INSERT INTO parent_access_codes(account_id, salt, code_hash) VALUES (?, ?, ?)",
+                (account_id, salt, self._parent_code_hash(code, salt)),
+            )
+
+    def parent_access_code_configured(self, account_id: str) -> bool:
+        with self._connection() as connection:
+            return connection.execute(
+                "SELECT 1 FROM parent_access_codes WHERE account_id = ?", (account_id,)
+            ).fetchone() is not None
+
+    def change_parent_access_code(self, account_id: str, old_code: str, new_code: str) -> None:
+        self.verify_parent_access_code(account_id, old_code)
+        if not re.fullmatch(r"\d{4}", new_code or ""):
+            raise DomainError(422, "INVALID_ACCESS_CODE", "Choose a four-digit parent access code.")
+        salt = secrets.token_bytes(16)
+        with self._connection() as connection:
+            connection.execute(
+                "UPDATE parent_access_codes SET salt = ?, code_hash = ?, attempts = 0, locked_until = NULL WHERE account_id = ?",
+                (salt, self._parent_code_hash(new_code, salt), account_id),
+            )
+
+    def verify_parent_access_code(self, account_id: str, code: str) -> None:
+        now = _now()
+        failure: DomainError | None = None
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT salt, code_hash, attempts, locked_until FROM parent_access_codes WHERE account_id = ?",
+                (account_id,),
+            ).fetchone()
+            if row is None:
+                failure = DomainError(409, "ACCESS_CODE_NOT_SET", "Set a parent access code before approving a reward.")
+            elif row["locked_until"] and row["locked_until"] > _stamp(now):
+                failure = DomainError(429, "ACCESS_CODE_COOLDOWN", "Too many incorrect codes. Wait one minute and try again.")
+            elif not (re.fullmatch(r"\d{4}", code or "") and hmac.compare_digest(
+                    row["code_hash"], self._parent_code_hash(code, row["salt"]))):
+                attempts = int(row["attempts"]) + 1
+                locked_until = _stamp(now + timedelta(minutes=1)) if attempts >= 5 else None
+                connection.execute(
+                    "UPDATE parent_access_codes SET attempts = ?, locked_until = ? WHERE account_id = ?",
+                    (0 if locked_until else attempts, locked_until, account_id),
+                )
+                failure = DomainError(401, "ACCESS_CODE_INCORRECT", "That parent access code is incorrect.")
+            else:
+                connection.execute(
+                    "UPDATE parent_access_codes SET attempts = 0, locked_until = NULL WHERE account_id = ?",
+                    (account_id,),
+                )
+        if failure:
+            raise failure
 
     def _issue_code(self, connection: sqlite3.Connection, account_id: str, email: str, purpose: Purpose) -> str:
         code = f"{secrets.randbelow(1_000_000):06d}"
@@ -282,12 +386,14 @@ class LocalAuthStore:
             token = self._create_session(connection, account["id"])
             return token, self._account_payload(connection, account["id"])
 
-    def _create_session(self, connection: sqlite3.Connection, account_id: str) -> str:
+    def _create_session(self, connection: sqlite3.Connection, account_id: str, elevated: bool = False) -> str:
         token = secrets.token_urlsafe(32)
         now = _now()
+        lifetime = timedelta(hours=8) if elevated else timedelta(days=SESSION_DAYS)
         connection.execute(
-            "INSERT INTO sessions(token_hash, account_id, created_at, expires_at) VALUES(?, ?, ?, ?)",
-            (hashlib.sha256(token.encode("ascii")).hexdigest(), account_id, _stamp(now), _stamp(now + timedelta(days=SESSION_DAYS))),
+            "INSERT INTO sessions(token_hash, account_id, created_at, expires_at, elevated, last_used_at) VALUES(?, ?, ?, ?, ?, ?)",
+            (hashlib.sha256(token.encode("ascii")).hexdigest(), account_id, _stamp(now), _stamp(now + lifetime),
+             int(elevated), _stamp(now)),
         )
         return token
 
@@ -295,16 +401,157 @@ class LocalAuthStore:
         if not token:
             return None
         token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
+        now = _now()
         with self._connection() as connection:
             row = connection.execute(
-                """SELECT accounts.id FROM sessions JOIN accounts ON accounts.id = sessions.account_id
+                """SELECT accounts.id, sessions.elevated, sessions.last_used_at
+                   FROM sessions JOIN accounts ON accounts.id = sessions.account_id
                    WHERE sessions.token_hash = ? AND sessions.revoked_at IS NULL AND sessions.expires_at > ?""",
-                (token_hash, _stamp(_now())),
+                (token_hash, _stamp(now)),
             ).fetchone()
             if row is None:
-                connection.execute("DELETE FROM sessions WHERE expires_at <= ?", (_stamp(_now()),))
+                connection.execute("DELETE FROM sessions WHERE expires_at <= ?", (_stamp(now),))
                 return None
-            return self._account_payload(connection, row["id"])
+            if row["elevated"] and (row["last_used_at"] or "") <= _stamp(now - timedelta(minutes=ELEVATED_IDLE_MINUTES)):
+                # Parent access unlocked with the four-digit code lapses after inactivity.
+                connection.execute("UPDATE sessions SET revoked_at = ? WHERE token_hash = ?", (_stamp(now), token_hash))
+                return None
+            connection.execute("UPDATE sessions SET last_used_at = ? WHERE token_hash = ?", (_stamp(now), token_hash))
+            return {**self._account_payload(connection, row["id"]), "elevated": bool(row["elevated"])}
+
+    def account_for_id(self, account_id: str) -> dict[str, str | bool]:
+        with self._connection() as connection:
+            return self._account_payload(connection, account_id)
+
+    def create_parent_session(self, account_id: str, elevated: bool = False) -> str:
+        with self._connection() as connection:
+            return self._create_session(connection, account_id, elevated)
+
+    def revoke_all_sessions(self, account_id: str) -> None:
+        stamp = _stamp(_now())
+        with self._connection() as connection:
+            connection.execute("UPDATE sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL", (stamp, account_id))
+            connection.execute("UPDATE child_sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL", (stamp, account_id))
+
+    def verify_password(self, account_id: str, password: str) -> None:
+        with self._connection() as connection:
+            row = connection.execute("SELECT password_hash FROM accounts WHERE id = ?", (account_id,)).fetchone()
+        if row is None or not _password_matches(password or "", row["password_hash"]):
+            raise DomainError(401, "INVALID_CREDENTIALS", "That password is incorrect.")
+
+    def reset_parent_access_code(self, account_id: str, new_code: str) -> None:
+        if not re.fullmatch(r"\d{4}", new_code or ""):
+            raise DomainError(422, "INVALID_ACCESS_CODE", "Choose a four-digit parent access code.")
+        salt = secrets.token_bytes(16)
+        with self._connection() as connection:
+            connection.execute(
+                """INSERT INTO parent_access_codes(account_id, salt, code_hash) VALUES (?, ?, ?)
+                   ON CONFLICT(account_id) DO UPDATE SET salt = excluded.salt, code_hash = excluded.code_hash,
+                   attempts = 0, locked_until = NULL""",
+                (account_id, salt, self._parent_code_hash(new_code, salt)),
+            )
+
+    # Voice (MCP) connections: random bearer tokens, stored only as hashes.
+    def create_voice_token(self, account_id: str, label: str, member_id: str | None) -> tuple[str, dict[str, str | None]]:
+        token = "fos_voice_" + secrets.token_urlsafe(32)
+        record = {"id": uuid4().hex, "label": label.strip()[:60] or "Alexa+", "memberId": member_id,
+                  "createdAt": _stamp(_now()), "lastUsedAt": None}
+        with self._connection() as connection:
+            count = connection.execute(
+                "SELECT count(*) AS amount FROM voice_tokens WHERE account_id = ? AND revoked_at IS NULL", (account_id,)
+            ).fetchone()["amount"]
+            if count >= 5:
+                raise DomainError(409, "VOICE_LIMIT", "Disconnect an existing voice connection before adding another.")
+            connection.execute(
+                "INSERT INTO voice_tokens(id, token_hash, account_id, member_id, label, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (record["id"], hashlib.sha256(token.encode("ascii")).hexdigest(), account_id, member_id,
+                 record["label"], record["createdAt"]),
+            )
+        return token, record
+
+    def voice_tokens(self, account_id: str) -> list[dict[str, str | None]]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT id, label, member_id, created_at, last_used_at FROM voice_tokens
+                   WHERE account_id = ? AND revoked_at IS NULL ORDER BY created_at DESC""", (account_id,)
+            ).fetchall()
+        return [{"id": row["id"], "label": row["label"], "memberId": row["member_id"],
+                 "createdAt": row["created_at"], "lastUsedAt": row["last_used_at"]} for row in rows]
+
+    def revoke_voice_token(self, account_id: str, token_id: str) -> None:
+        with self._connection() as connection:
+            changed = connection.execute(
+                "UPDATE voice_tokens SET revoked_at = ? WHERE id = ? AND account_id = ? AND revoked_at IS NULL",
+                (_stamp(_now()), token_id, account_id),
+            ).rowcount
+        if not changed:
+            raise DomainError(404, "VOICE_NOT_FOUND", "That voice connection could not be found.")
+
+    def voice_token(self, token: str | None) -> dict[str, str | None] | None:
+        if not token or not token.startswith("fos_voice_") or len(token) > 200:
+            return None
+        token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT id, account_id, member_id, label FROM voice_tokens WHERE token_hash = ? AND revoked_at IS NULL",
+                (token_hash,),
+            ).fetchone()
+            if row is None:
+                return None
+            connection.execute("UPDATE voice_tokens SET last_used_at = ? WHERE id = ?", (_stamp(_now()), row["id"]))
+        return {"id": row["id"], "owner": row["account_id"], "memberId": row["member_id"], "label": row["label"]}
+
+    # Private photo storage for local development.
+    def put_photo(self, owner: str, photo_id: str, variants: dict[str, bytes]) -> None:
+        with self._connection() as connection:
+            for variant, content in variants.items():
+                connection.execute(
+                    "INSERT OR REPLACE INTO photo_blobs(owner, photo_id, variant, content, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (owner, photo_id, variant, content, _stamp(_now())),
+                )
+
+    def get_photo(self, owner: str, photo_id: str, variant: str) -> bytes | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT content FROM photo_blobs WHERE owner = ? AND photo_id = ? AND variant = ?", (owner, photo_id, variant)
+            ).fetchone()
+        return bytes(row["content"]) if row else None
+
+    def delete_photo(self, owner: str, photo_id: str) -> None:
+        with self._connection() as connection:
+            connection.execute("DELETE FROM photo_blobs WHERE owner = ? AND photo_id = ?", (owner, photo_id))
+
+    def photo_usage(self, owner: str) -> int:
+        with self._connection() as connection:
+            row = connection.execute("SELECT coalesce(sum(length(content)), 0) AS total FROM photo_blobs WHERE owner = ?", (owner,)).fetchone()
+        return int(row["total"])
+
+    def create_child_session(self, account_id: str, member_id: str) -> str:
+        token = secrets.token_urlsafe(32)
+        now = _now()
+        with self._connection() as connection:
+            connection.execute(
+                "INSERT INTO child_sessions(token_hash, account_id, member_id, created_at, expires_at) VALUES(?, ?, ?, ?, ?)",
+                (hashlib.sha256(token.encode("ascii")).hexdigest(), account_id, member_id, _stamp(now), _stamp(now + timedelta(hours=8))),
+            )
+        return token
+
+    def child_session(self, token: str | None) -> dict[str, str] | None:
+        if not token:
+            return None
+        token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT account_id, member_id FROM child_sessions WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?",
+                (token_hash, _stamp(_now())),
+            ).fetchone()
+        return {"accountId": row["account_id"], "memberId": row["member_id"]} if row else None
+
+    def revoke_child_session(self, token: str | None) -> None:
+        if token:
+            token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
+            with self._connection() as connection:
+                connection.execute("UPDATE child_sessions SET revoked_at = ? WHERE token_hash = ?", (_stamp(_now()), token_hash))
 
     def sign_out(self, token: str | None) -> None:
         if not token:
@@ -312,6 +559,7 @@ class LocalAuthStore:
         token_hash = hashlib.sha256(token.encode("ascii", errors="ignore")).hexdigest()
         with self._connection() as connection:
             connection.execute("UPDATE sessions SET revoked_at = ? WHERE token_hash = ?", (_stamp(_now()), token_hash))
+            connection.execute("UPDATE child_sessions SET revoked_at = ? WHERE token_hash = ?", (_stamp(_now()), token_hash))
 
     def forgot_password(self, email: str) -> None:
         normalized = self._normalize_email(email)

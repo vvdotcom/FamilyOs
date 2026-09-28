@@ -5,6 +5,16 @@
 Expand Phase 8's parent approval code into household access modes with named users,
 persistent roles, and permissions enforced by the backend.
 
+## Status — 2026-09-28
+
+Implemented: an enforced permission matrix (`docs/PERMISSIONS.md`) for parent, child, paired TV, TV unlocked
+with the code, and voice; audit entries on every change (no secrets); a visible mode banner on the phone; a
+parent unlock from child mode that locks after 15 idle minutes (the phone falls back to the child view) plus a
+Lock button; TV parent mode that locks after 5 idle minutes; sign-out-everywhere; code recovery that a child
+cannot perform. The code is still required for each reward approval.
+
+Automated checks: backend `python -m pytest` (89 passing), companion `node --test apps/companion/tests/*.test.cjs` (23) and `tsc`, TV `yarn test` (Expo TV 15, Vega 20) and `typecheck:phase2`. Not yet done: Expo Go on a physical iPhone and Vega/Fire TV regression of the changed TV screens (both scheduled with the user).
+
 ## Dependencies and scope
 
 - Reuse Phase 8's code verification, approval records, and reward lifecycle.
@@ -12,7 +22,7 @@ persistent roles, and permissions enforced by the backend.
   backend authorization introduced in Phase 5; do not create a separate identity system.
 - Keep household account authentication separate from choosing a family profile on a
   shared TV. Selecting a parent profile must not itself grant administrative access.
-- All work below is planned and not yet implemented; see `single.md` section 39.
+- See the status above for what is implemented.
 
 ## Work packages
 

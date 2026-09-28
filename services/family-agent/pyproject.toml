@@ -10,6 +10,9 @@ requires-python = ">=3.11"
 dependencies = [
   "boto3>=1.35,<2",
   "fastapi>=0.115,<1",
+  "mcp>=1.27,<2",
+  "Pillow>=11,<13",
+  "pypdf>=5,<7",
   "PyJWT[crypto]>=2.10,<3",
   "pydantic>=2.8,<3",
   "psycopg[binary]>=3.2,<4",

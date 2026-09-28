@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { DAction, DButton, DFooter, DPanel, DRow, DText, useDesignPalette } from '../design/DesignSystem';
 import { useFamilyTheme } from '../theme';
+import { usePageBack } from '../hooks/usePageBack';
+import { SpatialNavigationRoot } from 'react-tv-space-navigation';
+import { CANVAS_COVER, NumberPad } from './FamilyTVFeatures';
 import { FamilyScreenProps } from './familyTypes';
 
 export default function FamilySettingsScreen({
@@ -17,9 +20,28 @@ export default function FamilySettingsScreen({
   tvPairing = { status: 'unpaired' },
   onStartPairing,
   onUnpairTV,
+  tvParentMode = false,
+  onUnlockParentMode,
+  onLockParentMode,
 }: FamilyScreenProps & { onResetDemo: () => void }) {
   const p = useDesignPalette();
   const { mode, setMode } = useFamilyTheme();
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState('');
+  const [unlockBusy, setUnlockBusy] = useState(false);
+  usePageBack(() => setUnlocking(false), unlocking);
+  const unlock = async (code: string) => {
+    setUnlockBusy(true);
+    setUnlockError('');
+    try {
+      await onUnlockParentMode?.(code);
+      setUnlocking(false);
+    } catch (error) {
+      setUnlockError(error instanceof Error ? error.message : 'That code did not work.');
+    } finally {
+      setUnlockBusy(false);
+    }
+  };
   return (
     <View style={{ flex: 1, gap: 28 }}>
       <View style={{ gap: 10 }}>
@@ -46,7 +68,24 @@ export default function FamilySettingsScreen({
           {tvPairing.status === 'paired' ? (
             <>
               <DText size={24} color={p.muted}>Connected to your household. Calendar, chores, lists, and meals refresh about every 5 seconds.</DText>
-              <DAction label="Unpair this TV" onPress={onUnpairTV ?? (() => {})} active={focusActive} />
+              <DRow style={{ gap: 16, alignItems: 'center' }}>
+                <DAction label="Unpair this TV" onPress={onUnpairTV ?? (() => {})} active={focusActive && !unlocking} />
+                <DAction
+                  label={tvParentMode ? 'Lock parent mode' : 'Parent mode · enter code'}
+                  primary={!tvParentMode}
+                  onPress={() => {
+                    if (tvParentMode) void onLockParentMode?.();
+                    else {
+                      setUnlockError('');
+                      setUnlocking(true);
+                    }
+                  }}
+                  active={focusActive && !unlocking}
+                />
+              </DRow>
+              <DText size={22} color={p.muted} accessibilityLiveRegion="polite">
+                {tvParentMode ? 'Parent mode is on. It locks after 5 minutes without changes.' : 'Checking off chores and lists works for everyone. Other changes need parent mode.'}
+              </DText>
             </>
           ) : tvPairing.status === 'waiting' && tvPairing.code ? (
             <>
@@ -153,7 +192,9 @@ export default function FamilySettingsScreen({
             </DText>
           ) : null}
           <DText size={24} color={p.muted}>
-            Fictional household data. No external accounts, phone sync, or cloud services are connected.
+            {tvPairing.status === 'paired'
+              ? 'Household data comes from your FamilyOS account. Voice requests appear here for confirmation.'
+              : 'Fictional household data. No external accounts, phone sync, or cloud services are connected.'}
           </DText>
           <View style={{ height: 1, backgroundColor: p.border }} />
           {[
@@ -186,6 +227,20 @@ export default function FamilySettingsScreen({
         </DPanel>
       </DRow>
       <DFooter action="Select" />
+      {unlocking ? (
+        <View style={{ position: 'absolute', zIndex: 50, ...CANVAS_COVER, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17130FCC' }}>
+          <SpatialNavigationRoot isActive={focusActive}>
+            <NumberPad
+              title="Parent mode"
+              detail="Enter the four-digit parent code. Parent mode locks again after 5 idle minutes."
+              error={unlockError}
+              busy={unlockBusy}
+              onSubmit={(code) => void unlock(code)}
+              onCancel={() => setUnlocking(false)}
+            />
+          </SpatialNavigationRoot>
+        </View>
+      ) : null}
     </View>
   );
 }

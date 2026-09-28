@@ -8,17 +8,42 @@ hosted account flow uses Cognito's email/password APIs directly, including in Ex
 
 ## Start it
 
-After sign-in, the companion now opens the Today screen, not the account-only placeholder.
-The four bottom tabs follow the user's Claude phone design. Calendar events, family
-profiles, chores, shared lists, and simple meals can be edited against the hosted API.
+After sign-in, the companion opens **Today**, the hub: a "Needs you" card when voice requests,
+chore photos, or reward requests are waiting, the day's agenda, dinner and groceries, and contextual
+"Coming up at home" items (family night, the next game with unpacked gear, a movement break).
+The five tabs are Today, Calendar, Chores (Chores | Rewards, with Rewards split into For kids |
+Parent settings), Lists (Lists | Meals | Recipes), and Family (Family time, Your household, Account).
+The + button offers a new event, an import from a flyer/email/file, or a new chore. Dates and times use
+the native iOS pickers. Approving a chore, or a child finishing one, shows a short star celebration.
 Dates are displayed/entered in the phone's timezone and stored as offset-aware timestamps.
 Household data refreshes every 20 seconds while the app is active, on foreground, or with
 pull-to-refresh. Stale writes are rejected; reload and reopen the latest item before editing.
 
-TV pairing/control, TV pop-ups, push notifications, event recurrence, photo uploads,
-and persistent offline caches are **not** implemented by this UI slice. The Remote screen
-matches the reference layout but honestly shows no connected TV and disables commands.
-Production households are not seeded with the reference's fictional sample family.
+More also holds Approvals (voice requests and chore photos), imports (camera, photo, PDF, `.eml`,
+`.ics`, or pasted text, with editable review), Rewards, Photos (TV slideshow), Sports & carpools,
+Family night, Move breaks, and Voice (Alexa+ connections and a labelled simulated Alexa+). TV pairing
+works; remote-control buttons stay disabled (remote TV control is out of scope). Push notifications
+and persistent offline caches are not implemented. Production households are not seeded with the
+reference's fictional sample family.
+
+New native modules (`expo-image-picker`, `expo-image-manipulator`, `expo-document-picker`,
+`expo-file-system`) are pinned to SDK 57 versions that Expo Go includes, so no development build is
+needed. Photos are downscaled and re-encoded on the phone, which drops EXIF/location data before upload.
+
+### iOS test checklist (Phases 7-14)
+
+1. Today: the "Needs you" card, agenda, dinner/groceries, and Coming up at home cards open the right screens.
+2. Calendar: Day/Week/Month switch, the Filters button, and + → New event with a driver, a checklist, and "Repeat weekly".
+3. + → From a flyer, email, or file: photograph a flyer (needs Bedrock on the server) or choose an `.ics`; edit and confirm.
+4. Chores → Rewards → Parent settings: set the code and add a reward. Family → Hand this phone to a child; ask for the
+   reward; unlock parent mode (banner shows "Parent unlocked"); approve in Today → Needs you; mark it given.
+5. Chores: turn on "Verify with photo"; in child mode take the photo; approve it and see the star celebration.
+6. Lists: add, check off; Edit to remove; Meals → "Review ingredients for Groceries".
+7. Family → Photos: add, rotate, hide from TV, reorder, remove; watch the TV slideshow.
+8. Family → Sports & carpools: a team with two drivers, then a weekly game; drivers rotate and gear appears on Today.
+9. Family → Family night: start it, add ideas, vote as different members, close the vote, resolve a tie.
+10. Family → Voice: connect, try the simulated Alexa+ ("Swap Emma pickup to Alex"), confirm on the TV.
+11. Family → Settings: "Sign out everywhere".
 
 Install the repository dependencies from the repository root, then run:
 

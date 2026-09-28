@@ -19,7 +19,16 @@
     "android": {
       "package": "com.familyos.companion"
     },
-    "plugins": ["expo-secure-store"],
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FamilyOS lets you choose family photos for the TV and photos of finished chores.",
+          "cameraPermission": "FamilyOS uses the camera when you photograph a finished chore or a flyer to import."
+        }
+      ]
+    ],
     "extra": {
       "familyosCognitoRegion": "us-west-2",
       "familyosCognitoClientId": "2imsmu2e7rdnfo79jd38mj08m",

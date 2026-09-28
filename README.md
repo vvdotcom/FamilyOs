@@ -4,7 +4,7 @@ FamilyOS turns Fire TV into a shared family command center that understands the 
 schedule, identifies conflicts, prepares people for upcoming events, and presents safe
 actions that can be confirmed with a TV remote.
 
-The implementation contract is [single.md](./single.md). The ten-phase delivery plan starts
+The implementation contract is [single.md](./single.md). The fifteen-phase delivery plan starts
 at [docs/phases/README.md](./docs/phases/README.md).
 
 ## Current status

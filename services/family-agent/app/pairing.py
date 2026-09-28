@@ -13,6 +13,7 @@ from .domain import DomainError
 CHALLENGE_MINUTES = 10
 DEVICE_DAYS = 90
 MAX_CODE_ATTEMPTS = 5
+TV_PARENT_MINUTES = 5
 
 
 def _now() -> datetime:
@@ -47,6 +48,7 @@ class Device:
     created_at: datetime
     last_seen_at: datetime | None = None
     revoked_at: datetime | None = None
+    elevated_until: datetime | None = None
 
 
 class PairingRegistry:
@@ -153,6 +155,31 @@ class PairingRegistry:
                     device.last_seen_at = now
                     return device
         return None
+
+    def elevate(self, token: str | None, minutes: int = TV_PARENT_MINUTES) -> datetime:
+        """Start temporary parent access on this TV after the caller verified the parent code."""
+        device = self.device(token)
+        if device is None:
+            raise DomainError(401, "DEVICE_SESSION_INVALID", "This TV is no longer paired.")
+        with self._lock:
+            device.elevated_until = _now() + timedelta(minutes=minutes)
+            return device.elevated_until
+
+    def is_elevated(self, device: Device, refresh: bool = True) -> bool:
+        with self._lock:
+            now = _now()
+            if device.elevated_until is None or device.elevated_until <= now:
+                device.elevated_until = None
+                return False
+            if refresh:  # Parent access stays open only while it is being used.
+                device.elevated_until = now + timedelta(minutes=TV_PARENT_MINUTES)
+            return True
+
+    def lock(self, token: str | None) -> None:
+        device = self.device(token)
+        if device is not None:
+            with self._lock:
+                device.elevated_until = None
 
     def devices(self, owner_id: str) -> list[dict[str, str | None]]:
         now = _now()

@@ -123,6 +123,67 @@ Ubuntu workspace, inspected its diff, and mirrored its generated
 The SDK version is also pinned in `apps/vega/vega-sdk-requirements.json`.  
 Evidence: `apps/vega/manifest.toml` and the SDK packaging output.
 
+## Entry 8 — Alexa+ MCP account linking needs a full OAuth 2.1 authorization server
+
+Date: 2026-09-28  
+Tool/API: Alexa+ MCP Toolkit, MCP Python SDK 1.27.1 (FastMCP), Amazon Cognito  
+Task attempted: Connect the FamilyOS MCP server (`/mcp`, Streamable HTTP, protocol 2025-11-25) to Alexa+.  
+Steps: Read the Alexa+ MCP QuickStart and account-linking pages; built the server with the official SDK; served
+RFC 9728 protected-resource metadata at `/.well-known/oauth-protected-resource/mcp` pointing at the Cognito issuer.  
+Expected: A resource server with bearer-token validation is enough to link.  
+Actual: Alexa+ reads the authorization server's well-known metadata, requires OAuth 2.1 with PKCE S256, and makes
+a live call during configuration, so the server must be public and the authorization server must publish
+metadata Alexa accepts. Cognito publishes OIDC discovery; whether Alexa+ accepts it (versus RFC 8414
+`oauth-authorization-server`) is not yet verified. The SDK's `streamable_http_app()` mounts its routes at the app
+root and its session manager can run only once per instance, which does not fit a FastAPI app that already owns
+`/` and restarts per test.  
+Severity: High (blocks live Alexa+ testing only)  
+Workaround: Voice connections use revocable FamilyOS bearer tokens (hashed at rest); the server also accepts Cognito
+access tokens from app clients listed in `FAMILYOS_MCP_COGNITO_CLIENT_IDS`. A small ASGI wrapper mounts the SDK
+session manager at exactly `/mcp` with a fresh manager per app lifespan. A labelled "Simulated Alexa+" (Bedrock
+tool-use driving the same MCP tools) is available at `POST /v1/voice/simulate` and in the phone app.  
+Suggested improvement: Document which authorization-server metadata formats Alexa+ accepts (OIDC discovery vs RFC
+8414) and whether static-token linking is allowed for development; let FastMCP expose a mountable ASGI app whose
+session manager can be restarted.  
+Evidence/log: `services/family-agent/tests/test_voice_mcp.py`; live run with `mcp.client.streamable_http`
+negotiated `2025-11-25`, listed 10 tools, completed `get_today` and `propose_pickup_swap`.
+
+## Entry 9 — Bedrock vision on synthetic chore photos is cautious
+
+Date: 2026-09-28  
+Tool/API: Amazon Bedrock Converse (`us.amazon.nova-lite-v1:0`, image input)  
+Task attempted: Measure chore-photo verdicts on 60 labelled synthetic (drawn, non-identifying) photos.  
+Expected: Clear finished/unfinished scenes classified reliably.  
+Actual: 45% accuracy, 0% false "looks done", 55% "unclear". The model rarely commits on simple drawings. It
+correctly ignored a prompt-injection line printed on a test flyer during photo import.  
+Severity: Low (the verdict is advisory; a parent always decides)  
+Workaround: Treat `unclear` as safe; keep parent approval with the four-digit code. Re-measure with real,
+consented household photos before claiming real-world accuracy.  
+Suggested improvement: A small documented vision benchmark for household scenes, and structured-output
+(JSON schema) support for image inputs on Nova.  
+Evidence/log: `services/family-agent/eval/results/bedrock.json`, `eval/results/demo.json`.
+
+## Feature requests
+
+### FR-1 — Timed household notifications during other apps' playback
+
+Date: 2026-09-27  
+Tool/API: Vega OS app platform (`useToastKepler` in `@amazon-devices/react-native-kepler`)  
+Description: Let a user-approved household app post a short, timed notification while another
+app is playing video, for example "Leave for soccer in 15 minutes" during a Netflix or
+YouTube episode. Include an optional action that opens the app, a per-app user opt-in, a
+per-hour limit, and quiet hours. A related request: a read-only signal that tells an approved
+app whether something is currently playing, so it can choose a less intrusive delivery.  
+Why it matters: FamilyOS helps a household leave on time and prepare for events. Families
+spend much of that time watching other apps, which is exactly when a reminder is most useful.
+Vega provides no API for drawing over other apps, and the installed SDK types do not say
+whether `useToastKepler` can be triggered from a background component. That leaves no
+supported way to deliver a timely schedule reminder while the family is watching TV. As a
+result, the planned "reminders while you watch" feature was dropped from scope.  
+Priority: Important  
+Status: Not yet tested on hardware. Record the result here if the background toast behavior
+is tested on a Fire TV device.
+
 ## Entry template
 
 Date:  

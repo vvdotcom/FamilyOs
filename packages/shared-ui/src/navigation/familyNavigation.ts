@@ -1,4 +1,6 @@
-export type FamilyRoute = 'Home' | 'Calendar' | 'Chores' | 'Meals' | 'Lists' | 'Photos' | 'Family' | 'Settings';
+export type FamilyRoute =
+  | 'Home' | 'Calendar' | 'Chores' | 'Meals' | 'Lists' | 'Photos' | 'Family' | 'Settings'
+  | 'Approvals' | 'Move' | 'FamilyNight';
 export type FocusRegion = 'navigation' | 'content';
 
 export function focusRegionAfterDirection(region: FocusRegion, direction: string): FocusRegion {

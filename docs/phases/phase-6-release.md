@@ -1,9 +1,9 @@
-# Phase 6 — Device validation and hackathon release
+# Phase 6 — Device validation
 
 ## Outcome
 
-Validate FamilyOS on real Fire TV hardware, harden the three-minute story, and produce a
-reproducible, reviewable hackathon release.
+Validate the app against its intended device target and close platform-specific behavior
+gaps before the final documentation and demo phase.
 
 ## Specification coverage
 
@@ -15,21 +15,16 @@ reproducible, reviewable hackathon release.
 - [ ] Run real-device focus, networking, performance, clipping, overscan, and Back QA.
 - [ ] Complete accessibility labels, contrast, member identity, reduced motion, and rapid
   D-pad responsiveness checks.
-- [ ] Rehearse and capture the exact three-minute demo path.
-- [ ] Finish architecture, privacy, testing, feedback, friction, screenshots, troubleshooting,
-  and clean-checkout README documentation.
-- [ ] Recheck current hackathon rules and authorized third-party assets/APIs.
-- [ ] Gate `v0.1-demo`, `v0.2-vega`, `v0.3-firetv`, and `v1.0-hackathon` tags against the
-  definitions in `single.md`.
+- [ ] Record platform validation results and unresolved device-specific blockers for Phase 11.
 
 ## Verification checkpoints
 
-- A clean checkout follows README commands successfully.
-- All unit, component, backend, contract, smoke, VVD, and real-device checks are recorded.
-- The final demo completes under three minutes without live OAuth or perfect Wi-Fi.
+- Platform-specific focus, networking, performance, clipping, overscan, accessibility, and
+  Back checks pass on the selected target or have a concrete blocker recorded for Phase 11.
+- The device build installs and launches through the documented platform path.
 
 ## Exit criteria
 
-FamilyOS is demonstrably running on its intended Fire TV target, the repository is
-reproducible for judges, and every release claim has evidence.
+FamilyOS is demonstrably running on the selected device target and platform-specific behavior
+is validated. Reproducible documentation, demo capture, and release packaging are Phase 11.
 

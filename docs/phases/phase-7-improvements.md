@@ -5,6 +5,19 @@
 Extend the household experience with shared lists, meals, recipes, a monthly calendar,
 and reviewed imports from photos, emails, and flyers.
 
+## Status — 2026-09-28
+
+Implemented: shared lists (add, edit, check off, reopen, remove), quantities on list items, recipes with
+parsed quantities/units, weekly meal plan and dinner summary, recurring meals with this-date/future edits, a
+review sheet before adding recipe ingredients to Groceries (combines compatible quantities, keeps other units,
+never duplicates), month view with member and source filters (counted by local day), and imports from pasted
+text, `.eml`, text PDFs, `.ics`, and (with Bedrock) photographed flyers. Drafts are editable, flag uncertain
+dates/times/time zones/participants/quantities and duplicates, save times in the household time zone, and change
+nothing until confirmed. Sources are not retained (digest only). On a paired TV, list check-offs and (with the
+parent code) meal and list edits now persist on the server.
+
+Automated checks: backend `python -m pytest` (89 passing), companion `node --test apps/companion/tests/*.test.cjs` (23) and `tsc`, TV `yarn test` (Expo TV 15, Vega 20) and `typecheck:phase2`. Not yet done: Expo Go on a physical iPhone and Vega/Fire TV regression of the changed TV screens (both scheduled with the user).
+
 ## Dependencies and scope
 
 - Build on the household screens and providers from Phase 3 and the confirmed-action

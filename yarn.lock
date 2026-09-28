@@ -3623,7 +3623,11 @@ __metadata:
     expo-auth-session: "npm:~57.0.13"
     expo-constants: "npm:~57.0.19"
     expo-crypto: "npm:~57.0.3"
+    expo-document-picker: "npm:~57.0.2"
+    expo-file-system: "npm:~57.0.7"
     expo-font: "npm:~57.0.4"
+    expo-image-manipulator: "npm:~57.0.20"
+    expo-image-picker: "npm:~57.0.20"
     expo-secure-store: "npm:~57.0.4"
     expo-web-browser: "npm:~57.0.3"
     react: "npm:19.2.3"
@@ -10249,6 +10253,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-document-picker@npm:~57.0.2":
+  version: 57.0.2
+  resolution: "expo-document-picker@npm:57.0.2"
+  peerDependencies:
+    expo: "*"
+  checksum: 10c0/b933a0ad77a4e355bc2da9e62c030c6e4db2e5bf2e808b2bed0265ae9891c574fb8218775ac60b44de880aadc0a5643d09210125000965606a8426119392fba9
+  languageName: node
+  linkType: hard
+
 "expo-file-system@npm:~19.0.21":
   version: 19.0.21
   resolution: "expo-file-system@npm:19.0.21"
@@ -10304,6 +10317,37 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/b9e13197971c3a3b354e498315033e11d4a834de695637914273225a24fd7c88172b23ab7eb1dde88620dbe093b6958d361751d839b87d4bf09d9ad5ca2b0117
+  languageName: node
+  linkType: hard
+
+"expo-image-loader@npm:~57.0.1":
+  version: 57.0.1
+  resolution: "expo-image-loader@npm:57.0.1"
+  peerDependencies:
+    expo: "*"
+  checksum: 10c0/c68a12901d789bfc395b045305a68a352e05d4b3e4fcbbe382591a5fff5fcd896e81c4cbb082dfaa520c5ac6ee2c3221c3887b0292b7b831e21779bd360936f0
+  languageName: node
+  linkType: hard
+
+"expo-image-manipulator@npm:~57.0.20":
+  version: 57.0.20
+  resolution: "expo-image-manipulator@npm:57.0.20"
+  dependencies:
+    expo-image-loader: "npm:~57.0.1"
+  peerDependencies:
+    expo: "*"
+  checksum: 10c0/4a6f1f7e26cf5db1d364844e0c72c05402a406c9f302a0bcc565a16e119a214c1803f550b26ae22cfcafb2c5c371a9fc4ccbf34589eec3cbeb8c4d2044822302
+  languageName: node
+  linkType: hard
+
+"expo-image-picker@npm:~57.0.20":
+  version: 57.0.20
+  resolution: "expo-image-picker@npm:57.0.20"
+  dependencies:
+    expo-image-loader: "npm:~57.0.1"
+  peerDependencies:
+    expo: "*"
+  checksum: 10c0/8469929213426125ad1568205dd787a7a9576a9708e0d0e2fb2ba4060881fc25e4cfa94f1d21465748552db0a8f5e2c367f03ca182ff07076ca0a9d8a6c0a17b
   languageName: node
   linkType: hard
 

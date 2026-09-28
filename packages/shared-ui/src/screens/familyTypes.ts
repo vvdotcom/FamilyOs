@@ -46,4 +46,8 @@ export interface FamilyScreenProps {
   tvPairing?: TVPairingView;
   onStartPairing?: () => void;
   onUnpairTV?: () => void;
+  /** True while a parent has unlocked this paired TV with the four-digit code. */
+  tvParentMode?: boolean;
+  onUnlockParentMode?: (code: string) => Promise<void>;
+  onLockParentMode?: () => Promise<void>;
 }

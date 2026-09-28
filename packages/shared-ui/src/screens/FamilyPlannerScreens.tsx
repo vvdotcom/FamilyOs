@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Image, TextInput, View } from 'react-native';
 import {
   SpatialNavigationNode,
   SpatialNavigationRoot,
@@ -24,6 +24,7 @@ import { calendarDays } from './FamilyCalendarScreen';
 import { FamilyScreenProps } from './familyTypes';
 import { mealTypes, Planner } from './plannerData';
 import { usePageBack } from '../hooks/usePageBack';
+import { familyAgentClient } from '../api/familyAgentClient';
 
 type PlannerProps = FamilyScreenProps & { planner: Planner };
 const ingredients = [
@@ -578,22 +579,78 @@ function Editor({
   );
 }
 
-export function FamilyPhotosScreen(_props: FamilyScreenProps) {
+export function FamilyPhotosScreen({ household, focusActive, tvPairing }: FamilyScreenProps) {
   const p = useDesignPalette();
+  const photos = (household.photos || []).filter((photo) => photo.selected).sort((a, b) => a.order - b.order);
+  const paired = tvPairing?.status === 'paired';
+  const [index, setIndex] = useState(0);
+  const [source, setSource] = useState<{ uri: string; headers?: Record<string, string> } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const current = photos.length ? photos[index % photos.length] : undefined;
+  useEffect(() => {
+    if (!paired || photos.length < 2) return;
+    const timer = setInterval(() => setIndex((value) => value + 1), 10_000);
+    return () => clearInterval(timer);
+  }, [paired, photos.length]);
+  useEffect(() => {
+    let active = true;
+    setFailed(false);
+    setSource(null);
+    // Removed photos drop out of the list on the next sync, so a stale image is never requested again.
+    if (current && paired)
+      void familyAgentClient.imageSource(`v1/photos/${current.id}/tv`).then((value) => active && setSource(value)).catch(() => active && setFailed(true));
+    return () => {
+      active = false;
+    };
+  }, [current?.id, paired]);
+  if (!paired || !current) {
+    return (
+      <View style={{ flex: 1 }}>
+        <DText heading size={68} weight={800}>
+          Photos
+        </DText>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <DIcon name="photos" size={72} color={p.muted} />
+          <DText heading size={34} weight={700}>
+            No photos yet
+          </DText>
+          <DText size={24} color={p.muted}>
+            {paired ? 'Add family photos from the FamilyOS phone app. They appear here as a slideshow.' : 'Pair this TV with the phone app to show your family photos.'}
+          </DText>
+        </View>
+      </View>
+    );
+  }
+  const quarter = current.rotation === 90 || current.rotation === 270;
   return (
-    <View style={{ flex: 1 }}>
-      <DText heading size={68} weight={800}>
-        Photos
-      </DText>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <DIcon name="photos" size={72} color={p.muted} />
-        <DText heading size={34} weight={700}>
-          No photos yet
+    <View style={{ flex: 1, gap: 18 }}>
+      <View style={{ flex: 1, borderRadius: 28, overflow: 'hidden', backgroundColor: '#1F1B16', alignItems: 'center', justifyContent: 'center' }}>
+        {source && !failed ? (
+          <Image
+            source={source}
+            onError={() => setFailed(true)}
+            accessibilityLabel={current.caption || 'Family photo'}
+            resizeMode="contain"
+            style={{ width: quarter ? 800 : 1728, height: quarter ? 1728 : 800, maxWidth: '100%', maxHeight: '100%', transform: [{ rotate: `${current.rotation}deg` }] }}
+          />
+        ) : (
+          <DText size={26} color="#FFFFFF">{failed ? 'This photo could not be loaded.' : 'Loading photo…'}</DText>
+        )}
+      </View>
+      <DRow style={{ alignItems: 'center', gap: 20 }}>
+        <DText size={30} weight={700} style={{ flex: 1 }} numberOfLines={1}>
+          {current.caption || 'Family photos'}
         </DText>
         <DText size={24} color={p.muted}>
-          Your family photos will appear here.
+          {(index % photos.length) + 1} of {photos.length}
         </DText>
-      </View>
+        {photos.length > 1 ? (
+          <>
+            <DAction label="Previous photo" size={22} active={focusActive} onPress={() => setIndex((value) => (value + photos.length - 1) % photos.length)} />
+            <DAction label="Next photo" size={22} primary defaultFocus active={focusActive} onPress={() => setIndex((value) => value + 1)} />
+          </>
+        ) : null}
+      </DRow>
     </View>
   );
 }

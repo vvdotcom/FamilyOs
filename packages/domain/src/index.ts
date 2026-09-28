@@ -4,3 +4,4 @@ export * from './conflicts';
 export * from './briefing';
 export * from './mutations';
 export * from './providers';
+export * from './move';

@@ -118,7 +118,7 @@ def test_local_pairing_routes_issue_read_only_tv_sessions(monkeypatch):
         "/v1/companion/edit",
         json={"expectedRevision": 0, "kind": "member", "value": {"id": "intruder"}},
         headers=tv_headers,
-    ).status_code == 401
+    ).status_code == 403  # A paired TV is authenticated but may not change profiles or roles.
 
     revoked = client.post(
         f"/v1/devices/{device_id}/revoke", headers={"Authorization": "Bearer parent-session"}

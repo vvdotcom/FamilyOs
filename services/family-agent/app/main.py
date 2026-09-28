@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import os
 import ipaddress
+import os
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,23 +12,36 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.routing import Route
 
 from .auth import EmailBody, EmailCodeBody, LocalAuthStore, ResetPasswordBody, SignInBody, SignUpBody, Purpose, SESSION_DAYS
 from .briefing import SafeBriefingService
-from .companion import CompanionMutation, apply_edit
+from .companion import CompanionMutation
 from .demo import demo_now
-from .domain import DemoRepository, DomainError, snapshot_context
+from .domain import DemoRepository, DomainError, snapshot_context, sports_reminders
+from .household_ops import FAMILY_NIGHT_RULE, current_picker, household_today
+from .imports import ImportContext, ImportRequest, configured_import_provider, make_import_drafts
 from .models import (
-    APIEnvelope, ActionProposalRequest, CognitoExchangeBody, EmptyBody, HouseholdContext,
-    PairingApproveBody, PairingChallengeBody, PairingClaimBody,
+    APIEnvelope, ActionProposalRequest, ChangeParentAccessCodeBody, ChildAccessBody, ChoreVerificationBody,
+    CognitoExchangeBody, DecisionWithCodeBody, EmptyBody, HouseholdContext, MoveCompleteBody, PairingApproveBody,
+    PairingChallengeBody, PairingClaimBody, ParentAccessCodeBody, PhotoUploadBody, ProposalDecisionBody,
+    RedemptionDecisionBody, RedemptionRequestBody, ResetAccessCodeBody, StarAdjustmentBody, VoiceTokenBody,
+    VoiceUtteranceBody,
 )
+from .move import MOVE_ROUTINES, SAFETY_NOTE, routine_summary
 from .pairing import PairingRegistry
-from .production import CognitoSessionService, CognitoTokenVerifier, PostgresHouseholdStore
+from .permissions import MATRIX, Actor
+from .photos import HOUSEHOLD_PHOTO_QUOTA_BYTES, decode_upload, process_image
+from .production import CognitoAccessTokenVerifier, CognitoSessionService, CognitoTokenVerifier, PostgresHouseholdStore
+from .service import HouseholdService
+from .vision import CHEERS, check_chore_photo, configured_provider
+from .voice import VoiceGateway, VoiceServer
 from .weather import NWSWeatherProvider, WeatherNotConfigured, WeatherUnavailable
 
 AUTH_MODE = os.getenv("FAMILYOS_AUTH_MODE", "local").strip().lower()
 DEMO_MODE = os.getenv("FAMILYOS_DEMO_MODE", "true").lower() == "true"
 IS_PRODUCTION = AUTH_MODE == "cognito"
+VISION_CHECKS_PER_DAY = int(os.getenv("FAMILYOS_VISION_CHECKS_PER_DAY", "30"))
 
 if os.getenv("RAILWAY_ENVIRONMENT") and not IS_PRODUCTION:
     raise RuntimeError(
@@ -36,35 +51,22 @@ if os.getenv("RAILWAY_ENVIRONMENT") and not IS_PRODUCTION:
 
 briefings = SafeBriefingService()
 weather_provider = NWSWeatherProvider.from_environment()
-app = FastAPI(title="FamilyOS Family Agent", version="0.1.0")
-
-if DEMO_MODE:
-    origins = ["*"]
-else:
-    origins = [value.strip() for value in os.getenv("FAMILYOS_CORS_ORIGINS", "").split(",") if value.strip()]
-    if "*" in origins:
-        raise RuntimeError("Production CORS origins must list exact HTTPS origins; wildcard origins are not allowed.")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=not DEMO_MODE,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
-)
+cognito_issuer = os.getenv("FAMILYOS_COGNITO_ISSUER", "").strip().rstrip("/")
+cognito_access_verifier = None
 
 if IS_PRODUCTION:
     if DEMO_MODE:
         raise RuntimeError("FAMILYOS_DEMO_MODE must be false when FAMILYOS_AUTH_MODE=cognito.")
     if os.getenv("FAMILYOS_COOKIE_SECURE", "false").lower() != "true":
         raise RuntimeError("FAMILYOS_COOKIE_SECURE=true is required for production sessions.")
-    cognito_issuer = os.getenv("FAMILYOS_COGNITO_ISSUER", "").strip().rstrip("/")
     cognito_client_id = os.getenv("FAMILYOS_COGNITO_CLIENT_ID", "").strip()
     if not cognito_issuer.startswith("https://") or not cognito_client_id:
         raise RuntimeError("FAMILYOS_COGNITO_ISSUER and FAMILYOS_COGNITO_CLIENT_ID are required in production.")
     production_store = PostgresHouseholdStore(os.getenv("DATABASE_URL", ""))
     production_store.initialize()
     production_auth = CognitoSessionService(CognitoTokenVerifier(cognito_issuer, cognito_client_id), production_store)
+    voice_clients = {item.strip() for item in os.getenv("FAMILYOS_MCP_COGNITO_CLIENT_IDS", "").split(",") if item.strip()}
+    cognito_access_verifier = CognitoAccessTokenVerifier(cognito_issuer, voice_clients) if voice_clients else None
     pairing_registry = None
     repository = None
     auth_store = None
@@ -78,6 +80,52 @@ else:
     production_store = None
     production_auth = None
     pairing_registry = PairingRegistry()
+
+
+def service() -> HouseholdService:
+    """Built per call from module globals so tests can substitute stores."""
+    return HouseholdService(production=IS_PRODUCTION, repository=repository, pg_store=production_store, auth_store=auth_store)
+
+
+PUBLIC_URL = os.getenv("FAMILYOS_PUBLIC_URL", "http://127.0.0.1:8787").rstrip("/")
+
+
+class _ServiceProxy:
+    def __getattr__(self, name):
+        return getattr(service(), name)
+
+
+voice_gateway = VoiceGateway(_ServiceProxy(), cognito_access_verifier)  # type: ignore[arg-type]
+voice_server = VoiceServer(
+    _ServiceProxy(), voice_gateway, public_url=PUBLIC_URL,  # type: ignore[arg-type]
+    authorization_server=cognito_issuer or PUBLIC_URL,
+    allowed_origins=[value.strip() for value in os.getenv("FAMILYOS_MCP_ALLOWED_ORIGINS", "").split(",") if value.strip()],
+)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    async with voice_server.lifespan():
+        yield
+
+
+app = FastAPI(title="FamilyOS Family Agent", version="0.2.0", lifespan=lifespan)
+
+if DEMO_MODE:
+    origins = ["*"]
+else:
+    origins = [value.strip() for value in os.getenv("FAMILYOS_CORS_ORIGINS", "").split(",") if value.strip()]
+    if "*" in origins:
+        raise RuntimeError("Production CORS origins must list exact HTTPS origins; wildcard origins are not allowed.")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=not DEMO_MODE,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-FamilyOS-Session-Transport",
+                   "Mcp-Session-Id", "Mcp-Protocol-Version"],
+)
 
 
 @app.middleware("http")
@@ -124,6 +172,7 @@ async def health(request: Request):
         "weather_provider": "nws" if weather_provider.configured else "disabled",
         "weather_configured": weather_provider.configured,
         "database_ready": database_ready,
+        "mcp_endpoint": "/mcp",
     })
 
 
@@ -160,26 +209,64 @@ def authenticated_session(request: Request, response: Response, token: str, acco
     return success(request, data)
 
 
-def require_household(request: Request):
+def _optional(store, name: str, *args):
+    method = getattr(store, name, None)
+    return method(*args) if method else None
+
+
+# Actors ------------------------------------------------------------------------------------------
+
+def resolve_actor(request: Request) -> Actor | None:
+    """Identify who is calling: parent, child profile, or paired TV. Never trusts body IDs."""
+    token = session_token(request)
+    if not token:
+        return None
     if IS_PRODUCTION:
-        account = production_auth.session(session_token(request))
-        if account is not None:
-            return production_store, str(account["accountId"])
-        device = production_store.device_session(session_token(request))
-        if device is not None:
-            return production_store, device["ownerSub"]
+        child = _optional(production_store, "child_session", token)
+        if child:
+            return Actor("child", str(child["ownerSub"]), member_id=str(child["memberId"]))
+        account = production_auth.session(token)
+        if account:
+            return Actor("parent", str(account["accountId"]), elevated=bool(account.get("elevated")))
+        device = _optional(production_store, "device_session", token)
+        if device:
+            device_id = str(device.get("deviceId", ""))
+            elevated = bool(device.get("elevated")) and bool(_optional(production_store, "device_elevated", device_id))
+            return Actor("device_parent" if elevated else "device", str(device["ownerSub"]), device_id=device_id)
+        return None
+    child = _optional(auth_store, "child_session", token)
+    if child:
+        return Actor("child", str(child["accountId"]), member_id=str(child["memberId"]))
+    account = auth_store.session(token)
+    if account:
+        return Actor("parent", str(account["accountId"]), elevated=bool(account.get("elevated")))
+    device = pairing_registry.device(token) if pairing_registry else None
+    if device:
+        elevated = pairing_registry.is_elevated(device)
+        return Actor("device_parent" if elevated else "device", device.owner_id, device_id=device.id)
+    return None
+
+
+def require_actor(request: Request, allowed: set[str] | None = None) -> Actor:
+    actor = resolve_actor(request)
+    if actor is None:
         raise DomainError(401, "AUTHENTICATION_REQUIRED", "Sign in or pair this TV to access a household.")
-    device = pairing_registry.device(session_token(request))
-    if device is not None:
-        return repository, None
-    return repository, None
+    if allowed is not None and actor.type not in allowed:
+        if actor.type == "child":
+            raise DomainError(403, "CHILD_PERMISSION_DENIED", "Ask a parent to make this change.")
+        if actor.type == "device":
+            raise DomainError(403, "PARENT_CODE_REQUIRED", "Ask a parent to unlock the TV with the four-digit code.")
+        raise DomainError(403, "PERMISSION_DENIED", "This account cannot make that change.")
+    return actor
 
 
-def require_parent(request: Request):
-    account = production_auth.session(session_token(request)) if IS_PRODUCTION else auth_store.session(session_token(request))
-    if account is None:
+def require_parent(request: Request) -> Actor:
+    actor = resolve_actor(request)
+    if actor is None or actor.type != "parent":
+        if actor is not None and actor.type == "child":
+            raise DomainError(403, "CHILD_PERMISSION_DENIED", "Ask a parent to make this change.")
         raise DomainError(401, "AUTHENTICATION_REQUIRED", "Sign in as a parent to make this change.")
-    return (production_store if IS_PRODUCTION else repository), str(account["accountId"])
+    return actor
 
 
 def pair_owner(request: Request) -> tuple[str, str]:
@@ -190,9 +277,15 @@ def pair_owner(request: Request) -> tuple[str, str]:
 
 
 def household_snapshot(request: Request):
-    store, owner_sub = require_household(request)
-    return store.household(owner_sub) if owner_sub else store.snapshot()
+    actor = resolve_actor(request)
+    if actor is not None:
+        return service().snapshot(actor.owner)
+    if IS_PRODUCTION:
+        raise DomainError(401, "AUTHENTICATION_REQUIRED", "Sign in or pair this TV to access a household.")
+    return repository.snapshot()  # The unpaired local demo TV reads the shared demo household.
 
+
+# Accounts ----------------------------------------------------------------------------------------
 
 @app.post("/v1/auth/exchange", response_model=APIEnvelope)
 async def exchange_cognito_session(body: CognitoExchangeBody, request: Request, response: Response):
@@ -240,18 +333,43 @@ async def sign_in(body: SignInBody, request: Request, response: Response):
 
 @app.post("/v1/auth/sign-out", response_model=APIEnvelope)
 async def sign_out(request: Request, response: Response):
-    if IS_PRODUCTION:
-        production_auth.sign_out(session_token(request))
+    token = session_token(request)
+    store = production_store if IS_PRODUCTION else auth_store
+    if _optional(store, "child_session", token):
+        store.revoke_child_session(token)
+    elif IS_PRODUCTION:
+        production_auth.sign_out(token)
     else:
-        auth_store.sign_out(session_token(request))
+        auth_store.sign_out(token)
     response.delete_cookie(AUTH_COOKIE, path="/", httponly=True, samesite="strict")
     return success(request, {"signedOut": True})
 
 
+@app.post("/v1/auth/sessions/revoke-all", response_model=APIEnvelope)
+async def revoke_all_sessions(request: Request, response: Response):
+    """Sign this parent account out everywhere, including child sessions it started."""
+    actor = require_parent(request)
+    service().accounts.revoke_all_sessions(actor.owner)
+    response.delete_cookie(AUTH_COOKIE, path="/", httponly=True, samesite="strict")
+    return success(request, {"revoked": True, "signInRequired": True})
+
+
 @app.get("/v1/auth/session", response_model=APIEnvelope)
-async def get_auth_session(request: Request):
-    account = production_auth.session(session_token(request)) if IS_PRODUCTION else auth_store.session(session_token(request))
-    return success(request, {"authenticated": account is not None, "account": account})
+async def get_auth_session(request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    actor = resolve_actor(request)
+    if actor is not None and actor.type == "child":
+        account = (production_store.account_for_owner(actor.owner) if IS_PRODUCTION
+                   else auth_store.account_for_id(actor.owner))
+        member = next((item for item in service().snapshot(actor.owner).members if item.id == actor.member_id), None)
+        return success(request, {"authenticated": True, "accessMode": "child", "memberId": actor.member_id,
+                                 "account": {**account, "parentName": "Parent", "email": ""},
+                                 "memberName": member.name if member else "Child"})
+    token = session_token(request)
+    account = production_auth.session(token) if IS_PRODUCTION else auth_store.session(token)
+    return success(request, {"authenticated": account is not None, "accessMode": "parent" if account else None,
+                             "memberId": None, "account": account,
+                             "elevated": bool(account and account.get("elevated"))})
 
 
 @app.post("/v1/auth/forgot-password", response_model=APIEnvelope)
@@ -283,8 +401,7 @@ async def get_local_dev_email(email: str, purpose: Purpose, request: Request):
         private_lan_host = False
     if (
         IS_PRODUCTION
-        or
-        os.getenv("FAMILYOS_LOCAL_AUTH_SHOW_CODES", "true").lower() != "true"
+        or os.getenv("FAMILYOS_LOCAL_AUTH_SHOW_CODES", "true").lower() != "true"
         or (client_host not in local_hosts and not (lan_testing and private_lan_host))
     ):
         raise DomainError(404, "NOT_FOUND", "That resource could not be found.")
@@ -292,16 +409,23 @@ async def get_local_dev_email(email: str, purpose: Purpose, request: Request):
     return success(request, delivery)
 
 
+# Household reads ---------------------------------------------------------------------------------
+
 @app.get("/v1/household", response_model=APIEnvelope)
 async def get_household(request: Request):
-    request.state.private_household = True
     return success(request, household_snapshot(request))
+
+
+@app.get("/v1/permissions", response_model=APIEnvelope)
+async def get_permissions(request: Request):
+    actor = resolve_actor(request)
+    return success(request, {"actor": actor.type if actor else None, "memberId": actor.member_id if actor else None,
+                             "matrix": MATRIX})
 
 
 @app.get("/v1/weather", response_model=APIEnvelope)
 async def get_weather(request: Request, response: Response):
-    request.state.private_household = True
-    require_household(request)
+    household_snapshot(request)
     response.headers["Cache-Control"] = "no-store"
     if not weather_provider.configured:
         raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set the household weather location to enable forecasts.")
@@ -313,6 +437,79 @@ async def get_weather(request: Request, response: Response):
         raise DomainError(503, "WEATHER_UNAVAILABLE", "The weather service is temporarily unavailable.") from error
     return success(request, forecast, provider="nws")
 
+
+@app.get("/v1/events", response_model=APIEnvelope)
+async def get_events(
+    request: Request,
+    start: str | None = Query(default=None, alias="from", max_length=40),
+    end: str | None = Query(default=None, alias="to", max_length=40),
+):
+    try:
+        start_value = datetime.fromisoformat(start.replace("Z", "+00:00")) if start else None
+        end_value = datetime.fromisoformat(end.replace("Z", "+00:00")) if end else None
+    except ValueError as error:
+        raise DomainError(422, "VALIDATION_ERROR", "Event date range must use ISO date or timestamp values.") from error
+    if start_value and end_value and end_value <= start_value:
+        raise DomainError(422, "VALIDATION_ERROR", "The end of the event range must follow its start.")
+    from .domain import parse
+    values = household_snapshot(request).events
+    if start_value:
+        values = [item for item in values if parse(item.endAt) > start_value]
+    if end_value:
+        values = [item for item in values if parse(item.startAt) < end_value]
+    return success(request, values)
+
+
+@app.get("/v1/chores", response_model=APIEnvelope)
+async def get_chores(request: Request):
+    return success(request, household_snapshot(request).chores)
+
+
+@app.get("/v1/routines", response_model=APIEnvelope)
+async def get_routines(request: Request):
+    return success(request, household_snapshot(request).routines)
+
+
+@app.get("/v1/conflicts", response_model=APIEnvelope)
+async def get_conflicts(request: Request):
+    from .domain import detect_conflicts
+    return success(request, detect_conflicts(household_snapshot(request), demo_now()))
+
+
+@app.get("/v1/reminders", response_model=APIEnvelope)
+async def get_reminders(request: Request):
+    snapshot = household_snapshot(request)
+    return success(request, {"sports": sports_reminders(snapshot, demo_now())})
+
+
+@app.get("/v1/actions/history", response_model=APIEnvelope)
+async def get_action_history(request: Request):
+    actor = resolve_actor(request)
+    if IS_PRODUCTION:
+        actor = require_actor(request)
+        return success(request, production_store.action_history(actor.owner))
+    return success(request, repository.action_history())
+
+
+async def build_briefing(request: Request, context: HouseholdContext):
+    result, fallback = await briefings.generate(context)
+    return success(request, result, fallback=fallback, provider=result.provider)
+
+
+@app.get("/v1/briefing", response_model=APIEnvelope)
+async def get_briefing(request: Request):
+    context = snapshot_context(household_snapshot(request), demo_now())
+    return await build_briefing(request, context)
+
+
+@app.post("/v1/briefing", response_model=APIEnvelope)
+async def create_briefing(context: HouseholdContext, request: Request):
+    """Brief the app's minimized local snapshot; never accept notes or photo content."""
+    household_snapshot(request)
+    return await build_briefing(request, context)
+
+
+# Pairing and TV parent mode ------------------------------------------------------------------------
 
 @app.post("/v1/pairing/challenges", response_model=APIEnvelope)
 async def create_pairing_challenge(body: PairingChallengeBody, request: Request):
@@ -375,100 +572,424 @@ async def unpair_current_device(_body: EmptyBody, request: Request):
     return success(request, {"unpaired": True})
 
 
+def _elevate_tv(request: Request, actor: Actor) -> str:
+    token = session_token(request)
+    until = production_store.elevate_device(token) if IS_PRODUCTION else pairing_registry.elevate(token)
+    return until.isoformat()
+
+
+@app.post("/v1/tv/parent-mode", response_model=APIEnvelope)
+async def unlock_tv_parent_mode(body: ParentAccessCodeBody, request: Request):
+    """Temporary parent access on a paired TV. It ends after five idle minutes or when locked."""
+    actor = require_actor(request, {"device", "device_parent"})
+    service().verify_code(actor.owner, body.code)
+    return success(request, {"elevated": True, "expiresAt": _elevate_tv(request, actor), "idleMinutes": 5})
+
+
+@app.post("/v1/tv/lock", response_model=APIEnvelope)
+async def lock_tv_parent_mode(_body: EmptyBody, request: Request):
+    require_actor(request, {"device", "device_parent"})
+    if IS_PRODUCTION:
+        production_store.lock_device(session_token(request))
+    else:
+        pairing_registry.lock(session_token(request))
+    return success(request, {"elevated": False})
+
+
+@app.get("/v1/tv/session", response_model=APIEnvelope)
+async def tv_session(request: Request):
+    actor = require_actor(request, {"device", "device_parent"})
+    return success(request, {"paired": True, "elevated": actor.type == "device_parent"})
+
+
+# Household edits ----------------------------------------------------------------------------------
+
 @app.post("/v1/companion/edit", response_model=APIEnvelope)
 async def companion_edit(body: CompanionMutation, request: Request):
-    store, owner_sub = require_parent(request)
+    actor = require_actor(request)
+    return success(request, service().edit(actor, body.kind, body.value, expected_revision=body.expectedRevision))
+
+
+@app.post("/v1/access-code", response_model=APIEnvelope)
+async def set_parent_access_code(body: ParentAccessCodeBody, request: Request):
+    actor = require_parent(request)
+    service().accounts.set_parent_access_code(actor.owner, body.code)
+    return success(request, {"configured": True})
+
+
+@app.get("/v1/access-code", response_model=APIEnvelope)
+async def parent_access_code_status(request: Request):
+    actor = require_parent(request)
+    return success(request, {"configured": service().accounts.parent_access_code_configured(actor.owner)})
+
+
+@app.post("/v1/access-code/change", response_model=APIEnvelope)
+async def change_parent_access_code(body: ChangeParentAccessCodeBody, request: Request):
+    actor = require_parent(request)
+    service().accounts.change_parent_access_code(actor.owner, body.oldCode, body.newCode)
+    return success(request, {"changed": True})
+
+
+@app.post("/v1/access-code/reset", response_model=APIEnvelope)
+async def reset_parent_access_code(body: ResetAccessCodeBody, request: Request):
+    """Owner recovery: a forgotten four-digit code is replaced only after re-entering the account password."""
+    actor = require_parent(request)
     if IS_PRODUCTION:
-        return success(request, store.companion_edit(owner_sub, body))
-    # The existing deterministic demo is intentionally separate from real households.
-    with store._lock:
-        store._data = apply_edit(store._data, body)
-        return success(request, store.snapshot())
+        production_auth.verify_recent_sign_in(body.idToken, actor.owner)
+    else:
+        auth_store.verify_password(actor.owner, body.password or "")
+    service().accounts.reset_parent_access_code(actor.owner, body.newCode)
+    return success(request, {"reset": True})
 
 
-@app.get("/v1/events", response_model=APIEnvelope)
-async def get_events(
-    request: Request,
-    start: str | None = Query(default=None, alias="from", max_length=40),
-    end: str | None = Query(default=None, alias="to", max_length=40),
-):
-    from datetime import datetime
-
-    try:
-        start_value = datetime.fromisoformat(start.replace("Z", "+00:00")) if start else None
-        end_value = datetime.fromisoformat(end.replace("Z", "+00:00")) if end else None
-    except ValueError as error:
-        raise DomainError(422, "VALIDATION_ERROR", "Event date range must use ISO date or timestamp values.") from error
-    if start_value and end_value and end_value <= start_value:
-        raise DomainError(422, "VALIDATION_ERROR", "The end of the event range must follow its start.")
-    store, owner_sub = require_household(request)
-    if owner_sub:
-        return success(request, store.events(owner_sub, start_value, end_value))
-    return success(request, store.events(start_value, end_value))
+@app.get("/v1/rewards", response_model=APIEnvelope)
+async def get_rewards(request: Request):
+    snapshot = household_snapshot(request)
+    balances = {
+        member.id: sum(item.delta for item in snapshot.starTransactions if item.memberId == member.id)
+        for member in snapshot.members
+    }
+    return success(request, {"rewards": snapshot.rewards, "redemptions": snapshot.redemptions,
+                             "balances": balances, "starTransactions": snapshot.starTransactions})
 
 
-@app.get("/v1/chores", response_model=APIEnvelope)
-async def get_chores(request: Request):
-    return success(request, household_snapshot(request).chores)
+@app.post("/v1/redemptions/request", response_model=APIEnvelope)
+async def request_redemption(body: RedemptionRequestBody, request: Request):
+    actor = require_actor(request, {"parent", "child"})
+    if actor.type == "child" and body.memberId != actor.member_id:
+        raise DomainError(403, "CHILD_PERMISSION_DENIED", "A child can request a reward only for their own profile.")
+    snapshot = service().snapshot(actor.owner)
+    reward = next((item for item in snapshot.rewards if item.id == body.rewardId and item.available), None)
+    if reward is None:
+        raise DomainError(404, "REWARD_NOT_FOUND", "That reward is not available.")
+    request_id = uuid4().hex
+    saved = service().edit(actor, "redemptionRequest", {
+        "id": request_id, "memberId": body.memberId, "rewardId": reward.id,
+        "stars": reward.stars, "status": "pending",
+        "requestedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }, server=True)
+    return success(request, {"request": next(item for item in saved.redemptions if item.id == request_id), "household": saved})
 
 
-@app.get("/v1/routines", response_model=APIEnvelope)
-async def get_routines(request: Request):
-    return success(request, household_snapshot(request).routines)
+@app.post("/v1/redemptions/{redemption_id}/decision", response_model=APIEnvelope)
+async def decide_redemption(redemption_id: str, body: RedemptionDecisionBody, request: Request):
+    """Every approval needs the four-digit code, from the phone or the TV number pad."""
+    actor = require_actor(request, {"parent", "device", "device_parent"})
+    service().verify_code(actor.owner, body.code)
+    saved = service().edit(actor, "redemptionDecision", {
+        "id": redemption_id, "action": body.action, "approvedBy": actor.label,
+        "approvedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }, server=True)
+    request_item = next((item for item in saved.redemptions if item.id == redemption_id), None)
+    return success(request, {"request": request_item, "household": saved})
 
 
-@app.get("/v1/conflicts", response_model=APIEnvelope)
-async def get_conflicts(request: Request):
-    store, owner_sub = require_household(request)
-    return success(request, store.conflicts(owner_sub) if owner_sub else store.conflicts())
+@app.post("/v1/stars/adjust", response_model=APIEnvelope)
+async def adjust_stars(body: StarAdjustmentBody, request: Request):
+    actor = require_actor(request, {"parent", "device", "device_parent"})
+    service().verify_code(actor.owner, body.code)
+    saved = service().edit(actor, "starAdjustment", {"id": uuid4().hex, "memberId": body.memberId, "delta": body.delta}, server=True)
+    return success(request, saved)
 
 
-@app.get("/v1/actions/history", response_model=APIEnvelope)
-async def get_action_history(request: Request):
-    store, owner_sub = require_household(request)
-    return success(request, store.action_history(owner_sub) if owner_sub else store.action_history())
+def import_context(snapshot) -> ImportContext:
+    return ImportContext(today=household_today(snapshot).isoformat(), timezone=snapshot.family.timezone,
+                         memberNames=[member.name for member in snapshot.members])
 
 
-async def build_briefing(request: Request, context: HouseholdContext):
-    result, fallback = await briefings.generate(context)
-    return success(request, result, fallback=fallback, provider=result.provider)
+@app.post("/v1/imports/drafts", response_model=APIEnvelope)
+async def create_import_draft(body: ImportRequest, request: Request):
+    actor = require_parent(request)
+    drafts = await make_import_drafts(body, import_context(service().snapshot(actor.owner)), configured_import_provider())
+    snapshot = None
+    for draft in drafts:
+        snapshot = service().edit(actor, "importDraft", draft.model_dump(mode="json"), server=True)
+    saved = [item for item in snapshot.importDrafts if item.id in {draft.id for draft in drafts}]
+    return success(request, {"draft": saved[0], "drafts": saved, "household": snapshot})
 
 
-@app.get("/v1/briefing", response_model=APIEnvelope)
-async def get_briefing(request: Request):
-    context = snapshot_context(household_snapshot(request), demo_now())
-    return await build_briefing(request, context)
+# Parent / child access ------------------------------------------------------------------------------
+
+@app.post("/v1/access/child-session", response_model=APIEnvelope)
+async def start_child_session(body: ChildAccessBody, request: Request, response: Response):
+    actor = require_parent(request)
+    accounts = service().accounts
+    if not accounts.parent_access_code_configured(actor.owner):
+        raise DomainError(409, "ACCESS_CODE_NOT_SET", "Set the four-digit parent access code before switching to child mode.")
+    snapshot = service().snapshot(actor.owner)
+    member = next((item for item in snapshot.members if item.id == body.memberId and item.role == "child"), None)
+    if member is None:
+        raise DomainError(422, "INVALID_CHILD_PROFILE", "Choose a child profile in this household.")
+    child_token = accounts.create_child_session(actor.owner, member.id)
+    parent_token = session_token(request)
+    if IS_PRODUCTION:
+        production_store.revoke_session(parent_token)
+    else:
+        auth_store.sign_out(parent_token)
+    response.headers["Cache-Control"] = "no-store"
+    return success(request, {"accessMode": "child", "memberId": member.id, "memberName": member.name,
+                             "sessionToken": child_token, "expiresInHours": 8})
 
 
-@app.post("/v1/briefing", response_model=APIEnvelope)
-async def create_briefing(context: HouseholdContext, request: Request):
-    """Brief the app's minimized local snapshot; never accept notes or photo content."""
-    require_household(request)
-    return await build_briefing(request, context)
+@app.post("/v1/access/parent-mode", response_model=APIEnvelope)
+async def return_to_parent_mode(body: ParentAccessCodeBody, request: Request, response: Response):
+    """Unlock temporary parent access on a phone in child mode.
 
+    The child session stays valid so the phone can lock again (or fall back automatically) when this
+    parent session ends after 15 idle minutes. The child session itself never gains parent rights.
+    """
+    actor = resolve_actor(request)
+    if actor is None or actor.type != "child":
+        raise DomainError(401, "CHILD_SESSION_REQUIRED", "Switch to a child profile before returning to parent mode.")
+    accounts = service().accounts
+    accounts.verify_parent_access_code(actor.owner, body.code)
+    parent_token = accounts.create_parent_session(actor.owner, True)
+    account = production_store.account_for_owner(actor.owner) if IS_PRODUCTION else auth_store.account_for_id(actor.owner)
+    response.headers["Cache-Control"] = "no-store"
+    return success(request, {"accessMode": "parent", "sessionToken": parent_token, "account": account,
+                             "elevated": True, "idleMinutes": 15})
+
+
+# Pickup suggestions (conflict resolution) ---------------------------------------------------------
 
 @app.post("/v1/actions/propose", response_model=APIEnvelope)
 async def propose_action(body: ActionProposalRequest, request: Request):
-    store, owner_sub = require_parent(request)
+    actor = require_actor(request, {"parent", "device_parent"})
     if IS_PRODUCTION:
-        proposal = store.propose(owner_sub, body.conflictId, body.eventId, body.targetMemberId)
+        proposal = production_store.propose(actor.owner, body.conflictId, body.eventId, body.targetMemberId)
     else:
-        proposal = store.propose(body.conflictId, body.eventId, body.targetMemberId)
+        proposal = repository.propose(body.conflictId, body.eventId, body.targetMemberId)
     return success(request, proposal)
 
 
 @app.post("/v1/actions/{action_id}/confirm", response_model=APIEnvelope)
 async def confirm_action(action_id: str, request: Request):
-    store, owner_sub = require_parent(request)
-    action, event, history = store.confirm(owner_sub, action_id) if IS_PRODUCTION else store.confirm(action_id)
+    actor = require_actor(request, {"parent", "device_parent"})
+    action, event, history = production_store.confirm(actor.owner, action_id) if IS_PRODUCTION else repository.confirm(action_id)
     return success(request, {"action": action, "event": event, "actionHistory": history})
 
 
 @app.post("/v1/actions/{action_id}/cancel", response_model=APIEnvelope)
 async def cancel_action(action_id: str, request: Request):
-    store, owner_sub = require_parent(request)
-    action = store.cancel(owner_sub, action_id) if IS_PRODUCTION else store.cancel(action_id)
+    actor = require_actor(request, {"parent", "device_parent"})
+    action = production_store.cancel(actor.owner, action_id) if IS_PRODUCTION else repository.cancel(action_id)
     return success(request, action)
+
+
+# Voice proposals ----------------------------------------------------------------------------------
+
+@app.get("/v1/proposals", response_model=APIEnvelope)
+async def list_proposals(request: Request):
+    snapshot = household_snapshot(request)
+    return success(request, [item for item in snapshot.proposals if item.status == "pending"])
+
+
+@app.post("/v1/proposals/{proposal_id}/decision", response_model=APIEnvelope)
+async def decide_proposal(proposal_id: str, body: ProposalDecisionBody, request: Request):
+    """Confirm or reject a voice request. A TV may include the parent code to confirm parent-level changes."""
+    actor = require_actor(request, {"parent", "device", "device_parent"})
+    if actor.type == "device" and body.code:
+        service().verify_code(actor.owner, body.code)
+        _elevate_tv(request, actor)
+        actor = Actor("device_parent", actor.owner, device_id=actor.device_id)
+    saved = service().edit(actor, "proposalDecide", {"id": proposal_id, "action": body.action})
+    proposal = next(item for item in saved.proposals if item.id == proposal_id)
+    return success(request, {"proposal": proposal, "household": saved})
+
+
+# Chore photo verification -------------------------------------------------------------------------
+
+@app.post("/v1/chores/{chore_id}/verification", response_model=APIEnvelope)
+async def submit_chore_photo(chore_id: str, body: ChoreVerificationBody, request: Request):
+    """A child (or parent) submits a photo. The AI verdict is advisory and never awards stars."""
+    actor = require_actor(request, {"parent", "child"})
+    if actor.type == "child" and body.memberId != actor.member_id:
+        raise DomainError(403, "CHORE_NOT_ASSIGNED", "Children can submit photos only for their own chores.")
+    svc = service()
+    snapshot = svc.snapshot(actor.owner)
+    chore = next((item for item in snapshot.chores if item.id == chore_id), None)
+    if chore is None or not chore.verifyWithPhoto:
+        raise DomainError(422, "PHOTO_NOT_REQUIRED", "That chore does not use photo checks.")
+    if chore.assignedToMemberId != body.memberId:
+        raise DomainError(403, "CHORE_NOT_ASSIGNED", "That chore belongs to someone else.")
+    since = datetime.now(timezone.utc) - timedelta(days=1)
+    recent = [item for item in snapshot.choreVerifications if datetime.fromisoformat(item.submittedAt) > since]
+    if len(recent) >= VISION_CHECKS_PER_DAY:
+        raise DomainError(429, "PHOTO_CHECK_LIMIT", "Your family reached today's photo check limit. A parent can approve the chore directly.")
+    variants, _, _ = process_image(decode_upload(body.contentBase64), ("thumb", "check"))
+    result = await check_chore_photo(configured_provider(), chore.title, chore.photoHint or "", variants["check"])
+    photo_id = f"chk-{uuid4().hex}"
+    owner = svc.blob_owner(actor.owner)
+    svc.accounts.put_photo(owner, photo_id, variants)
+    occurrence = f"chore:{chore.id}:{chore.dueAt[:10] if chore.recurrence and chore.dueAt else 'once'}"
+    record_id = uuid4().hex
+    try:
+        saved = svc.edit(actor, "choreVerificationCreate", {
+            "id": record_id, "choreId": chore.id, "memberId": body.memberId, "occurrence": occurrence,
+            "photoId": photo_id, "verdict": result.verdict, "reason": result.reason, "confidence": result.confidence,
+            "provider": result.provider, "status": "pending",
+            "submittedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }, server=True)
+    except DomainError:
+        svc.accounts.delete_photo(owner, photo_id)
+        raise
+    for replaced in [item for item in saved.choreVerifications if item.choreId == chore.id and item.id != record_id
+                     and item.decidedBy == "replaced" and item.photoId]:
+        svc.accounts.delete_photo(owner, replaced.photoId)
+    record = next(item for item in saved.choreVerifications if item.id == record_id)
+    return success(request, {"verification": record, "message": CHEERS[result.verdict], "household": saved})
+
+
+@app.post("/v1/chores/verifications/{verification_id}/decision", response_model=APIEnvelope)
+async def decide_chore_photo(verification_id: str, body: DecisionWithCodeBody, request: Request):
+    actor = require_actor(request, {"parent", "device", "device_parent"})
+    svc = service()
+    svc.verify_code(actor.owner, body.code)
+    before = next((item for item in svc.snapshot(actor.owner).choreVerifications if item.id == verification_id), None)
+    saved = svc.edit(actor, "choreVerificationDecide", {"id": verification_id, "action": body.action}, server=True)
+    if before and before.photoId:
+        svc.accounts.delete_photo(svc.blob_owner(actor.owner), before.photoId)  # Deleted after the parent decides.
+    record = next(item for item in saved.choreVerifications if item.id == verification_id)
+    return success(request, {"verification": record, "household": saved})
+
+
+@app.get("/v1/chores/verifications/{verification_id}/photo")
+async def chore_photo(verification_id: str, request: Request, variant: str = Query(default="thumb", pattern="^(thumb|check)$")):
+    actor = require_actor(request, {"parent", "device", "device_parent", "child"})
+    svc = service()
+    record = next((item for item in svc.snapshot(actor.owner).choreVerifications if item.id == verification_id), None)
+    if record is None or not record.photoId or (actor.type == "child" and record.memberId != actor.member_id):
+        raise DomainError(404, "PHOTO_NOT_FOUND", "That photo is no longer available.")
+    content = svc.accounts.get_photo(svc.blob_owner(actor.owner), record.photoId, variant)
+    if content is None:
+        raise DomainError(404, "PHOTO_NOT_FOUND", "That photo is no longer available.")
+    return Response(content, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
+
+
+# Family photos ------------------------------------------------------------------------------------
+
+@app.post("/v1/photos", response_model=APIEnvelope)
+async def upload_photo(body: PhotoUploadBody, request: Request):
+    actor = require_parent(request)
+    svc = service()
+    variants, width, height = process_image(decode_upload(body.contentBase64))
+    owner = svc.blob_owner(actor.owner)
+    size = sum(len(item) for item in variants.values())
+    if svc.accounts.photo_usage(owner) + size > HOUSEHOLD_PHOTO_QUOTA_BYTES:
+        raise DomainError(413, "PHOTO_STORAGE_FULL", "Your family photo storage is full. Remove some photos first.")
+    photo_id = uuid4().hex
+    svc.accounts.put_photo(owner, photo_id, variants)
+    try:
+        saved = svc.edit(actor, "photoCreate", {
+            "id": photo_id, "caption": body.caption.strip(), "width": width, "height": height, "bytes": size,
+            "uploadedBy": actor.label, "createdAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }, server=True)
+    except DomainError:
+        svc.accounts.delete_photo(owner, photo_id)
+        raise
+    return success(request, {"photo": next(item for item in saved.photos if item.id == photo_id), "household": saved})
+
+
+@app.get("/v1/photos/{photo_id}/{variant}")
+async def get_photo(photo_id: str, variant: str, request: Request):
+    if variant not in ("tv", "thumb"):
+        raise DomainError(404, "PHOTO_NOT_FOUND", "That photo is no longer available.")
+    actor = require_actor(request)
+    svc = service()
+    if not any(item.id == photo_id for item in svc.snapshot(actor.owner).photos):
+        raise DomainError(404, "PHOTO_NOT_FOUND", "That photo is no longer available.")
+    content = svc.accounts.get_photo(svc.blob_owner(actor.owner), photo_id, variant)
+    if content is None:
+        raise DomainError(404, "PHOTO_NOT_FOUND", "That photo is no longer available.")
+    return Response(content, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@app.post("/v1/photos/{photo_id}/update", response_model=APIEnvelope)
+async def update_photo(photo_id: str, request: Request):
+    actor = require_parent(request)
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise DomainError(422, "VALIDATION_ERROR", "The request could not be validated.")
+    return success(request, service().edit(actor, "photoMeta", {**body, "id": photo_id}))
+
+
+@app.post("/v1/photos/{photo_id}/delete", response_model=APIEnvelope)
+async def delete_photo(photo_id: str, request: Request):
+    actor = require_parent(request)
+    svc = service()
+    saved = svc.edit(actor, "photoDelete", {"id": photo_id})
+    svc.accounts.delete_photo(svc.blob_owner(actor.owner), photo_id)
+    return success(request, saved)
+
+
+# Movement breaks, family night ----------------------------------------------------------------
+
+@app.get("/v1/move/routines", response_model=APIEnvelope)
+async def move_routines(request: Request):
+    return success(request, {"safetyNote": SAFETY_NOTE, "routines": [routine_summary(item) for item in MOVE_ROUTINES.values()]})
+
+
+@app.post("/v1/move/complete", response_model=APIEnvelope)
+async def complete_move(body: MoveCompleteBody, request: Request):
+    actor = require_actor(request, {"parent", "device", "device_parent"})
+    session_key = body.eventId or f"{body.date}:{body.routineId}"
+    saved = service().edit(actor, "moveComplete", {"id": session_key[:80], "routineId": body.routineId,
+                                                   "memberIds": body.memberIds, "eventId": body.eventId, "date": body.date})
+    return success(request, saved)
+
+
+@app.get("/v1/family-night", response_model=APIEnvelope)
+async def family_night(request: Request):
+    snapshot = household_snapshot(request)
+    return success(request, {"settings": snapshot.familyNight, "picker": current_picker(snapshot),
+                             "rule": FAMILY_NIGHT_RULE, "polls": snapshot.familyNightPolls[-8:]})
+
+
+# Voice connections (MCP) ------------------------------------------------------------------------
+
+@app.get("/v1/voice/connections", response_model=APIEnvelope)
+async def voice_connections(request: Request):
+    actor = require_parent(request)
+    return success(request, {"connections": service().accounts.voice_tokens(actor.owner),
+                             "mcpUrl": f"{PUBLIC_URL}/mcp"})
+
+
+@app.post("/v1/voice/connections", response_model=APIEnvelope)
+async def create_voice_connection(body: VoiceTokenBody, request: Request, response: Response):
+    actor = require_parent(request)
+    if body.memberId:
+        member = next((item for item in service().snapshot(actor.owner).members if item.id == body.memberId), None)
+        if member is None or member.role != "child":
+            raise DomainError(422, "INVALID_CHILD_PROFILE", "Choose a child profile for a child voice connection.")
+    token, record = service().accounts.create_voice_token(actor.owner, body.label, body.memberId)
+    response.headers["Cache-Control"] = "no-store"
+    return success(request, {"connection": record, "token": token, "mcpUrl": f"{PUBLIC_URL}/mcp"})
+
+
+@app.post("/v1/voice/connections/{connection_id}/revoke", response_model=APIEnvelope)
+async def revoke_voice_connection(connection_id: str, request: Request):
+    actor = require_parent(request)
+    service().accounts.revoke_voice_token(actor.owner, connection_id)
+    return success(request, {"revoked": True})
+
+
+@app.post("/v1/voice/simulate", response_model=APIEnvelope)
+async def simulate_voice(body: VoiceUtteranceBody, request: Request):
+    """Simulated Alexa+: a voice connection token, or a signed-in parent, drives the MCP tools."""
+    from .voice import VoiceIdentity
+
+    identity = voice_gateway.identity(session_token(request))
+    if identity is None:
+        actor = require_parent(request)
+        identity = VoiceIdentity(owner=actor.owner, member_id=None, label="simulated", connection_id=f"sim:{actor.owner[:12]}")
+    result = await voice_server.simulate(identity, body.utterance)
+    return success(request, {**result, "simulated": True, "label": "Simulated Alexa+ (not a live Alexa device)"})
+
+
+@app.get("/.well-known/oauth-protected-resource/mcp")
+@app.get("/.well-known/oauth-protected-resource")
+async def protected_resource_metadata():
+    return JSONResponse(voice_server.protected_resource_metadata())
 
 
 @app.post("/v1/demo/reset", response_model=APIEnvelope)
@@ -476,6 +997,9 @@ async def reset_demo(request: Request):
     if IS_PRODUCTION:
         raise DomainError(404, "NOT_FOUND", "That resource could not be found.")
     return success(request, repository.reset())
+
+
+app.router.routes.append(Route("/mcp", endpoint=voice_server, methods=["GET", "POST", "DELETE"]))
 
 if not IS_PRODUCTION:
     app.mount(

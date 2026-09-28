@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const ts = require('typescript');
 
-function harness(data, cookie = 'familyos_session=test-session; Secure; HttpOnly', platform = 'ios') {
+function harness(data, cookie = 'familyos_session=test-session; Secure; HttpOnly', platform = 'ios', status = 200) {
   const stored = new Map();
   const requests = [];
   const module = { exports: {} };
@@ -17,6 +17,14 @@ function harness(data, cookie = 'familyos_session=test-session; Secure; HttpOnly
     module, exports: module.exports, URL, URLSearchParams, __DEV__: true, process: { env: {} },
     require: (name) => {
       if (name === 'react-native') return { Platform: { OS: platform } };
+      if (name === './household') {
+        const household = { exports: {} };
+        const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/household.ts'), 'utf8'), {
+          compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+        }).outputText;
+        vm.runInNewContext(code, { module: household, exports: household.exports, Date });
+        return household.exports;
+      }
       assert.equal(name, './storage');
       return { SecureStore: {
         getItemAsync: async (key) => stored.get(key) || null,
@@ -26,7 +34,9 @@ function harness(data, cookie = 'familyos_session=test-session; Secure; HttpOnly
     },
     fetch: async (url, options) => {
       requests.push({ url, options });
-      return { ok: true, headers: { get: () => cookie }, json: async () => ({ data }) };
+      return status < 400
+        ? { ok: true, status, headers: { get: () => cookie }, json: async () => ({ data }) }
+        : { ok: false, status, headers: { get: () => null }, json: async () => ({ error: { code: 'AUTHENTICATION_REQUIRED', message: 'Please sign in.' } }) };
     },
   });
   return { ...module.exports, stored, requests };
@@ -109,4 +119,24 @@ test('native auth accepts JSON session token when iOS hides response cookies', a
   assert.equal(h.requests[1].options.credentials, 'omit');
   await api.signOut();
   assert.equal(h.stored.has('familyos.session-cookie'), false);
+});
+test('parent unlock keeps the child session aside and lock restores it', async () => {
+  const h = harness({ sessionToken: 'elevated-parent' });
+  h.stored.set('familyos.session-cookie', 'child-session');
+  const api = new h.FamilyOSAPI('https://familyos.example.test');
+  await api.returnToParentMode('4826');
+  assert.equal(h.stored.get('familyos.session-cookie'), 'elevated-parent');
+  assert.equal(h.stored.get('familyos.child-session'), 'child-session');
+  assert.equal(await api.lockParentMode(), true);
+  assert.equal(h.requests.at(-1).options.headers.Authorization, 'Bearer elevated-parent');
+  assert.match(h.requests.at(-1).url, /v1\/auth\/sign-out$/);
+  assert.equal(h.stored.get('familyos.session-cookie'), 'child-session');
+  assert.equal(h.stored.has('familyos.child-session'), false);
+  assert.equal(await api.lockParentMode(), false);
+});
+test('failed requests expose the HTTP status for expired-session handling', async () => {
+  const h = harness(null, '', 'ios', 401);
+  h.stored.set('familyos.session-cookie', 'expired-parent');
+  const api = new h.FamilyOSAPI('https://familyos.example.test');
+  await assert.rejects(api.household(), (error) => error.status === 401 && error.code === 'AUTHENTICATION_REQUIRED' && error.message === 'Please sign in.');
 });

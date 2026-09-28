@@ -4,12 +4,16 @@ import {
   Conflict,
   FamilyBriefing,
   FamilyMember,
+  HouseholdProposal,
   HouseholdSnapshot,
   ProposedAction,
   Routine,
   WeatherForecast,
 } from '@familyos/domain';
+import { Platform } from 'react-native';
 import { clearTVDeviceToken, getTVDeviceToken, setTVDeviceToken } from './tvDeviceSession';
+
+const webImageCache = new Map<string, string>();
 
 export interface FamilyAgentContext {
   date: string;
@@ -43,6 +47,7 @@ export class FamilyAgentError extends Error {
   constructor(
     message: string,
     readonly status?: number,
+    readonly code?: string,
   ) {
     super(message);
     this.name = 'FamilyAgentError';
@@ -68,7 +73,7 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 8000
     });
     const body = (await response.json().catch(() => undefined)) as
       | Envelope<T>
-      | { error?: { message?: string } }
+      | { error?: { message?: string; code?: string } }
       | undefined;
     if (!response.ok) {
       throw new FamilyAgentError(
@@ -76,6 +81,7 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 8000
           ? body.error?.message || 'FamilyOS could not complete that request.'
           : 'FamilyOS could not complete that request.',
         response.status,
+        body && 'error' in body ? body.error?.code : undefined,
       );
     }
     if (!body || !('data' in body) || !('meta' in body))
@@ -141,6 +147,53 @@ export const familyAgentClient = {
   cancelAction: (id: string) =>
     request<ProposedAction>(`/v1/actions/${encodeURIComponent(id)}/cancel`, { method: 'POST' }),
   resetDemo: () => request<HouseholdSnapshot>('/v1/demo/reset', { method: 'POST' }),
+  /** Shared-screen changes (check off a chore, a list item, packed gear). The server checks permissions. */
+  editHousehold: (kind: string, value: Record<string, unknown>, expectedRevision: number) =>
+    request<HouseholdSnapshot>('/v1/companion/edit', {
+      method: 'POST',
+      body: JSON.stringify({ kind, value, expectedRevision }),
+    }),
+  tvSession: () => request<{ paired: boolean; elevated: boolean }>('/v1/tv/session'),
+  unlockParentMode: (code: string) =>
+    request<{ elevated: boolean; expiresAt: string; idleMinutes: number }>('/v1/tv/parent-mode', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  lockParentMode: () => request<{ elevated: boolean }>('/v1/tv/lock', { method: 'POST', body: '{}' }),
+  decideProposal: (id: string, action: 'confirm' | 'reject', code?: string) =>
+    request<{ proposal: HouseholdProposal; household: HouseholdSnapshot }>(
+      `/v1/proposals/${encodeURIComponent(id)}/decision`,
+      { method: 'POST', body: JSON.stringify(code ? { action, code } : { action }) },
+    ),
+  decideChorePhoto: (id: string, action: 'approve' | 'reject' | 'retake', code: string) =>
+    request<{ household: HouseholdSnapshot }>(`/v1/chores/verifications/${encodeURIComponent(id)}/decision`, {
+      method: 'POST',
+      body: JSON.stringify({ action, code }),
+    }),
+  decideRedemption: (id: string, action: 'approve' | 'reject', code: string) =>
+    request<{ household: HouseholdSnapshot }>(`/v1/redemptions/${encodeURIComponent(id)}/decision`, {
+      method: 'POST',
+      body: JSON.stringify({ action, code }),
+    }),
+  completeMove: (body: { routineId: string; memberIds: string[]; date: string; eventId?: string }) =>
+    request<HouseholdSnapshot>('/v1/move/complete', { method: 'POST', body: JSON.stringify(body) }),
+  /** Household photos are private: the TV sends its device token with each image request. */
+  imageSource: async (path: string) => {
+    const token = await getTVDeviceToken();
+    const uri = `${apiBase}/${path.replace(/^\//, '')}`;
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+    if (Platform.OS === 'web') {
+      // Browsers can't send headers from <img>; fetch privately and show a local object URL instead.
+      const cached = webImageCache.get(uri);
+      if (cached) return { uri: cached };
+      const response = await fetch(uri, { headers });
+      if (!response.ok) throw new FamilyAgentError('That photo is no longer available.', response.status);
+      const objectUrl = URL.createObjectURL(await response.blob());
+      webImageCache.set(uri, objectUrl);
+      return { uri: objectUrl };
+    }
+    return { uri, headers };
+  },
 };
 
 export function createFamilyAgentContext(

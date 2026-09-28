@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import HouseholdApp from './HouseholdApp';
-import { dateKey, type Appearance, type Household, type HouseholdAPI } from './household';
+import { dateKey, type Appearance, type Edit, type Household, type HouseholdAPI } from './household';
 
 export function createPreviewHousehold(): Household {
   const today = new Date();
@@ -65,6 +65,13 @@ export function createPreviewHousehold(): Household {
         memberIds: ['theo'],
         location: 'Field 3',
         source: 'manual',
+        teamId: 'hawks',
+        responsibleMemberId: 'sam',
+        responsibilityType: 'drive',
+        preparation: [
+          { id: 'g1', label: 'Shin guards', completed: false },
+          { id: 'g2', label: 'Water bottle', completed: true },
+        ],
       },
       {
         id: 'dinner',
@@ -128,6 +135,31 @@ export function createPreviewHousehold(): Household {
         ],
       },
     ],
+    rewards: [
+      { id: 'movie', title: 'Pick the family movie', stars: 10, available: true },
+      { id: 'park', title: 'Trip to the trampoline park', stars: 40, available: true },
+    ],
+    redemptions: [
+      { id: 'r1', memberId: 'jo', rewardId: 'movie', stars: 10, status: 'pending', requestedAt: at(9) },
+    ],
+    starTransactions: [
+      { id: 's1', memberId: 'theo', delta: 18, reason: 'chore_earned', sourceId: 'x', createdAt: at(8) },
+      { id: 's2', memberId: 'jo', delta: 12, reason: 'chore_earned', sourceId: 'y', createdAt: at(8) },
+    ],
+    choreVerifications: [
+      { id: 'v1', choreId: 'dog', memberId: 'sam', verdict: 'looks_done', reason: 'Nice work! It looks finished.', confidence: 0.8,
+        provider: 'demo', status: 'pending', submittedAt: at(10) },
+    ],
+    teams: [
+      { id: 'hawks', name: 'U10 Hawks', activity: 'Soccer', memberIds: ['theo'], uniform: 'blue jersey',
+        gear: ['Shin guards', 'Water bottle'], driverIds: ['maya', 'sam'], rotationIndex: 1 },
+    ],
+    familyNight: { weekday: (today.getDay() + 6) % 7, time: '18:30', activityType: 'movie', pickerOrder: ['jo', 'theo', 'maya', 'sam'], pickerIndex: 0 },
+    familyNightPolls: [
+      { id: dateKey(today), activityType: 'movie', status: 'open', tiedSuggestionIds: [],
+        suggestions: [{ id: 'f1', title: 'Paddington', byMemberId: 'jo' }, { id: 'f2', title: 'Board game night', byMemberId: 'theo' }],
+        votes: { jo: 'f1', maya: 'f1', theo: 'f2' } },
+    ],
   };
 }
 function previewAPI(): HouseholdAPI {
@@ -138,6 +170,9 @@ function previewAPI(): HouseholdAPI {
       if (edit.expectedRevision !== data.revision) throw new Error('Refresh and review your edit.');
       const value = edit.value as any;
       if (edit.kind === 'deleteEvent') data.events = data.events.filter((e) => e.id !== value.id);
+      else if (edit.kind === 'deleteListItem') data.listItems = data.listItems.filter((i) => i.id !== value.id);
+      else if (edit.kind === 'listItemToggle')
+        data.listItems = data.listItems.map((i) => (i.id === value.id ? { ...i, completed: !i.completed } : i));
       else if (edit.kind === 'deleteMeal') data.meals = data.meals.filter((m) => m.id !== value.id);
       else if (edit.kind === 'mealGroceries') {
         const meal = data.meals.find((m) => m.id === value.id);
@@ -153,12 +188,25 @@ function previewAPI(): HouseholdAPI {
             });
         });
       } else {
-        const key = { event: 'events', member: 'members', chore: 'chores', listItem: 'listItems', meal: 'meals' }[
-          edit.kind
-        ] as 'events';
-        const index = data[key].findIndex((x) => x.id === value.id);
-        if (index < 0) data[key].push(value);
-        else data[key][index] = value;
+        const collections: Partial<Record<Edit['kind'], keyof Household>> = {
+          event: 'events', member: 'members', chore: 'chores', listItem: 'listItems', meal: 'meals',
+          list: 'lists', recipe: 'recipes', team: 'teams',
+        };
+        const key = collections[edit.kind];
+        if (key) {
+          const items = ((data[key] || []) as any[]);
+          const index = items.findIndex((x) => x.id === value.id);
+          if (index < 0) items.push(value);
+          else items[index] = value;
+        } else if (edit.kind === 'importConfirm' || edit.kind === 'importCancel') {
+          data.importDrafts = (data.importDrafts || []).map((draft) => draft.id === value.id
+            ? { ...draft, status: edit.kind === 'importConfirm' ? 'confirmed' : 'cancelled' }
+            : draft);
+        } else if (edit.kind === 'mealSeries') {
+          data.meals = data.meals.map((meal) => meal.id === value.id || (value.applyToFuture && meal.seriesId === value.seriesId && meal.date > value.date)
+            ? { ...meal, ...value, id: meal.id, date: meal.date }
+            : meal);
+        }
       }
       data.revision++;
       return structuredClone(data);

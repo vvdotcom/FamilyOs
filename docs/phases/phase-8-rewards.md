@@ -5,13 +5,23 @@
 Children earn stars for chores, save toward rewards, and request redemption. A parent
 must enter a four-digit access code and explicitly approve each redemption.
 
+## Status — 2026-09-28
+
+Implemented and fixed: reward approval could previously be sent through the generic edit route without the
+code; code-protected steps are now reachable only through their own endpoints. Added child goal progress,
+request history (pending/approved/not this time/given), hide/offer rewards, "mark as given", code-protected star
+corrections, code recovery with the account password (Cognito re-sign-in when hosted), and a TV number pad for
+approvals. Balances derive from the transaction history; approval is exactly-once.
+
+Automated checks: backend `python -m pytest` (89 passing), companion `node --test apps/companion/tests/*.test.cjs` (23) and `tsc`, TV `yarn test` (Expo TV 15, Vega 20) and `typecheck:phase2`. Not yet done: Expo Go on a physical iPhone and Vega/Fire TV regression of the changed TV screens (both scheduled with the user).
+
 ## Dependencies and scope
 
 - Build on Phase 3 chore completion, Phase 4 action validation, and persistent household
   data. This is the first parent/child approval boundary, expanded in Phase 9.
 - The four-digit code authorizes a protected household action. It is not a replacement
   for account authentication or a credential for exposing the backend to the internet.
-- All work below is planned and not yet implemented; see `single.md` section 39.
+- See the status above for what is implemented.
 
 ## Work packages
 

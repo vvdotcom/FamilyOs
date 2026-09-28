@@ -16,8 +16,12 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { randomUUID } from 'expo-crypto';
 import {
+  APIRequestError,
   dateKey,
   eventsForDay,
+  groceryPlan,
+  nextFamilyNight,
+  starBalance,
   weekDays,
   type Appearance,
   type Edit,
@@ -28,6 +32,19 @@ import {
   type ParentAccount,
 } from './household';
 import { EditorForm, type Editor } from './Editors';
+import {
+  ApprovalsScreen,
+  ChorePhotoScreen,
+  CodeInput,
+  FamilyNightScreen,
+  ImportsScreen,
+  MoveScreen,
+  PhotosScreen,
+  SportsScreen,
+  StarsBar,
+  VoiceScreen,
+  type ScreenContext,
+} from './FamilyScreens';
 import {
   Button,
   Card,
@@ -41,10 +58,33 @@ import {
   memberTint,
   useTheme,
   layout as s,
+  NavRow,
+  Segmented,
   type IconName,
 } from './ui';
+import { StarCelebration } from './Pickers';
 
-type Page = 'today' | 'lists' | 'remote' | 'settings' | 'chores' | 'members' | 'meal' | 'grocery';
+type Page =
+  | 'today'
+  | 'calendar'
+  | 'lists'
+  | 'remote'
+  | 'settings'
+  | 'chores'
+  | 'members'
+  | 'meal'
+  | 'grocery'
+  | 'photos'
+  | 'more'
+  | 'recipes'
+  | 'imports'
+  | 'rewards'
+  | 'approvals'
+  | 'chorePhoto'
+  | 'sports'
+  | 'familyNight'
+  | 'move'
+  | 'voice';
 type Props = {
   api: HouseholdAPI;
   account: ParentAccount;
@@ -53,6 +93,8 @@ type Props = {
   onAppearance: (value: Appearance) => Promise<void>;
   onSignOut: () => void;
   onServerSettings: () => void;
+  /** Re-checks the account password; returns a fresh Cognito ID token on hosted servers. */
+  onReauthenticate?: (password: string) => Promise<string | undefined>;
   preview?: boolean;
 };
 export default function HouseholdApp(props: Props) {
@@ -73,13 +115,35 @@ function HouseholdScreens({
   onAppearance,
   onSignOut,
   onServerSettings,
+  onReauthenticate,
   preview = false,
 }: Props) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const [page, setPage] = useState<Page>('today');
+  const [accessMode, setAccessMode] = useState<'parent' | 'child'>('parent');
+  const [elevated, setElevated] = useState(false);
+  const [chorePhotoId, setChorePhotoId] = useState<string | null>(null);
+  const [groceryReview, setGroceryReview] = useState<string | null>(null);
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [adjustMember, setAdjustMember] = useState('');
+  const [adjustDelta, setAdjustDelta] = useState('');
+  const [adjustCode, setAdjustCode] = useState('');
+  const [goalRewardId, setGoalRewardId] = useState('');
+  const [addSheet, setAddSheet] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [listEditing, setListEditing] = useState(false);
+  const [childPicker, setChildPicker] = useState(false);
+  const [rewardsView, setRewardsView] = useState<'kids' | 'parent'>('kids');
+  const [celebration, setCelebration] = useState<{ message: string; detail?: string } | null>(null);
+  const [activeChildId, setActiveChildId] = useState<string | null>(null);
+  const [activeChildName, setActiveChildName] = useState('');
   const [data, setData] = useState<Household | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [calendarMode, setCalendarMode] = useState<'day' | 'week' | 'month'>('week');
+  const [memberFilter, setMemberFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
@@ -88,12 +152,21 @@ function HouseholdScreens({
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const editRevision = useRef(0);
-  const [confirm, setConfirm] = useState<{ title: string; action: () => Promise<void> } | null>(null);
+  const [confirm, setConfirm] = useState<{ title: string; action: () => Promise<void>; detail?: string; actionLabel?: string } | null>(null);
   const [list, setList] = useState('Groceries');
   const [newItem, setNewItem] = useState('');
   const [listPrompt, setListPrompt] = useState(false);
   const [listDraft, setListDraft] = useState('');
-  const [customLists, setCustomLists] = useState<string[]>([]);
+  const [recipeName, setRecipeName] = useState('');
+  const [recipeIngredients, setRecipeIngredients] = useState('');
+  const [recipeInstructions, setRecipeInstructions] = useState('');
+  const [selectedChildId, setSelectedChildId] = useState('');
+  const [parentCode, setParentCode] = useState('');
+  const [oldParentCode, setOldParentCode] = useState('');
+  const [newParentCode, setNewParentCode] = useState('');
+  const [rewardName, setRewardName] = useState('');
+  const [rewardStars, setRewardStars] = useState('10');
+  const [parentModeCode, setParentModeCode] = useState('');
   const [pairedTVs, setPairedTVs] = useState<PairedTV[]>([]);
   const [pairPrompt, setPairPrompt] = useState(false);
   const [pairCode, setPairCode] = useState('');
@@ -122,11 +195,21 @@ function HouseholdScreens({
             revision: result.revision || 0,
             listItems: result.listItems || [],
             meals: result.meals || [],
+            recipes: result.recipes || [],
+            lists: result.lists || [],
+            importDrafts: result.importDrafts || [],
           });
           setLastSync(new Date());
           setError('');
         }
       } catch (e) {
+        if (e instanceof APIRequestError && e.status === 401 && api.accessContext) {
+          void api.accessContext().then((context) => {
+            if (!alive.current || context.accessMode === null) return;
+            setAccessMode(context.accessMode); setActiveChildId(context.memberId); setActiveChildName(context.memberName || '');
+            setElevated(Boolean(context.elevated));
+          }).catch(() => undefined);
+        }
         if (alive.current && request === generation.current)
           setError(e instanceof Error ? e.message : 'Could not refresh your household.');
       } finally {
@@ -138,6 +221,39 @@ function HouseholdScreens({
   useEffect(() => {
     void refresh(true);
   }, [refresh]);
+  const recheckAccess = useCallback(async () => {
+    if (!api.accessContext) return;
+    try {
+      const context = await api.accessContext();
+      if (!alive.current) return;
+      if (context.accessMode === 'child') {
+        setAccessMode('child'); setActiveChildId(context.memberId); setActiveChildName(context.memberName || 'Child');
+        setElevated(false);
+      } else if (context.accessMode === 'parent') {
+        setAccessMode('parent'); setActiveChildId(null); setActiveChildName('');
+        setElevated(Boolean(context.elevated));
+      }
+    } catch {
+      /* Keep the current view; the next refresh reports connection problems. */
+    }
+  }, [api]);
+  useEffect(() => {
+    void recheckAccess();
+  }, [recheckAccess]);
+  useEffect(() => {
+    if (!preview && api.pairedTVs) void api.pairedTVs().then(setPairedTVs).catch(() => undefined);
+  }, [api, preview]);
+  /** A 401 after a parent unlock means it expired: return to the child view the phone started in. */
+  const handleAuthError = (e: unknown) => {
+    if (e instanceof APIRequestError && e.status === 401 && elevated) {
+      void recheckAccess().then(() => {
+        setNotice('Parent access ended after 15 minutes of inactivity. Back to the child view.');
+        void refresh(true);
+      });
+      return true;
+    }
+    return false;
+  };
   useEffect(() => {
     const interval = setInterval(() => {
       if (AppState.currentState === 'active' && !editor) void refresh();
@@ -154,9 +270,12 @@ function HouseholdScreens({
     setPage(next);
     setNotice('');
     if (next === 'remote' && api.pairedTVs) {
-      void api.pairedTVs().then(setPairedTVs).catch((e) => {
-        setError(e instanceof Error ? e.message : 'Could not load connected TVs.');
-      });
+      void api
+        .pairedTVs()
+        .then(setPairedTVs)
+        .catch((e) => {
+          setError(e instanceof Error ? e.message : 'Could not load connected TVs.');
+        });
     }
   };
   const submitPairing = async () => {
@@ -193,13 +312,17 @@ function HouseholdScreens({
     }
   };
   const openEditor = (next: Editor) => {
-    if (!data) return;
+    if (!data || accessMode === 'child') return;
     editRevision.current = data.revision;
     setError('');
     setEditor(next);
   };
   const mutate = async (kind: Edit['kind'], value: object, revision = data?.revision) => {
     if (!data || revision === undefined || writing.current) return false;
+    if (accessMode === 'child' && !['completeChore', 'familyNightSuggest', 'familyNightVote'].includes(kind)) {
+      setError('Child mode can only complete assigned chores, vote, or request rewards.');
+      return false;
+    }
     writing.current = true;
     generation.current++;
     setBusy(true);
@@ -214,7 +337,7 @@ function HouseholdScreens({
       }
       return true;
     } catch (e) {
-      if (alive.current) setError(e instanceof Error ? e.message : 'Could not save. Your edit has not been confirmed.');
+      if (alive.current && !handleAuthError(e)) setError(e instanceof Error ? e.message : 'Could not save. Your edit has not been confirmed.');
       return false;
     } finally {
       writing.current = false;
@@ -224,12 +347,97 @@ function HouseholdScreens({
       }
     }
   };
+  /** Server calls outside the generic edit route (photos, approvals, voice). */
+  const run = async <T,>(work: () => Promise<T>, success?: string): Promise<T | undefined> => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await work();
+      if (alive.current && success) setNotice(success);
+      return result;
+    } catch (e) {
+      if (alive.current && !handleAuthError(e)) setError(e instanceof Error ? e.message : 'That did not work. Please try again.');
+      return undefined;
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+  const replace = (household: Household) => {
+    setData(household);
+    setLastSync(new Date());
+  };
+  const lockParent = async () => {
+    const locked = await run(() => api.lockParentMode?.() ?? Promise.resolve(false));
+    if (locked) {
+      await recheckAccess();
+      setNotice('Locked. Back to the child view.');
+      navigate('today');
+      await refresh(true);
+    }
+  };
   const days = weekDays(selectedDate);
+  const monthFirst = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12);
+  const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1 - monthFirst.getDay(), 12);
+  const monthGrid = Array.from({ length: 42 }, (_, index) => new Date(monthStart.getFullYear(), monthStart.getMonth(), monthStart.getDate() + index, 12));
   const events = data ? eventsForDay(data.events, selectedDate) : [];
+  const calendarEvents = data
+    ? events.filter((event) =>
+        (memberFilter === 'all' || event.memberIds.includes(memberFilter)) &&
+        (sourceFilter === 'all' || event.source === sourceFilter))
+    : [];
+  const eventRows = data
+    ? (page === 'calendar' ? calendarEvents : events).map((event) => {
+        const index =
+          event.memberIds.length === data.members.length && data.members.length > 1
+            ? 4
+            : Math.max(0, data.members.findIndex((m) => m.id === event.ownerMemberId));
+        const tint = memberTint(index, dark);
+        const names = event.memberIds
+          .map((id) => data.members.find((m) => m.id === id)?.name)
+          .filter(Boolean)
+          .join(', ');
+        return (
+          <View key={event.id} style={[s.row, { alignItems: 'stretch' }]}>
+            <Copy size={14} weight={700} color={t.muted} style={{ width: 66, paddingTop: 12 }}>
+              {event.allDay
+                ? 'All day'
+                : new Date(event.startAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            </Copy>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${event.title}`}
+              disabled={accessMode === 'child'}
+              onPress={() => { if (accessMode === 'parent') openEditor({ kind: 'event', item: event }); }}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 16,
+                backgroundColor: tint.backgroundColor,
+                gap: 2,
+              }}
+            >
+              <Copy size={17} weight={700} color={tint.color}>
+                {event.title}
+              </Copy>
+              <Copy size={13} color={tint.color}>
+                {names}
+                {event.location ? ` · ${event.location}` : ''}
+                {event.responsibleMemberId
+                  ? ` · ${data.members.find((m) => m.id === event.responsibleMemberId)?.name} ${event.responsibilityType === 'drive' ? 'drives' : 'picks up'}`
+                  : ''}
+              </Copy>
+            </Pressable>
+          </View>
+        );
+      })
+    : [];
   const meals = data?.meals.filter((m) => m.date === dateKey(selectedDate)) || [];
+  const visibleChores = data?.chores.filter((chore) => accessMode === 'parent' || chore.assignedToMemberId === activeChildId) || [];
   const meal = meals.find((m) => m.category === 'Dinner') || meals[0];
   const listNames = Array.from(
-    new Set(['Groceries', 'Weekend', 'Camping', ...customLists, ...(data?.listItems.map((i) => i.listName) || [])]),
+    new Set(['Groceries', 'Weekend', 'Camping', ...(data?.lists?.map((item) => item.name) || []), ...(data?.listItems.map((i) => i.listName) || [])]),
   );
   const items = (data?.listItems.filter((i) => i.listName === list) || []).sort(
     (a, b) => Number(a.completed) - Number(b.completed),
@@ -302,7 +510,7 @@ function HouseholdScreens({
             Connect your family TV
           </Copy>
           <Copy size={13} weight={500} color={t.muted}>
-            TV pairing is not connected yet
+            Show the code on your TV, then enter it here
           </Copy>
         </View>
         <Icon name="right" size={20} color={t.muted} />
@@ -320,6 +528,82 @@ function HouseholdScreens({
       addedBy: account.parentName,
     });
     if (saved) setNewItem('');
+  };
+  const saveRecipe = async () => {
+    if (!recipeName.trim()) return setError('Add a recipe name first.');
+    const saved = await mutate('recipe', {
+      id: randomUUID(), name: recipeName.trim(),
+      ingredients: recipeIngredients.split('\n').map((name) => name.trim()).filter(Boolean).map((name) => ({ name })),
+      instructions: recipeInstructions.split('\n').map((line) => line.trim()).filter(Boolean),
+      servings: 4, source: 'family',
+    });
+    if (saved) {
+      setRecipeName('');
+      setRecipeIngredients('');
+      setRecipeInstructions('');
+    }
+  };
+  const scheduleRecipe = async (recipe: NonNullable<Household['recipes']>[number]) => {
+    await mutate('meal', {
+      id: randomUUID(), title: recipe.name, date: dateKey(selectedDate), category: 'Dinner',
+      cookIds: [], servings: recipe.servings, minutes: 30, recipeId: recipe.id,
+      ingredients: recipe.ingredients.map((item) => item.name), instructions: recipe.instructions,
+    });
+    navigate('meal');
+  };
+  const saveParentCode = async () => {
+    if (!/^\d{4}$/.test(parentCode) || !api.setParentAccessCode) return setError('Enter exactly four digits.');
+    try {
+      await api.setParentAccessCode(parentCode);
+      setParentCode('');
+      setNotice('Parent approval code saved securely on the server.');
+      setError('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save the parent code.'); }
+  };
+  const changeParentCode = async () => {
+    if (!/^\d{4}$/.test(oldParentCode) || !/^\d{4}$/.test(newParentCode) || !api.changeParentAccessCode)
+      return setError('Enter four digits for both the current and new code.');
+    try {
+      await api.changeParentAccessCode(oldParentCode, newParentCode);
+      setOldParentCode(''); setNewParentCode(''); setNotice('Parent access code updated.'); setError('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not change the parent code.'); }
+  };
+  const addReward = async () => {
+    const stars = Number(rewardStars);
+    if (!rewardName.trim() || !Number.isInteger(stars) || stars < 1) return setError('Enter a reward name and a positive whole-star cost.');
+    if (await mutate('reward', { id: randomUUID(), title: rewardName.trim(), stars, available: true })) {
+      setRewardName(''); setRewardStars('10');
+    }
+  };
+  const requestReward = async (rewardId: string, memberId: string) => {
+    if (!api.requestRedemption) return;
+    try {
+      const result = await api.requestRedemption(memberId, rewardId);
+      setData(result.household); setNotice('Reward request sent to a parent for approval.'); setError('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not request this reward.'); }
+  };
+  const enterChildMode = async (memberId: string) => {
+    if (!api.startChildSession) return setError('Child access is unavailable on this server version.');
+    setBusy(true); setError('');
+    try {
+      const context = await api.startChildSession(memberId);
+      setAccessMode('child'); setActiveChildId(context.memberId); setActiveChildName(context.memberName); setElevated(false);
+      setParentModeCode(''); setNotice(`Child view started for ${context.memberName}. Parent changes are locked until parent mode is unlocked.`);
+      navigate('today');
+      await refresh(true);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not open child mode.'); }
+    finally { setBusy(false); }
+  };
+  const exitChildMode = async () => {
+    if (!api.returnToParentMode || !/^\d{4}$/.test(parentModeCode)) return setError('Enter the four-digit parent access code.');
+    setBusy(true); setError('');
+    try {
+      await api.returnToParentMode(parentModeCode);
+      setAccessMode('parent'); setActiveChildId(null); setActiveChildName(''); setParentModeCode(''); setElevated(true);
+      setNotice('Parent mode unlocked. It locks again after 15 minutes without activity.');
+      await refresh(true);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not unlock parent mode.'); }
+    finally { setBusy(false); }
   };
   const itemInput = (
     <View style={[s.row, { alignItems: 'flex-end', gap: 8 }]}>
@@ -349,10 +633,10 @@ function HouseholdScreens({
       key={item.id}
       accessibilityRole="checkbox"
       accessibilityLabel={item.title}
-      accessibilityState={{ checked: item.completed, disabled: busy }}
+      accessibilityState={{ checked: item.completed, disabled: busy || accessMode === 'child' }}
       aria-checked={item.completed}
-      disabled={busy}
-      onPress={() => void mutate('listItem', { ...item, completed: !item.completed })}
+      disabled={busy || accessMode === 'child'}
+      onPress={() => { if (accessMode === 'parent') void mutate('listItem', { ...item, completed: !item.completed }); }}
       style={[
         s.row,
         {
@@ -387,29 +671,51 @@ function HouseholdScreens({
       </Copy>
       {!compact && (
         <Copy size={12} color={t.muted} style={{ maxWidth: 72 }}>
-          {item.addedBy}
+          {item.quantity ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''}` : item.addedBy}
         </Copy>
       )}
+      {!compact && accessMode === 'parent' && listEditing ? (
+        <Button
+          label={`Remove ${item.title}`}
+          icon="trash"
+          disabled={busy}
+          onPress={() => setConfirm({ title: `Remove “${item.title}” from ${item.listName}?`, action: async () => { await mutate('deleteListItem', { id: item.id }); } })}
+          style={{ width: 40, height: 40, paddingHorizontal: 0, backgroundColor: 'transparent' }}
+        />
+      ) : null}
     </Pressable>
   );
   const chooseWeek = (offset: number) =>
     setSelectedDate((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset * 7, 12));
-  const sectionLink = (title: string, subtitle: string, icon: IconName, next: Page) => (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => navigate(next)}
-      style={[s.row, { padding: 16, minHeight: 64, borderBottomWidth: 1, borderColor: t.line }]}
-    >
-      <Icon name={icon} />
-      <View style={s.grow}>
-        <Copy>{title}</Copy>
-        <Copy size={13} color={t.muted}>
-          {subtitle}
-        </Copy>
-      </View>
-      <Icon name="right" size={18} color={t.muted} />
-    </Pressable>
+  const pendingVoice = (data?.proposals || []).filter((item) => item.status === 'pending').length;
+  const pendingPhotos = (data?.choreVerifications || []).filter((item) => item.status === 'pending').length;
+  const pendingRewards = (data?.redemptions || []).filter((item) => item.status === 'pending').length;
+  const pendingApprovals = accessMode === 'parent' ? pendingVoice + pendingPhotos + pendingRewards : 0;
+  const choresHeader = (current: 'chores' | 'rewards') => (
+    <Segmented
+      options={[{ id: 'chores', label: accessMode === 'child' ? 'My chores' : 'Chores' }, { id: 'rewards', label: accessMode === 'child' ? 'My rewards' : 'Rewards', badge: accessMode === 'parent' ? pendingRewards : 0 }]}
+      value={current}
+      onChange={(id) => navigate(id)}
+    />
   );
+  const listsHeader = (current: 'lists' | 'meal' | 'recipes') => (
+    <Segmented
+      options={[{ id: 'lists', label: 'Lists' }, { id: 'meal', label: 'Meals' }, { id: 'recipes', label: 'Recipes' }]}
+      value={current}
+      onChange={(id) => navigate(id)}
+    />
+  );
+  const screenContext = (backTo: Page = 'more', backLabel = 'Family'): ScreenContext | null =>
+    data
+      ? {
+          api, data, busy, dark, accessMode, activeChildId, selectedDate,
+          mutate: (kind, value) => mutate(kind, value),
+          run, replace, fail: setError,
+          celebrate: (message, detail) => setCelebration({ message, detail }),
+          openTeamEvent: (teamId) => openEditor({ kind: 'event', preset: { teamId, category: 'sports' } }),
+          back: back(backTo, backLabel),
+        }
+      : null;
   const renderContent = () => {
     if (!data)
       return (
@@ -427,143 +733,223 @@ function HouseholdScreens({
         </View>
       );
     switch (page) {
-      case 'today':
+      case 'today': {
+        const name = (accessMode === 'child' ? activeChildName : account.parentName).split(' ')[0];
+        const isToday = dateKey(selectedDate) === dateKey(new Date());
+        const myChores = data.chores.filter((c) => c.status === 'pending' && c.assignedToMemberId === activeChildId);
+        const around: { icon: IconName; title: string; subtitle: string; page: Page; tint: number }[] = [];
+        if (data.familyNight) {
+          const night = nextFamilyNight(data.familyNight, new Date());
+          const poll = (data.familyNightPolls || []).find((item) => item.id === night);
+          const winner = poll?.suggestions.find((item) => item.id === poll.winnerSuggestionId);
+          const when = night === dateKey(new Date()) ? 'Tonight' : new Date(`${night}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long' });
+          around.push({
+            icon: 'moon', tint: 3, page: 'familyNight', title: `Family night · ${when}`,
+            subtitle: winner ? winner.title : poll?.status === 'tie' ? 'It’s a tie. The picker decides.' : `${poll?.suggestions.length || 0} ideas · vote open`,
+          });
+        }
+        const soon = Date.now() + 3 * 24 * 3600 * 1000;
+        const game = data.events
+          .filter((e) => e.category === 'sports' && new Date(e.endAt).getTime() > Date.now() && new Date(e.startAt).getTime() < soon)
+          .sort((a, b) => a.startAt.localeCompare(b.startAt))[0];
+        if (game) {
+          const missing = (game.preparation || []).filter((item) => !item.completed).map((item) => item.label);
+          around.push({
+            icon: 'ball', tint: 2, page: 'sports',
+            title: `${game.title} · ${new Date(game.startAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`,
+            subtitle: missing.length ? `Still to pack: ${missing.slice(0, 3).join(', ')}` : game.responsibleMemberId
+              ? `${data.members.find((m) => m.id === game.responsibleMemberId)?.name} drives · gear packed` : 'Gear packed',
+          });
+        }
+        const move = data.events.find((e) => e.category === 'move' && dateKey(new Date(e.startAt)) === dateKey(new Date()));
+        if (move) around.push({ icon: 'run', tint: 1, page: 'move', title: move.title, subtitle: `Today at ${new Date(move.startAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · start it on the TV` });
+        const needs = [
+          pendingVoice ? `${pendingVoice} voice request${pendingVoice === 1 ? '' : 's'}` : '',
+          pendingPhotos ? `${pendingPhotos} chore photo${pendingPhotos === 1 ? '' : 's'}` : '',
+          pendingRewards ? `${pendingRewards} reward request${pendingRewards === 1 ? '' : 's'}` : '',
+        ].filter(Boolean);
         return (
           <>
             <View style={[s.spread, { alignItems: 'flex-end' }]}>
               <View style={[s.grow, { gap: 2 }]}>
-                <Label>
-                  {greeting}, {account.parentName.split(' ')[0].toUpperCase()}
-                </Label>
-                <Heading>
-                  {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                </Heading>
+                <Label>{greeting}, {name.toUpperCase()}</Label>
+                <Heading>{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Heading>
               </View>
-              <Button
-                label="Add event"
-                icon="plus"
-                primary
-                onPress={() => openEditor({ kind: 'event' })}
-                style={{ width: 48, height: 48, paddingHorizontal: 0, borderRadius: 24 }}
-              />
+              {accessMode === 'parent' ? (
+                <Button label="Add" icon="plus" primary onPress={() => setAddSheet(true)}
+                  style={{ width: 48, height: 48, paddingHorizontal: 0, borderRadius: 24 }} />
+              ) : null}
             </View>
-            {tvCard}
+            {accessMode === 'parent' && needs.length ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={`Needs you: ${needs.join(', ')}`} onPress={() => navigate('approvals')}>
+                <View style={[s.row, { padding: 16, borderRadius: 18, backgroundColor: dark ? '#3D3526' : '#F6EBD3', borderWidth: 1, borderColor: dark ? '#685530' : '#EADCBC' }]}>
+                  <Icon name="sparkle" color={dark ? '#EDC875' : '#6B5320'} />
+                  <View style={s.grow}>
+                    <Copy size={12} weight={800} color={dark ? '#EDC875' : '#6B5320'} style={{ letterSpacing: 1.2 }}>NEEDS YOU</Copy>
+                    <Copy weight={700}>{needs.join(' · ')}</Copy>
+                  </View>
+                  <Icon name="right" size={18} color={dark ? '#EDC875' : '#6B5320'} />
+                </View>
+              </Pressable>
+            ) : null}
+            {accessMode === 'child' ? (
+              <Pressable accessibilityRole="button" onPress={() => navigate('chores')}>
+                <Card style={[s.row, { padding: 16 }]}>
+                  <View style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: memberTint(3, dark).backgroundColor }}>
+                    <Icon name="star" color={memberTint(3, dark).color} />
+                  </View>
+                  <View style={s.grow}>
+                    <Copy weight={800}>{myChores.length ? `${myChores.length} chore${myChores.length === 1 ? '' : 's'} to do` : 'All chores done!'}</Copy>
+                    <Copy size={13} color={t.muted}>{starBalance(data, activeChildId)} stars saved</Copy>
+                  </View>
+                  <Icon name="right" size={18} color={t.muted} />
+                </Card>
+              </Pressable>
+            ) : null}
+            {!pairedTVs.length && accessMode === 'parent' && !preview ? tvCard : null}
             {weekStrip}
             <View style={s.section}>
-              <Label>
-                {dateKey(selectedDate) === dateKey(new Date()) ? 'TODAY' : 'SCHEDULE'} · {events.length}{' '}
-                {events.length === 1 ? 'EVENT' : 'EVENTS'}
-              </Label>
+              <Label>{isToday ? 'TODAY' : 'SCHEDULE'} · {events.length} {events.length === 1 ? 'EVENT' : 'EVENTS'}</Label>
               {!events.length && (
                 <Card style={{ padding: 20, gap: 10 }}>
                   <Copy weight={700}>A little room in your day.</Copy>
-                  <Copy size={14} color={t.muted}>
-                    Add your first event to start the family calendar.
-                  </Copy>
-                  <Button icon="plus" onPress={() => openEditor({ kind: 'event' })}>
-                    Add event
-                  </Button>
+                  {accessMode === 'parent' ? <Button icon="plus" onPress={() => openEditor({ kind: 'event' })}>Add event</Button> : null}
                 </Card>
               )}
-              {events.map((event) => {
-                const index =
-                  event.memberIds.length === data.members.length && data.members.length > 1
-                    ? 4
-                    : Math.max(
-                        0,
-                        data.members.findIndex((m) => m.id === event.ownerMemberId),
-                      );
-                const tint = memberTint(index, dark);
-                const names = event.memberIds
-                  .map((id) => data.members.find((m) => m.id === id)?.name)
-                  .filter(Boolean)
-                  .join(', ');
-                return (
-                  <View key={event.id} style={[s.row, { alignItems: 'stretch' }]}>
-                    <Copy size={14} weight={700} color={t.muted} style={{ width: 66, paddingTop: 12 }}>
-                      {event.allDay
-                        ? 'All day'
-                        : new Date(event.startAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                    </Copy>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Edit ${event.title}`}
-                      onPress={() => openEditor({ kind: 'event', item: event })}
-                      style={{
-                        flex: 1,
-                        paddingVertical: 10,
-                        paddingHorizontal: 14,
-                        borderRadius: 16,
-                        backgroundColor: tint.backgroundColor,
-                        gap: 2,
-                      }}
-                    >
-                      <Copy size={17} weight={700} color={tint.color}>
-                        {event.title}
-                      </Copy>
-                      <Copy size={13} color={tint.color}>
-                        {names}
-                        {event.location ? ` · ${event.location}` : ''}
-                      </Copy>
-                    </Pressable>
-                  </View>
-                );
-              })}
+              {eventRows}
             </View>
             <View style={[s.row, { gap: 10, alignItems: 'stretch' }]}>
-              <Pressable
-                accessibilityRole="button"
-                style={s.grow}
-                onPress={() => {
-                  setList('Groceries');
-                  navigate('grocery');
-                }}
-              >
-                <Card style={{ padding: 14, gap: 2, flex: 1 }}>
-                  <Label>GROCERIES</Label>
-                  <Copy size={17} weight={700}>
-                    {groceries.filter((i) => !i.completed).length} items to buy
-                  </Copy>
-                </Card>
-              </Pressable>
               <Pressable accessibilityRole="button" style={s.grow} onPress={() => navigate('meal')}>
                 <Card style={{ padding: 14, gap: 2, flex: 1 }}>
-                  <Label>TONIGHT</Label>
-                  <Copy size={17} weight={700}>
-                    {meal?.title || 'Plan a meal'}
-                  </Copy>
+                  <Label>{isToday ? 'TONIGHT' : 'DINNER'}</Label>
+                  <Copy size={17} weight={700}>{meal?.title || 'Plan a meal'}</Copy>
+                </Card>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={s.grow} onPress={() => { setList('Groceries'); navigate('grocery'); }}>
+                <Card style={{ padding: 14, gap: 2, flex: 1 }}>
+                  <Label>GROCERIES</Label>
+                  <Copy size={17} weight={700}>{groceries.filter((i) => !i.completed).length} to buy</Copy>
                 </Card>
               </Pressable>
             </View>
-            <View style={s.spread}>
-              <Button label="Previous week" icon="left" onPress={() => chooseWeek(-1)} />
-              <Button onPress={() => setSelectedDate(new Date())}>Today</Button>
-              <Button label="Next week" icon="right" onPress={() => chooseWeek(1)} />
+            {around.length ? (
+              <View style={s.section}>
+                <Label>COMING UP AT HOME</Label>
+                <Card>
+                  {around.map((item, index) => (
+                    <NavRow key={item.title} icon={item.icon} title={item.title} subtitle={item.subtitle}
+                      tint={memberTint(item.tint, dark)} last={index === around.length - 1} onPress={() => navigate(item.page)} />
+                  ))}
+                </Card>
+              </View>
+            ) : null}
+          </>
+        );
+      }
+      case 'calendar':
+        return (
+          <>
+            <View style={[s.spread, { alignItems: 'flex-end' }]}>
+              <View style={[s.grow, { gap: 2 }]}>
+                <Label>FAMILY CALENDAR</Label>
+                <Heading>Calendar</Heading>
+              </View>
+              {accessMode === 'parent' ? <Button
+                label="Add"
+                icon="plus"
+                primary
+                onPress={() => setAddSheet(true)}
+                style={{ width: 48, height: 48, paddingHorizontal: 0, borderRadius: 24 }}
+              /> : null}
             </View>
-            <Card>
-              {sectionLink(
-                'Family chores',
-                `${data.chores.filter((c) => c.status === 'pending').length} to do`,
-                'chores',
-                'chores',
+            <View style={[s.row, { flexWrap: 'wrap', gap: 6 }]}>
+              <View style={s.grow}>
+                <Segmented
+                  options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]}
+                  value={calendarMode}
+                  onChange={setCalendarMode}
+                />
+              </View>
+              <Button icon="settings" label="Filters" primary={showFilters || memberFilter !== 'all' || sourceFilter !== 'all'}
+                onPress={() => setShowFilters(!showFilters)}>
+                {memberFilter !== 'all' || sourceFilter !== 'all' ? `${(memberFilter !== 'all' ? 1 : 0) + (sourceFilter !== 'all' ? 1 : 0)}` : undefined}
+              </Button>
+            </View>
+            {calendarMode === 'week' ? weekStrip : null}
+            {calendarMode === 'month' ? (
+              <Card style={{ padding: 10, gap: 8 }}>
+                <Copy weight={800}>{selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</Copy>
+                <View style={{ flexDirection: 'row' }}>
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, index) => <Copy key={`${label}${index}`} size={12} color={t.muted} style={{ flex: 1, textAlign: 'center' }}>{label}</Copy>)}
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {monthGrid.map((day) => {
+                    const key = dateKey(day);
+                    // Count by the phone's local day (stored times are UTC ISO strings).
+                    const count = eventsForDay(data?.events || [], day).filter((event) =>
+                      (memberFilter === 'all' || event.memberIds.includes(memberFilter)) &&
+                      (sourceFilter === 'all' || event.source === sourceFilter)).length;
+                    const active = key === dateKey(selectedDate);
+                    return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${key}, ${count} events`}
+                      accessibilityState={{ selected: active }} onPress={() => setSelectedDate(day)}
+                      style={{ width: '14.28%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: active ? t.primary : 'transparent', opacity: day.getMonth() === selectedDate.getMonth() ? 1 : 0.4 }}>
+                      <Copy size={14} weight={active ? 800 : 500} color={active ? t.primaryInk : t.ink}>{day.getDate()}</Copy>
+                      {count > 0 ? <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: active ? t.primaryInk : t.ink }} /> : null}
+                    </Pressable>;
+                  })}
+                </View>
+              </Card>
+            ) : null}
+            {showFilters ? (
+              <Card style={{ padding: 14, gap: 8 }}>
+                <Label>WHO</Label>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  <Button primary={memberFilter === 'all'} onPress={() => setMemberFilter('all')}>Everyone</Button>
+                  {data.members.map((member) => <Button key={member.id} primary={memberFilter === member.id} onPress={() => setMemberFilter(member.id)}>{member.name}</Button>)}
+                </ScrollView>
+                <Label>ADDED FROM</Label>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  {['all', 'manual', 'import', 'voice'].map((source) => <Button key={source} primary={sourceFilter === source} onPress={() => setSourceFilter(source)}>{source === 'all' ? 'Anywhere' : source === 'manual' ? 'This app' : source === 'import' ? 'Imports' : 'Voice'}</Button>)}
+                </ScrollView>
+              </Card>
+            ) : null}
+            <View style={s.spread}>
+              <Copy weight={700}>
+                {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </Copy>
+              <View style={s.row}>
+                <Button label={`Previous ${calendarMode}`} icon="left" onPress={() => calendarMode === 'month' ? setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1, 12)) : chooseWeek(calendarMode === 'day' ? -1 / 7 : -1)} />
+                <Button onPress={() => setSelectedDate(new Date())}>Today</Button>
+                <Button label={`Next ${calendarMode}`} icon="right" onPress={() => calendarMode === 'month' ? setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1, 12)) : chooseWeek(calendarMode === 'day' ? 1 / 7 : 1)} />
+              </View>
+            </View>
+            <View style={s.section}>
+              <Label>
+                {calendarEvents.length} {calendarEvents.length === 1 ? 'EVENT' : 'EVENTS'}
+                {calendarEvents.length !== events.length ? ` · ${events.length - calendarEvents.length} HIDDEN BY FILTERS` : ''}
+              </Label>
+              {!calendarEvents.length && (
+                <Card style={{ padding: 20, gap: 10 }}>
+                  <Copy weight={700}>{events.length ? 'No events match these filters.' : 'Nothing scheduled for this day.'}</Copy>
+                  {accessMode === 'parent' ? <Button icon="plus" onPress={() => openEditor({ kind: 'event' })}>Add event</Button> : null}
+                </Card>
               )}
-              {sectionLink('Your family', `${data.members.length} profiles`, 'people', 'members')}
-            </Card>
+              {eventRows}
+            </View>
           </>
         );
       case 'lists':
         return (
           <>
+            {listsHeader('lists')}
             <View style={[s.spread, { alignItems: 'flex-end' }]}>
               <View style={[s.grow, { gap: 2 }]}>
-                <Label>YOUR SHARED HOUSEHOLD LISTS</Label>
+                <Label>{`${items.filter((i) => !i.completed).length} LEFT TO GET`}</Label>
                 <Heading>{list}</Heading>
               </View>
-              <View style={{ padding: 8, borderRadius: 12, backgroundColor: t.soft }}>
-                <Copy size={14} weight={700} color={t.muted}>
-                  {items.filter((i) => !i.completed).length} left
-                </Copy>
-              </View>
+              {accessMode === 'parent' && items.length ? (
+                <Button onPress={() => setListEditing(!listEditing)} primary={listEditing}>{listEditing ? 'Done' : 'Edit'}</Button>
+              ) : null}
             </View>
             <ScrollView
               horizontal
@@ -582,9 +968,9 @@ function HouseholdScreens({
                   {name}
                 </Button>
               ))}
-              <Button label="New list" icon="plus" onPress={() => setListPrompt(true)} />
+              {accessMode === 'parent' ? <Button label="New list" icon="plus" onPress={() => setListPrompt(true)} /> : null}
             </ScrollView>
-            {itemInput}
+            {accessMode === 'parent' ? itemInput : null}
             <Card>
               {items.length ? (
                 items.map((i) => itemRow(i))
@@ -661,31 +1047,29 @@ function HouseholdScreens({
                 </View>
               ))}
             </Card>
-            {itemInput}
+            {accessMode === 'parent' ? itemInput : null}
           </>
         );
       case 'meal':
         return (
           <>
-            {back('today', 'Today')}
+            {listsHeader('meal')}
             <View style={s.spread}>
-              <Heading small>Meal plan</Heading>
-              <Button label="Add meal" icon="plus" onPress={() => openEditor({ kind: 'meal' })} />
+              <Heading small>Meals</Heading>
+              {accessMode === 'parent' ? <Button label="Add meal" icon="plus" onPress={() => openEditor({ kind: 'meal' })} /> : null}
             </View>
             {weekStrip}
             {!meals.length ? (
               <Card style={{ padding: 22, gap: 16 }}>
                 <Heading small>What’s for dinner?</Heading>
                 <Copy color={t.muted}>No meal planned for this day.</Copy>
-                <Button primary onPress={() => openEditor({ kind: 'meal' })}>
-                  Plan a meal
-                </Button>
+                {accessMode === 'parent' ? <Button primary onPress={() => openEditor({ kind: 'meal' })}>Plan a meal</Button> : null}
               </Card>
             ) : (
               meals.map((m) => (
                 <Card key={m.id} style={{ padding: 20, gap: 18, borderRadius: 24 }}>
                   <Heading small>{m.title}</Heading>
-                  <View style={s.row}>
+                  {accessMode === 'parent' ? <View style={s.row}>
                     <Button icon="edit" onPress={() => openEditor({ kind: 'meal', item: m })}>
                       Edit
                     </Button>
@@ -703,7 +1087,7 @@ function HouseholdScreens({
                     >
                       Delete
                     </Button>
-                  </View>
+                  </View> : null}
                   <Copy size={15} color={t.muted}>
                     {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} ·
                     Serves {m.servings} · {m.minutes} min
@@ -764,11 +1148,11 @@ function HouseholdScreens({
                   </View>
                   <Button
                     primary
-                    disabled={busy || !m.ingredients.length}
+                    disabled={busy || !m.ingredients.length || accessMode === 'child'}
                     icon="lists"
-                    onPress={() => void mutate('mealGroceries' as Edit['kind'], { id: m.id })}
+                    onPress={() => setGroceryReview(m.id)}
                   >
-                    Add ingredients to Groceries
+                    Review ingredients for Groceries
                   </Button>
                 </Card>
               ))
@@ -778,31 +1162,43 @@ function HouseholdScreens({
       case 'chores':
         return (
           <>
-            {back('today', 'Today')}
+            {choresHeader('chores')}
             <View style={s.spread}>
-              <Heading>Family chores</Heading>
-              <Button label="Add chore" primary icon="plus" onPress={() => openEditor({ kind: 'chore' })} />
+              <Heading>{accessMode === 'child' ? 'My chores' : 'Chores'}</Heading>
+              {accessMode === 'parent' ? <Button label="Add chore" primary icon="plus" onPress={() => openEditor({ kind: 'chore' })} /> : null}
             </View>
             <Copy color={t.muted}>
-              {data.chores.filter((c) => c.status === 'completed').length} of {data.chores.length} done
+              {visibleChores.filter((c) => c.status === 'completed').length} of {visibleChores.length} done · {accessMode === 'child' ? `${starBalance(data, activeChildId)} stars` : 'Chores earn stars'}
             </Copy>
+            {accessMode === 'parent' && pendingPhotos ? (
+              <Button primary icon="check" onPress={() => navigate('approvals')}>
+                {`Review ${pendingPhotos} chore photo${pendingPhotos === 1 ? '' : 's'}`}
+              </Button>
+            ) : null}
             <Card>
-              {!data.chores.length && (
+              {!visibleChores.length && (
                 <Copy style={{ padding: 20 }} color={t.muted}>
                   No chores yet. Add one for your family.
                 </Copy>
               )}
-              {data.chores.map((chore) => (
+              {visibleChores.map((chore) => (
                 <View key={chore.id} style={[s.row, { padding: 12, borderBottomWidth: 1, borderColor: t.line }]}>
                   <Pressable
                     accessibilityRole="checkbox"
                     accessibilityLabel={chore.title}
-                    accessibilityState={{ checked: chore.status === 'completed', disabled: busy }}
+                    accessibilityState={{ checked: chore.status === 'completed', disabled: busy || (accessMode === 'child' && chore.status === 'completed') }}
                     aria-checked={chore.status === 'completed'}
-                    disabled={busy}
-                    onPress={() =>
-                      void mutate('chore', { ...chore, status: chore.status === 'completed' ? 'pending' : 'completed' })
-                    }
+                    disabled={busy || (accessMode === 'child' && chore.status === 'completed')}
+                    onPress={() => {
+                      if (accessMode === 'child' && chore.verifyWithPhoto) {
+                        setChorePhotoId(chore.id);
+                        navigate('chorePhoto');
+                      } else if (accessMode === 'child')
+                        void mutate('completeChore', { id: chore.id, memberId: activeChildId }).then((ok) => {
+                          if (ok) setCelebration({ message: `+${chore.points ?? 1} stars!`, detail: `${chore.title} is done. Nice work!` });
+                        });
+                      else void mutate('chore', { ...chore, status: chore.status === 'completed' ? 'pending' : 'completed' });
+                    }}
                     style={[s.row, { flex: 1, minHeight: 44 }]}
                   >
                     <View
@@ -823,14 +1219,20 @@ function HouseholdScreens({
                       </Copy>
                       <Copy size={13} color={t.muted}>
                         {data.members.find((m) => m.id === chore.assignedToMemberId)?.name || 'Anyone'}
+                        {chore.points ? ` · +${chore.points} ★` : ''}
+                        {chore.verifyWithPhoto && chore.status === 'pending'
+                          ? (data.choreVerifications || []).some((v) => v.choreId === chore.id && v.status === 'pending')
+                            ? ' · photo waiting for a parent'
+                            : accessMode === 'child' ? ' · tap to take a photo' : ' · needs a photo'
+                          : ''}
                       </Copy>
                     </View>
                   </Pressable>
-                  <Button
+                  {accessMode === 'parent' ? <Button
                     label={`Edit ${chore.title}`}
                     icon="edit"
                     onPress={() => openEditor({ kind: 'chore', item: chore })}
-                  />
+                  /> : null}
                 </View>
               ))}
             </Card>
@@ -839,9 +1241,9 @@ function HouseholdScreens({
       case 'members':
         return (
           <>
-            {back('settings', 'Settings')}
+            {back('more', 'Family')}
             <View style={s.spread}>
-              <Heading>Your family</Heading>
+              <Heading>Family</Heading>
               <Button label="Add member" primary icon="plus" onPress={() => openEditor({ kind: 'member' })} />
             </View>
             <Copy size={14} color={t.muted}>
@@ -882,21 +1284,249 @@ function HouseholdScreens({
             </Card>
           </>
         );
+      case 'recipes':
+        return (
+          <>
+            {listsHeader('recipes')}
+            <Heading>Recipes</Heading>
+            <Input label="Recipe name" value={recipeName} onChangeText={setRecipeName} maxLength={120} placeholder="e.g. Sunday pasta" />
+            <Input label="Ingredients · one per line" value={recipeIngredients} onChangeText={setRecipeIngredients} multiline style={{ minHeight: 110, textAlignVertical: 'top' }} />
+            <Input label="Instructions · one step per line" value={recipeInstructions} onChangeText={setRecipeInstructions} multiline style={{ minHeight: 130, textAlignVertical: 'top' }} />
+            <Button primary disabled={busy || !recipeName.trim()} onPress={() => void saveRecipe()}>Save recipe</Button>
+            {(data.recipes || []).length ? (data.recipes || []).map((recipe) => (
+              <Card key={recipe.id} style={{ padding: 16, gap: 8 }}>
+                <Heading small>{recipe.name}</Heading>
+                <Copy size={14} color={t.muted}>{recipe.ingredients.length} ingredients · {recipe.servings} servings</Copy>
+                <Button icon="calendar" onPress={() => void scheduleRecipe(recipe)}>Plan for {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Button>
+              </Card>
+            )) : <Card style={{ padding: 18 }}><Copy color={t.muted}>Save a family recipe to reuse it when planning meals.</Copy></Card>}
+          </>
+        );
+      case 'imports':
+        return <ImportsScreen {...screenContext('calendar', 'Calendar')!} />;
+      case 'approvals':
+        return <ApprovalsScreen {...screenContext('today', 'Today')!} />;
+      case 'chorePhoto':
+        return <ChorePhotoScreen {...screenContext('chores', 'Chores')!} choreId={chorePhotoId} />;
+      case 'sports':
+        return <SportsScreen {...screenContext()!} />;
+      case 'familyNight':
+        return <FamilyNightScreen {...screenContext()!} />;
+      case 'move':
+        return <MoveScreen {...screenContext()!} />;
+      case 'voice':
+        return <VoiceScreen {...screenContext()!} />;
+      case 'rewards': {
+        const children = data.members.filter((member) => member.role === 'child');
+        const rewardChildId = accessMode === 'child' ? activeChildId || '' : children.some((member) => member.id === selectedChildId) ? selectedChildId : children[0]?.id || '';
+        const rewardTitle = (id: string) => data.rewards?.find((reward) => reward.id === id)?.title || 'a reward';
+        const goal = (data.rewards || []).find((reward) => reward.id === goalRewardId && reward.available);
+        const requests = [...(data.redemptions || [])]
+          .filter((item) => accessMode === 'parent' || item.memberId === activeChildId)
+          .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+        const toHandOut = requests.filter((item) => item.status === 'approved');
+        const statusLabel = { pending: 'Waiting for a parent', approved: 'Approved', rejected: 'Not this time', fulfilled: 'Given' } as const;
+        const view = accessMode === 'child' ? 'kids' : rewardsView;
+        return (
+          <>
+            {choresHeader('rewards')}
+            {accessMode === 'parent' ? (
+              <Segmented
+                options={[{ id: 'kids', label: 'For kids', badge: pendingRewards }, { id: 'parent', label: 'Parent settings', badge: toHandOut.length }]}
+                value={rewardsView}
+                onChange={setRewardsView}
+              />
+            ) : null}
+            {view === 'kids' ? (
+              <>
+                {accessMode === 'child' ? (
+                  <Card style={{ padding: 16, gap: 8 }}>
+                    <View style={s.spread}>
+                      <Copy weight={800}>{starBalance(data, rewardChildId)} stars saved</Copy>
+                      <Icon name="star" color={memberTint(3, dark).color} />
+                    </View>
+                    <StarsBar data={data} memberId={rewardChildId} target={goal?.stars} dark={dark} />
+                    <Copy size={13} color={t.muted}>{goal ? `Saving for ${goal.title}` : 'Pick a reward to save for.'}</Copy>
+                  </Card>
+                ) : children.length ? (
+                  <Card>
+                    {children.map((member, index) => (
+                      <Pressable key={member.id} accessibilityRole="button" accessibilityState={{ selected: rewardChildId === member.id }}
+                        onPress={() => setSelectedChildId(member.id)}
+                        style={{ padding: 14, gap: 6, borderBottomWidth: index === children.length - 1 ? 0 : 1, borderColor: t.line, backgroundColor: rewardChildId === member.id ? t.soft : 'transparent' }}>
+                        <View style={s.spread}><Copy weight={800}>{member.name}</Copy><Copy weight={800}>{starBalance(data, member.id)} ★</Copy></View>
+                        <StarsBar data={data} memberId={member.id} dark={dark} />
+                      </Pressable>
+                    ))}
+                  </Card>
+                ) : <Card style={{ padding: 18 }}><Copy color={t.muted}>Add a child profile to start earning stars.</Copy></Card>}
+                <Label>REWARDS</Label>
+                {(data.rewards || []).filter((reward) => reward.available).map((reward) => (
+                  <Card key={reward.id} style={{ padding: 14, gap: 8 }}>
+                    <View style={s.spread}><Copy weight={800}>{reward.title}</Copy><Copy weight={700}>{reward.stars} ★</Copy></View>
+                    {accessMode === 'child' ? <StarsBar data={data} memberId={rewardChildId} target={reward.stars} dark={dark} /> : null}
+                    <View style={[s.row, { gap: 6 }]}>
+                      <Button disabled={busy || !api.requestRedemption || !rewardChildId} onPress={() => void requestReward(reward.id, rewardChildId)}>
+                        {accessMode === 'child' ? 'Ask for this' : `Request for ${children.find((member) => member.id === rewardChildId)?.name || 'child'}`}
+                      </Button>
+                      {accessMode === 'child' ? (
+                        <Button primary={goalRewardId === reward.id} onPress={() => setGoalRewardId(reward.id)}>{goalRewardId === reward.id ? 'My goal' : 'Save for this'}</Button>
+                      ) : null}
+                    </View>
+                  </Card>
+                ))}
+                {!(data.rewards || []).some((reward) => reward.available) ? (
+                  <Copy size={13} color={t.muted}>{accessMode === 'parent' ? 'No rewards yet. Create one in Parent settings.' : 'No rewards yet. Ask a parent to add one.'}</Copy>
+                ) : null}
+                <Label>{accessMode === 'child' ? 'MY REQUESTS' : 'REQUESTS'}</Label>
+                {accessMode === 'parent' && pendingRewards ? (
+                  <Button primary icon="check" onPress={() => navigate('approvals')}>{`Review ${pendingRewards} request${pendingRewards === 1 ? '' : 's'}`}</Button>
+                ) : null}
+                {requests.slice(0, 8).map((item) => (
+                  <View key={item.id} style={[s.spread, { paddingVertical: 6 }]}>
+                    <Copy size={14} style={{ flex: 1 }}>{accessMode === 'parent' ? `${children.find((m) => m.id === item.memberId)?.name}: ` : ''}{rewardTitle(item.rewardId)}</Copy>
+                    <Copy size={13} weight={700} color={item.status === 'rejected' ? t.danger : item.status === 'pending' ? t.muted : t.ok}>{statusLabel[item.status]}</Copy>
+                  </View>
+                ))}
+                {!requests.length ? <Copy size={13} color={t.muted}>No requests yet.</Copy> : null}
+              </>
+            ) : (
+              <>
+                {toHandOut.length ? (
+                  <View style={s.section}>
+                    <Label>TO HAND OUT</Label>
+                    {toHandOut.map((item) => (
+                      <Card key={item.id} style={[s.spread, { padding: 14 }]}>
+                        <Copy weight={700} style={{ flex: 1 }}>{children.find((m) => m.id === item.memberId)?.name}: {rewardTitle(item.rewardId)}</Copy>
+                        <Button disabled={busy} onPress={() => void mutate('redemptionFulfill', { id: item.id })}>Mark given</Button>
+                      </Card>
+                    ))}
+                  </View>
+                ) : null}
+                <Label>REWARDS</Label>
+                <Card style={{ padding: 16, gap: 8 }}>
+                  <Input label="New reward" value={rewardName} onChangeText={setRewardName} maxLength={120} placeholder="e.g. Pick the movie" />
+                  <Input label="Stars needed" value={rewardStars} onChangeText={setRewardStars} keyboardType="number-pad" maxLength={5} />
+                  <Button primary disabled={busy || !rewardName.trim()} onPress={() => void addReward()}>Add reward</Button>
+                </Card>
+                {(data.rewards || []).length ? (
+                  <Card>
+                    {(data.rewards || []).map((reward, index) => (
+                      <View key={reward.id} style={[s.spread, { padding: 14, borderBottomWidth: index === (data.rewards || []).length - 1 ? 0 : 1, borderColor: t.line }]}>
+                        <View style={s.grow}>
+                          <Copy weight={700}>{reward.title}</Copy>
+                          <Copy size={13} color={t.muted}>{reward.stars} stars · {reward.available ? 'offered' : 'hidden'}</Copy>
+                        </View>
+                        <Switch value={reward.available} disabled={busy} accessibilityLabel={`Offer ${reward.title}`}
+                          onValueChange={(available) => void mutate('reward', { ...reward, available })} />
+                      </View>
+                    ))}
+                  </Card>
+                ) : null}
+                <Label>STAR CORRECTION</Label>
+                <Card style={{ padding: 16, gap: 8 }}>
+                  <View style={[s.row, { flexWrap: 'wrap', gap: 6 }]}>
+                    {children.map((member) => <Button key={member.id} primary={adjustMember === member.id} onPress={() => setAdjustMember(member.id)}>{member.name}</Button>)}
+                  </View>
+                  <Input label="Change (e.g. 5 or -3)" value={adjustDelta} onChangeText={(value: string) => setAdjustDelta(value.replace(/[^\d-]/g, '').slice(0, 5))} keyboardType="numbers-and-punctuation" />
+                  <CodeInput value={adjustCode} onChange={setAdjustCode} />
+                  <Button disabled={busy || !adjustMember || !/^-?\d+$/.test(adjustDelta) || Number(adjustDelta) === 0 || adjustCode.length !== 4}
+                    onPress={() => void run(() => api.adjustStars!(adjustMember, Number(adjustDelta), adjustCode), 'Star balance corrected.').then((saved) => {
+                      if (saved) { replace(saved); setAdjustDelta(''); setAdjustCode(''); }
+                    })}>Save correction</Button>
+                </Card>
+                <Label>PARENT CODE</Label>
+                <Card style={{ padding: 16, gap: 8 }}>
+                  <Copy size={13} color={t.muted}>Four digits for approvals and for unlocking parent mode on a child’s phone or the TV. Only a salted verifier is stored.</Copy>
+                  <CodeInput value={parentCode} onChange={setParentCode} label="Set code (first time)" />
+                  <Button primary onPress={() => void saveParentCode()}>Set code</Button>
+                  <View style={{ height: 1, backgroundColor: t.line, marginVertical: 4 }} />
+                  <CodeInput value={oldParentCode} onChange={setOldParentCode} label="Current code" />
+                  <CodeInput value={newParentCode} onChange={setNewParentCode} label="New code" />
+                  <Button onPress={() => void changeParentCode()}>Change code</Button>
+                  <View style={{ height: 1, backgroundColor: t.line, marginVertical: 4 }} />
+                  <Copy weight={700}>Forgot the code?</Copy>
+                  <Input label="Account password" value={recoveryPassword} onChangeText={setRecoveryPassword} secureTextEntry autoCapitalize="none" />
+                  <CodeInput value={recoveryCode} onChange={setRecoveryCode} label="New code" />
+                  <Button disabled={busy || !recoveryPassword || recoveryCode.length !== 4 || !api.resetParentAccessCode}
+                    onPress={() => void run(async () => {
+                      const idToken = await onReauthenticate?.(recoveryPassword);
+                      await api.resetParentAccessCode!(recoveryCode, recoveryPassword, idToken);
+                      return true;
+                    }, 'Parent code reset.').then((done) => { if (done) { setRecoveryPassword(''); setRecoveryCode(''); } })}>
+                    Reset code
+                  </Button>
+                </Card>
+              </>
+            )}
+          </>
+        );
+      }
+      case 'photos':
+        return <PhotosScreen {...screenContext()!} />;
+      case 'more': {
+        const children = data.members.filter((member) => member.role === 'child');
+        const tvLabel = pairedTVs.length ? `${pairedTVs.length} TV${pairedTVs.length === 1 ? '' : 's'} connected` : 'Not connected yet';
+        return (
+          <>
+            <View style={{ gap: 2 }}>
+              <Label>{data.family.name.toUpperCase()}</Label>
+              <Heading>{accessMode === 'child' ? `${activeChildName}’s view` : 'Family'}</Heading>
+            </View>
+            <View style={s.section}>
+              <Label>FAMILY TIME</Label>
+              <Card>
+                <NavRow icon="moon" tint={memberTint(3, dark)} title="Family night" onPress={() => navigate('familyNight')}
+                  subtitle={data.familyNight ? 'Suggest ideas and vote' : 'Set up a weekly night together'} last={accessMode === 'child'} />
+                {accessMode === 'parent' ? (
+                  <>
+                    <NavRow icon="run" tint={memberTint(1, dark)} title="Move breaks" subtitle="Short guided movement on the TV" onPress={() => navigate('move')} />
+                    <NavRow icon="ball" tint={memberTint(2, dark)} title="Sports & carpools"
+                      subtitle={(data.teams || []).length ? `${(data.teams || []).length} team${(data.teams || []).length === 1 ? '' : 's'} · drivers and gear` : 'Teams, drivers, and gear'} onPress={() => navigate('sports')} />
+                    <NavRow icon="photos" tint={memberTint(0, dark)} title="Photos" last
+                      subtitle={(data.photos || []).length ? `${(data.photos || []).length} in the TV slideshow` : 'Share photos to the TV'} onPress={() => navigate('photos')} />
+                  </>
+                ) : null}
+              </Card>
+            </View>
+            {accessMode === 'child' ? (
+              <Card style={{ padding: 16, gap: 10 }}>
+                <Copy weight={800}>Parent unlock</Copy>
+                <Copy size={14} color={t.muted}>A parent can enter the four-digit code to make family changes on this phone.</Copy>
+                <CodeInput value={parentModeCode} onChange={setParentModeCode} label="Parent code" />
+                <Button primary disabled={busy || !/^\d{4}$/.test(parentModeCode)} onPress={() => void exitChildMode()}>Unlock parent mode</Button>
+              </Card>
+            ) : (
+              <>
+                <View style={s.section}>
+                  <Label>YOUR HOUSEHOLD</Label>
+                  <Card>
+                    <NavRow icon="people" title="Family members" subtitle={`${data.members.length} profiles`} onPress={() => navigate('members')} />
+                    <NavRow icon="tv" title="TV" subtitle={tvLabel} onPress={() => navigate('remote')} />
+                    <NavRow icon="mic" title="Voice · Alexa+" subtitle="Ask about your day, suggest changes" onPress={() => navigate('voice')} />
+                    <NavRow icon="star" title="Hand this phone to a child" last
+                      subtitle={children.length ? 'Child view with their chores and rewards' : 'Add a child profile first'}
+                      onPress={() => (children.length ? setChildPicker(true) : navigate('members'))} />
+                  </Card>
+                </View>
+                <View style={s.section}>
+                  <Label>ACCOUNT</Label>
+                  <Card>
+                    <NavRow icon="settings" title="Settings" subtitle="Appearance, parent code, and sign-in" last onPress={() => navigate('settings')} />
+                  </Card>
+                </View>
+              </>
+            )}
+          </>
+        );
+      }
       case 'remote':
         return (
           <>
-            <View style={s.spread}>
-              <View style={s.grow}>
-                <Label>YOUR FAMILY TV</Label>
-                <Heading>Remote</Heading>
-              </View>
-              <Button
-                label="Put TV to sleep · unavailable"
-                icon="moon"
-                disabled
-                onPress={() => {}}
-                style={{ width: 48, height: 48, borderRadius: 24 }}
-              />
+            {back('more', 'Family')}
+            <View style={{ gap: 2 }}>
+              <Label>YOUR FAMILY TV</Label>
+              <Heading>TV</Heading>
             </View>
             {pairedTVs.length === 0 ? (
               <Card style={{ padding: 16, gap: 8 }}>
@@ -905,9 +1535,18 @@ function HouseholdScreens({
                   Show the pairing code in TV Settings, then enter it here to connect this TV to your household.
                 </Copy>
                 {preview ? (
-                  <Copy size={13} color={t.muted}>Pairing is disabled in the sample design preview.</Copy>
+                  <Copy size={13} color={t.muted}>
+                    Pairing is disabled in the sample design preview.
+                  </Copy>
                 ) : (
-                  <Button primary icon="tv" onPress={() => { setPairError(''); setPairPrompt(true); }}>
+                  <Button
+                    primary
+                    icon="tv"
+                    onPress={() => {
+                      setPairError('');
+                      setPairPrompt(true);
+                    }}
+                  >
                     Pair a TV
                   </Button>
                 )}
@@ -916,106 +1555,53 @@ function HouseholdScreens({
               <Card style={{ padding: 14, gap: 10 }}>
                 <Copy weight={700}>Connected TVs</Copy>
                 {pairedTVs.map((device) => (
-                  <View key={device.deviceId} style={[s.spread, { paddingVertical: 8, borderTopWidth: 1, borderColor: t.line }]}>
+                  <View
+                    key={device.deviceId}
+                    style={[s.spread, { paddingVertical: 8, borderTopWidth: 1, borderColor: t.line }]}
+                  >
                     <View style={s.grow}>
                       <Copy weight={700}>{device.deviceName}</Copy>
-                      <Copy size={13} color={t.muted}>Household data sync is enabled</Copy>
+                      <Copy size={13} color={t.muted}>
+                        Household data sync is enabled
+                      </Copy>
                     </View>
-                    <Button disabled={pairBusy} onPress={() => { setPairError(''); setUnpairPrompt(device); }}>
+                    <Button
+                      disabled={pairBusy}
+                      onPress={() => {
+                        setPairError('');
+                        setUnpairPrompt(device);
+                      }}
+                    >
                       Unpair
                     </Button>
                   </View>
                 ))}
-                {!preview && <Button onPress={() => { setPairError(''); setPairCode(''); setPairPrompt(true); }}>Pair another TV</Button>}
+                {!preview && (
+                  <Button
+                    onPress={() => {
+                      setPairError('');
+                      setPairCode('');
+                      setPairPrompt(true);
+                    }}
+                  >
+                    Pair another TV
+                  </Button>
+                )}
               </Card>
             )}
-          <Label>JUMP TO A SCREEN ON THE TV</Label>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              {(['Calendar', 'Chores', 'Meals', 'Lists', 'Photos'] as const).map((name, i) => (
-                <Button
-                  key={name}
-                  label={`${name} · TV not paired`}
-                  textSize={12}
-                  disabled
-                  onPress={() => {}}
-                  style={{
-                    flex: 1,
-                    minHeight: 68,
-                    paddingHorizontal: 0,
-                    borderRadius: 16,
-                    flexDirection: 'column',
-                    gap: 4,
-                  }}
-                  icon={(['calendar', 'chores', 'meals', 'lists', 'photos'] as IconName[])[i]}
-                >
-                  {name}
-                </Button>
-              ))}
-            </View>
-            <View
-              style={{
-                width: 232,
-                height: 232,
-                alignSelf: 'center',
-                borderRadius: 116,
-                borderWidth: 1,
-                borderColor: t.line,
-                backgroundColor: t.card,
-              }}
-            >
-              {(['up', 'down', 'left', 'right'] as const).map((name, i) => (
-                <Button
-                  key={name}
-                  label={`${name} · TV not paired`}
-                  icon={name}
-                  disabled
-                  onPress={() => {}}
-                  style={[
-                    {
-                      position: 'absolute',
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
-                      backgroundColor: 'transparent',
-                      paddingHorizontal: 0,
-                    },
-                    [
-                      { top: 10, left: 88 },
-                      { bottom: 10, left: 88 },
-                      { top: 88, left: 10 },
-                      { top: 88, right: 10 },
-                    ][i],
-                  ]}
-                />
-              ))}
-              <Button
-                disabled
-                primary
-                onPress={() => {}}
-                style={{ position: 'absolute', top: 70, left: 70, width: 92, height: 92, borderRadius: 46 }}
-              >
-                OK
-              </Button>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {(['Back', 'Home', 'Hold to talk', 'Options'] as const).map((name, i) => (
-                <Button
-                  key={name}
-                  disabled
-                  onPress={() => {}}
-                  icon={(['back', 'home', 'mic', 'more'] as IconName[])[i]}
-                  textSize={12}
-                  style={{ flex: 1, minHeight: 64, paddingHorizontal: 4, flexDirection: 'column' }}
-                >
-                  {name}
-                </Button>
-              ))}
-            </View>
+            <Card style={{ padding: 16, gap: 6 }}>
+              <Copy weight={700}>What the TV shows</Copy>
+              <Copy size={14} color={t.muted}>
+                Your calendar, chores, lists, meals, family night vote, and photo slideshow. It refreshes about every 5 seconds.
+                Use the TV remote to check things off; parent changes on the TV need your four-digit code.
+              </Copy>
+            </Card>
           </>
         );
       case 'settings':
         return (
           <>
+            {back('more', 'Family')}
             <View style={{ gap: 2 }}>
               <Label>FAMILY ACCOUNT</Label>
               <Heading>Settings</Heading>
@@ -1086,45 +1672,14 @@ function HouseholdScreens({
               </Copy>
             </Card>
             <Label>YOUR HOUSEHOLD</Label>
-            <Card>
-              {sectionLink('Family members', `${data.members.length} profiles`, 'people', 'members')}
-              {sectionLink(
-                'Family chores',
-                `${data.chores.filter((c) => c.status === 'pending').length} to do`,
-                'chores',
-                'chores',
-              )}
-              <View style={{ padding: 16, gap: 4 }}>
-                <Copy weight={700}>{account.householdName}</Copy>
-                <Copy size={14} color={t.muted}>
-                  {account.email}
-                </Copy>
-              </View>
+            <Card style={{ padding: 16, gap: 4 }}>
+              <Copy weight={700}>{account.householdName}</Copy>
+              <Copy size={14} color={t.muted}>{account.email}</Copy>
             </Card>
-            <Label>YOUR TV</Label>
+            <Label>PARENT CODE</Label>
             <Card>
-              {sectionLink('Family TV', pairedTVs.length ? `${pairedTVs.length} TV${pairedTVs.length === 1 ? '' : 's'} paired` : 'Not paired', 'tv', 'remote')}
-              <View style={[s.spread, { padding: 16 }]}>
-                <View style={s.grow}>
-                  <Copy>Show weather on TV</Copy>
-                  <Copy size={13} color={t.muted}>
-                    Available after TV integration
-                  </Copy>
-                </View>
-                <Switch disabled value={false} accessibilityLabel="Show weather on TV · unavailable" />
-              </View>
-            </Card>
-            <Label>WHEN YOU’RE AWAY</Label>
-            <Card>
-              <View style={[s.spread, { padding: 16 }]}>
-                <View style={s.grow}>
-                  <Copy>Notify me when plans change</Copy>
-                  <Copy size={13} color={t.muted}>
-                    Push notifications are not connected yet
-                  </Copy>
-                </View>
-                <Switch disabled value={false} accessibilityLabel="Notifications · unavailable" />
-              </View>
+              <NavRow icon="star" title="Rewards and parent code" subtitle="Set, change, or recover the four-digit code" last
+                onPress={() => { setRewardsView('parent'); navigate('rewards'); }} />
             </Card>
             <Button icon="refresh" disabled={loading || busy} onPress={() => void refresh(true)}>
               Refresh household
@@ -1136,6 +1691,22 @@ function HouseholdScreens({
             </Copy>
             <Button onPress={onServerSettings}>Server settings</Button>
             <Button onPress={onSignOut}>Sign out</Button>
+            {api.revokeAllSessions && !preview ? (
+              <Button
+                onPress={() =>
+                  setConfirm({
+                    title: 'Sign out on every phone, including child views started from this account?',
+                    detail: 'Paired TVs stay connected. Unpair them from Remote if needed.',
+                    actionLabel: 'Sign out everywhere',
+                    action: async () => {
+                      if (await run(async () => { await api.revokeAllSessions!(); return true; })) onSignOut();
+                    },
+                  })
+                }
+              >
+                Sign out everywhere
+              </Button>
+            ) : null}
           </>
         );
     }
@@ -1144,7 +1715,7 @@ function HouseholdScreens({
     <Card style={{ padding: 20, gap: 16 }}>
       <Copy weight={700}>{confirm?.title}</Copy>
       <Copy size={14} color={t.muted}>
-        This removes the item from your household.
+        {confirm?.detail || 'This removes the item from your household.'}
       </Copy>
       <View style={s.row}>
         <Button onPress={() => setConfirm(null)}>Cancel</Button>
@@ -1157,19 +1728,24 @@ function HouseholdScreens({
             void action?.();
           }}
         >
-          Delete
+          {confirm?.actionLabel || 'Delete'}
         </Button>
       </View>
     </Card>
   );
-  const tabPage =
-    page === 'grocery'
-      ? 'lists'
-      : page === 'chores' || page === 'meal'
-        ? 'today'
-        : page === 'members'
-          ? 'settings'
-          : page;
+  const TAB_OF: Partial<Record<Page, Page>> = {
+    grocery: 'lists', meal: 'lists', recipes: 'lists', rewards: 'chores', chorePhoto: 'chores', imports: 'calendar',
+    approvals: 'today', members: 'more', photos: 'more', remote: 'more', settings: 'more', sports: 'more',
+    familyNight: 'more', move: 'more', voice: 'more',
+  };
+  const tabPage = TAB_OF[page] || page;
+  const tabs: { page: Page; label: string; icon: IconName; badge?: number }[] = [
+    { page: 'today', label: 'Today', icon: 'home', badge: pendingApprovals },
+    { page: 'calendar', label: 'Calendar', icon: 'calendar' },
+    { page: 'chores', label: 'Chores', icon: 'chores' },
+    { page: 'lists', label: 'Lists', icon: 'lists' },
+    { page: 'more', label: 'Family', icon: 'people' },
+  ];
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: t.bg }}>
       <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor={t.bg} />
@@ -1200,6 +1776,17 @@ function HouseholdScreens({
               <Button onPress={() => void refresh(true)}>Refresh</Button>
             </Card>
           )}
+          {accessMode === 'child' ? (
+            <View accessibilityRole="summary" style={[s.spread, { padding: 10, borderRadius: 14, backgroundColor: t.soft }]}>
+              <Copy size={13} weight={800}>{`Child mode · ${activeChildName}`}</Copy>
+              <Button textSize={12} onPress={() => navigate('more')} style={{ minHeight: 36 }}>Parent unlock</Button>
+            </View>
+          ) : elevated ? (
+            <View accessibilityRole="summary" style={[s.spread, { padding: 10, borderRadius: 14, backgroundColor: t.soft }]}>
+              <Copy size={13} weight={800} style={{ flex: 1 }}>Parent unlocked · locks after 15 idle minutes</Copy>
+              <Button textSize={12} disabled={busy} onPress={() => void lockParent()} style={{ minHeight: 36 }}>Lock</Button>
+            </View>
+          ) : null}
           {!!notice && (
             <Copy size={13} color={t.ok}>
               {notice}
@@ -1220,22 +1807,22 @@ function HouseholdScreens({
             backgroundColor: t.card,
           }}
         >
-          {(['today', 'lists', 'remote', 'settings'] as const).map((tab, i) => (
+          {tabs.map((tab) => (
             <Pressable
-              key={tab}
+              key={tab.page}
               accessibilityRole="tab"
-              accessibilityLabel={tab[0].toUpperCase() + tab.slice(1)}
-              accessibilityState={{ selected: tabPage === tab }}
-              aria-selected={tabPage === tab}
-              onPress={() => navigate(tab)}
-              style={{ flex: 1, minHeight: 55, alignItems: 'center', justifyContent: 'center', gap: 4 }}
+              accessibilityLabel={tab.badge ? `${tab.label}, ${tab.badge} waiting` : tab.label}
+              accessibilityState={{ selected: tabPage === tab.page }}
+              aria-selected={tabPage === tab.page}
+              onPress={() => navigate(tab.page)}
+              style={{ flex: 1, minWidth: 0, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 4 }}
             >
-              <Icon
-                name={(['calendar', 'lists', 'remote', 'settings'] as IconName[])[i]}
-                color={tabPage === tab ? t.ink : t.muted}
-              />
-              <Copy size={12} weight={tabPage === tab ? 800 : 600} color={tabPage === tab ? t.ink : t.muted}>
-                {tab[0].toUpperCase() + tab.slice(1)}
+              <View>
+                <Icon name={tab.icon} color={tabPage === tab.page ? t.ink : t.muted} />
+                {tab.badge ? <View style={{ position: 'absolute', top: -3, right: -6, width: 10, height: 10, borderRadius: 5, backgroundColor: t.danger }} /> : null}
+              </View>
+              <Copy size={11} weight={tabPage === tab.page ? 800 : 600} color={tabPage === tab.page ? t.ink : t.muted}>
+                {tab.label}
               </Copy>
             </Pressable>
           ))}
@@ -1263,6 +1850,18 @@ function HouseholdScreens({
                       setEditor(null);
                       setError('');
                     }}
+                    onDelete={
+                      editor.kind === 'event' && editor.item
+                        ? () =>
+                            setConfirm({
+                              title: `Delete “${editor.item?.title}” from your calendar?`,
+                              action: async () => {
+                                if (await mutate('deleteEvent', { id: editor.item?.id }, editRevision.current))
+                                  setEditor(null);
+                              },
+                            })
+                        : undefined
+                    }
                     onReload={() => {
                       void (async () => {
                         try {
@@ -1281,24 +1880,6 @@ function HouseholdScreens({
                       if (await mutate(kind, value, editRevision.current)) setEditor(null);
                     }}
                   />
-                  {editor.kind === 'event' && editor.item && (
-                    <Button
-                      icon="trash"
-                      disabled={busy}
-                      onPress={() =>
-                        setConfirm({
-                          title: `Delete “${editor.item?.title}” from your calendar?`,
-                          action: async () => {
-                            if (await mutate('deleteEvent', { id: editor.item?.id }, editRevision.current))
-                              setEditor(null);
-                          },
-                        })
-                      }
-                      style={{ margin: 20 }}
-                    >
-                      Delete event
-                    </Button>
-                  )}
                 </KeyboardAvoidingView>
                 {!!confirm && (
                   <View
@@ -1326,6 +1907,62 @@ function HouseholdScreens({
             {confirmation}
           </View>
         </Modal>
+        <Modal visible={addSheet} transparent animationType="fade" onRequestClose={() => setAddSheet(false)}>
+          <Pressable accessibilityLabel="Close" onPress={() => setAddSheet(false)} style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }}>
+            <Card style={{ margin: 12, marginBottom: Math.max(insets.bottom, 12), borderRadius: 22 }}>
+              <NavRow icon="calendar" title="New event" subtitle="Add it to the family calendar" onPress={() => { setAddSheet(false); openEditor({ kind: 'event' }); }} />
+              <NavRow icon="import" title="From a flyer, email, or file" subtitle="Take a photo or choose a PDF, email, or team calendar" onPress={() => { setAddSheet(false); navigate('imports'); }} />
+              <NavRow icon="chores" title="New chore" subtitle="Assign it and set its stars" last onPress={() => { setAddSheet(false); openEditor({ kind: 'chore' }); }} />
+            </Card>
+          </Pressable>
+        </Modal>
+        <Modal visible={childPicker} transparent animationType="fade" onRequestClose={() => setChildPicker(false)}>
+          <Pressable accessibilityLabel="Close" onPress={() => setChildPicker(false)} style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }}>
+            <Card style={{ margin: 12, marginBottom: Math.max(insets.bottom, 12), borderRadius: 22, padding: 16, gap: 10 }}>
+              <Heading small>Hand this phone to…</Heading>
+              <Copy size={13} color={t.muted}>They’ll see their own chores and rewards. Your four-digit code unlocks parent mode again.</Copy>
+              {(data?.members || []).filter((m) => m.role === 'child').map((m) => (
+                <Button key={m.id} disabled={busy || !api.startChildSession} onPress={() => { setChildPicker(false); void enterChildMode(m.id); }}>{m.name}</Button>
+              ))}
+            </Card>
+          </Pressable>
+        </Modal>
+        <StarCelebration message={celebration?.message || null} detail={celebration?.detail} onDone={() => setCelebration(null)} />
+        <Modal visible={!!groceryReview} transparent animationType="fade" onRequestClose={() => setGroceryReview(null)}>
+          <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}>
+            <Card style={{ padding: 20, gap: 12 }}>
+              <Heading small>Add to Groceries?</Heading>
+              <Copy size={13} color={t.muted}>Review before adding. Matching items are combined; nothing is added twice.</Copy>
+              {data && groceryReview
+                ? groceryPlan(data, groceryReview).map((line) => (
+                    <View key={`${line.name}|${line.unit}`} style={s.spread}>
+                      <Copy size={15} style={{ flex: 1 }}>
+                        {line.quantity !== null ? `${line.quantity}${line.unit ? ` ${line.unit}` : ''} ` : ''}
+                        {line.name}
+                      </Copy>
+                      <Copy size={12} weight={700} color={line.action === 'add' ? t.ok : t.muted}>
+                        {line.action === 'add' ? 'Add' : line.action === 'combine' ? 'Combine' : 'Already listed'}
+                      </Copy>
+                    </View>
+                  ))
+                : null}
+              <View style={s.row}>
+                <Button onPress={() => setGroceryReview(null)}>Cancel</Button>
+                <Button
+                  primary
+                  disabled={busy}
+                  onPress={() => {
+                    const id = groceryReview;
+                    setGroceryReview(null);
+                    if (id) void mutate('mealGroceries', { id });
+                  }}
+                >
+                  Add to Groceries
+                </Button>
+              </View>
+            </Card>
+          </View>
+        </Modal>
         <Modal visible={listPrompt} transparent onRequestClose={() => setListPrompt(false)}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1342,10 +1979,13 @@ function HouseholdScreens({
                   primary
                   disabled={!listDraft.trim()}
                   onPress={() => {
-                    setCustomLists((names) => [...names, listDraft.trim()]);
-                    setList(listDraft.trim());
-                    setListDraft('');
-                    setListPrompt(false);
+                    const name = listDraft.trim();
+                    void mutate('list', { id: randomUUID(), name, kind: 'custom' }).then((saved) => {
+                      if (!saved) return;
+                      setList(name);
+                      setListDraft('');
+                      setListPrompt(false);
+                    });
                   }}
                 >
                   Create list
@@ -1354,14 +1994,21 @@ function HouseholdScreens({
             </Card>
           </KeyboardAvoidingView>
         </Modal>
-        <Modal visible={pairPrompt} transparent animationType="fade" onRequestClose={() => !pairBusy && setPairPrompt(false)}>
+        <Modal
+          visible={pairPrompt}
+          transparent
+          animationType="fade"
+          onRequestClose={() => !pairBusy && setPairPrompt(false)}
+        >
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}
           >
             <Card style={{ padding: 20, gap: 14 }}>
               <Heading small>Connect your TV</Heading>
-              <Copy size={14} color={t.muted}>Enter the six digit code shown in FamilyOS TV Settings. The code expires after 10 minutes.</Copy>
+              <Copy size={14} color={t.muted}>
+                Enter the six digit code shown in FamilyOS TV Settings. The code expires after 10 minutes.
+              </Copy>
               <Input
                 label="TV pairing code"
                 value={pairCode}
@@ -1370,9 +2017,15 @@ function HouseholdScreens({
                 maxLength={6}
                 placeholder="123456"
               />
-              {!!pairError && <Copy size={13} color={t.danger}>{pairError}</Copy>}
+              {!!pairError && (
+                <Copy size={13} color={t.danger}>
+                  {pairError}
+                </Copy>
+              )}
               <View style={s.row}>
-                <Button disabled={pairBusy} onPress={() => setPairPrompt(false)}>Cancel</Button>
+                <Button disabled={pairBusy} onPress={() => setPairPrompt(false)}>
+                  Cancel
+                </Button>
                 <Button primary disabled={pairBusy || pairCode.length !== 6} onPress={() => void submitPairing()}>
                   {pairBusy ? 'Connecting…' : 'Approve TV'}
                 </Button>
@@ -1380,15 +2033,30 @@ function HouseholdScreens({
             </Card>
           </KeyboardAvoidingView>
         </Modal>
-        <Modal visible={!!unpairPrompt} transparent animationType="fade" onRequestClose={() => !pairBusy && setUnpairPrompt(null)}>
+        <Modal
+          visible={!!unpairPrompt}
+          transparent
+          animationType="fade"
+          onRequestClose={() => !pairBusy && setUnpairPrompt(null)}
+        >
           <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}>
             <Card style={{ padding: 20, gap: 14 }}>
               <Heading small>Unpair {unpairPrompt?.deviceName}?</Heading>
-              <Copy size={14} color={t.muted}>This revokes the TV session. It will lose access to household data on its next request.</Copy>
-              {!!pairError && <Copy size={13} color={t.danger}>{pairError}</Copy>}
+              <Copy size={14} color={t.muted}>
+                This revokes the TV session. It will lose access to household data on its next request.
+              </Copy>
+              {!!pairError && (
+                <Copy size={13} color={t.danger}>
+                  {pairError}
+                </Copy>
+              )}
               <View style={s.row}>
-                <Button disabled={pairBusy} onPress={() => setUnpairPrompt(null)}>Cancel</Button>
-                <Button primary disabled={pairBusy} onPress={() => void revokeTV()}>{pairBusy ? 'Unpairing…' : 'Unpair TV'}</Button>
+                <Button disabled={pairBusy} onPress={() => setUnpairPrompt(null)}>
+                  Cancel
+                </Button>
+                <Button primary disabled={pairBusy} onPress={() => void revokeTV()}>
+                  {pairBusy ? 'Unpairing…' : 'Unpair TV'}
+                </Button>
               </View>
             </Card>
           </View>

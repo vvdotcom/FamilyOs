@@ -31,6 +31,7 @@ import FamilyChoresScreen from './FamilyChoresScreen';
 import FamilyMembersScreen from './FamilyMembersScreen';
 import FamilySettingsScreen from './FamilySettingsScreen';
 import { FamilyMealsScreen, FamilyListsScreen, FamilyPhotosScreen } from './FamilyPlannerScreens';
+import { FamilyApprovalsScreen, FamilyMoveScreen, FamilyNightTVScreen, ProposalOverlay, StarCelebration } from './FamilyTVFeatures';
 import { FamilyRoute, focusRegionAfterDirection } from '../navigation/familyNavigation';
 import type { TVPairingView } from './familyTypes';
 import { loadHouseholdSnapshot, resetHouseholdSnapshot, saveHouseholdSnapshot } from './householdStorage';
@@ -87,6 +88,11 @@ function FamilyOsShellContent() {
   const [actionHistory, setActionHistory] = useState<ProposedAction[]>([]);
   const [tvPairing, setTVPairing] = useState<TVPairingView & { challengeId?: string; pollingToken?: string }>({ status: 'checking' });
   const planner = usePlannerData(false);
+  const [toast, setToast] = useState('');
+  const [celebration, setCelebration] = useState<{ memberId: string; stars: number; detail: string } | null>(null);
+  const [tvElevated, setTVElevated] = useState(false);
+  const [dismissedProposals, setDismissedProposals] = useState<string[]>([]);
+  const paired = tvPairing.status === 'paired';
   const briefingInputRef = useRef({ household, conflicts, now });
   briefingInputRef.current = { household, conflicts, now };
   const briefingRequestId = useRef(0);
@@ -111,6 +117,7 @@ function FamilyOsShellContent() {
         if (!token) return;
         const response = await familyAgentClient.getHousehold();
         if (!active) return;
+        void familyAgentClient.tvSession().then((session) => active && setTVElevated(session.data.elevated)).catch(() => undefined);
         const next = response.data;
         const changed = JSON.stringify(next) !== JSON.stringify(householdRef.current);
         planner.syncHousehold(next);
@@ -240,6 +247,94 @@ function FamilyOsShellContent() {
     };
   }, [demoVersion, refreshVersion]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(''), 6000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  /** Paired TVs save shared-screen changes on the server; the server decides what the TV may change. */
+  const applyServerHousehold = (next: HouseholdSnapshot) => {
+    householdRef.current = next;
+    setHousehold(next);
+    planner.syncHousehold(next);
+    setCalendarState({ status: next.events.length ? 'available' : 'empty', data: next.events, source: 'FamilyOS household service' });
+  };
+  const serverEdit = async (kind: string, value: Record<string, unknown>) => {
+    try {
+      const response = await familyAgentClient.editHousehold(kind, value, householdRef.current.revision ?? 0);
+      applyServerHousehold(response.data);
+      return true;
+    } catch (error) {
+      setToast(
+        error instanceof FamilyAgentError && error.code === 'PARENT_CODE_REQUIRED'
+          ? 'Ask a parent to unlock the TV in Settings with the four-digit code.'
+          : error instanceof FamilyAgentError && error.code === 'PHOTO_REQUIRED'
+            ? 'This chore needs a photo from the phone app so a parent can approve it.'
+            : error instanceof Error
+              ? error.message
+              : 'That change could not be saved.',
+      );
+      if (error instanceof FamilyAgentError && error.status === 409) {
+        void familyAgentClient.getHousehold().then((response) => applyServerHousehold(response.data)).catch(() => undefined);
+      }
+      return false;
+    }
+  };
+  const plannerView = paired
+    ? {
+        ...planner,
+        toggleItem: (listId: string, itemId: string) => {
+          planner.toggleItem(listId, itemId);
+          void serverEdit('listItemToggle', { id: itemId });
+        },
+        clearChecked: () => {
+          const checked = planner.data.lists.flatMap((list) => list.items.filter((item) => item.done));
+          void (async () => {
+            for (const item of checked) if (!(await serverEdit('deleteListItem', { id: item.id }))) return;
+          })();
+        },
+        addItems: (listId: string, texts: string[]) => {
+          const listName = planner.data.lists.find((list) => list.id === listId)?.name || 'Groceries';
+          void (async () => {
+            for (const text of texts.map((value) => value.trim()).filter(Boolean)) {
+              const saved = await serverEdit('listItem', {
+                id: `tv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                listName, title: text.slice(0, 160), category: 'Other', completed: false, addedBy: 'TV',
+              });
+              if (!saved) return;
+            }
+          })();
+        },
+        setMeal: (key: string, title: string) => {
+          const [date, category] = key.split(':');
+          const existing = (householdRef.current.meals || []).find((meal) => meal.date === date && meal.category === category);
+          if (!title.trim()) {
+            if (existing) void serverEdit('deleteMeal', { id: existing.id });
+            return;
+          }
+          void serverEdit('meal', existing
+            ? { ...existing, title: title.trim().slice(0, 120) }
+            : { id: `tv-${date}-${category}`, title: title.trim().slice(0, 120), date, category, cookIds: [], servings: 4, minutes: 30, ingredients: [], instructions: [] });
+        },
+      }
+    : planner;
+  const unlockTVParentMode = async (code: string) => {
+    await familyAgentClient.unlockParentMode(code);
+    setTVElevated(true);
+  };
+  const lockTVParentMode = async () => {
+    await familyAgentClient.lockParentMode().catch(() => undefined);
+    setTVElevated(false);
+  };
+  const pendingProposal = paired
+    ? (household.proposals || []).find((item) => item.status === 'pending' && !dismissedProposals.includes(item.id))
+    : undefined;
+  const waitingApprovals = paired
+    ? (household.choreVerifications || []).filter((item) => item.status === 'pending').length +
+      (household.redemptions || []).filter((item) => item.status === 'pending').length
+    : 0;
+
   const pageBack = useRef<(() => void) | null>(null);
   useBackToHome(route, setRoute, focusRegion, setFocusRegion, () => {
     if (menuOpen) {
@@ -305,7 +400,10 @@ function FamilyOsShellContent() {
     tvPairing,
     onStartPairing: startTVPairing,
     onUnpairTV: () => { void unpairTV(); },
-    focusActive: focusRegion === 'content' && !menuOpen,
+    focusActive: focusRegion === 'content' && !menuOpen && !pendingProposal,
+    tvParentMode: tvElevated,
+    onUnlockParentMode: unlockTVParentMode,
+    onLockParentMode: lockTVParentMode,
     onNavigate: visit,
     onFocusNavigation: () => setFocusRegion('navigation'),
     initialEventId: calendarEventId,
@@ -314,14 +412,44 @@ function FamilyOsShellContent() {
       setRoute('Calendar');
       setFocusRegion('content');
     },
-    onCompleteChore: (id: string, completed: boolean) =>
-      setHousehold((current) => setChoreCompleted(current, id, completed, now.toISOString())),
+    onCompleteChore: (id: string, completed: boolean) => {
+      const chore = householdRef.current.chores.find((item) => item.id === id);
+      const cheer = () => {
+        if (completed && chore?.assignedToMemberId)
+          setCelebration({ memberId: chore.assignedToMemberId, stars: chore.points ?? 1, detail: `${chore.title} is done.` });
+      };
+      if (!paired) {
+        setHousehold((current) => setChoreCompleted(current, id, completed, now.toISOString()));
+        cheer();
+        return;
+      }
+      if (!chore) return;
+      // Completing is a shared-screen action; undoing needs a parent (the server enforces both).
+      void (completed ? serverEdit('completeChore', { id }) : serverEdit('chore', { ...chore, status: 'pending' })).then((ok) => {
+        if (ok) cheer();
+      });
+    },
     onToggleRoutineStep: (routineId: string, stepId: string) =>
       setHousehold((current) => toggleRoutineStep(current, routineId, stepId)),
-    onTogglePreparationItem: (eventId: string, itemId: string) =>
-      setHousehold((current) => togglePreparationItem(current, eventId, itemId)),
+    onTogglePreparationItem: (eventId: string, itemId: string) => {
+      if (paired) void serverEdit('prepToggle', { id: eventId, itemId });
+      else setHousehold((current) => togglePreparationItem(current, eventId, itemId));
+    },
     onRefreshData: () => setRefreshVersion((value) => value + 1),
     onProposeAction: async (conflictId: string, eventId: string, targetMemberId: string) => {
+      if (paired) {
+        // A paired household never falls back to a local-only change that the next sync would undo.
+        try {
+          const response = await familyAgentClient.proposeAction({ conflictId, eventId, targetMemberId });
+          return { action: response.data, remote: true };
+        } catch (error) {
+          throw new Error(
+            error instanceof FamilyAgentError && error.status === 403
+              ? 'Unlock parent mode in Settings with the four-digit code to change pickups on the TV.'
+              : 'The pickup suggestion could not be prepared. Refresh and try again.',
+          );
+        }
+      }
       if (agentStatus !== 'offline') {
         try {
           const response = await familyAgentClient.proposeAction({ conflictId, eventId, targetMemberId });
@@ -367,7 +495,8 @@ function FamilyOsShellContent() {
             ),
           );
           return;
-        } catch {
+        } catch (error) {
+          if (paired) throw new Error(error instanceof Error ? error.message : 'The pickup change could not be saved.');
           // The explicit confirmation can still be applied to the local demo snapshot.
         }
       }
@@ -399,18 +528,24 @@ function FamilyOsShellContent() {
       case 'Chores':
         return <FamilyChoresScreen {...props} />;
       case 'Meals':
-        return <FamilyMealsScreen {...props} planner={planner} />;
+        return <FamilyMealsScreen {...props} planner={plannerView} />;
       case 'Lists':
-        return <FamilyListsScreen {...props} planner={planner} />;
+        return <FamilyListsScreen {...props} planner={plannerView} />;
       case 'Photos':
         return <FamilyPhotosScreen {...props} />;
       case 'Family':
         return <FamilyMembersScreen {...props} />;
       case 'Settings':
         return <FamilySettingsScreen {...props} onResetDemo={resetDemo} />;
+      case 'Approvals':
+        return <FamilyApprovalsScreen {...props} />;
+      case 'Move':
+        return <FamilyMoveScreen {...props} />;
+      case 'FamilyNight':
+        return <FamilyNightTVScreen {...props} />;
     }
   };
-  const navActive = focusRegion === 'navigation' && !menuOpen;
+  const navActive = focusRegion === 'navigation' && !menuOpen && !pendingProposal;
   const navButton = (tab: (typeof tabs)[number]) => (
     <DButton
       key={tab.route}
@@ -523,6 +658,33 @@ function FamilyOsShellContent() {
             </View>
           </PageBackContext.Provider>
         </SpatialNavigationRoot>
+        {toast ? (
+          <View
+            accessibilityLiveRegion="polite"
+            style={{ position: 'absolute', zIndex: 70, bottom: 48, left: 480, right: 480, padding: 22, borderRadius: 24, backgroundColor: p.selected, alignItems: 'center' }}>
+            <DText size={26} weight={700} color={p.onSelected}>{toast}</DText>
+          </View>
+        ) : null}
+        {celebration ? (
+          <StarCelebration
+            member={household.members.find((member) => member.id === celebration.memberId)}
+            stars={celebration.stars}
+            detail={celebration.detail}
+            onDone={() => setCelebration(null)}
+          />
+        ) : null}
+        {pendingProposal ? (
+          <ProposalOverlay
+            key={pendingProposal.id}
+            proposal={pendingProposal}
+            onDismiss={() => setDismissedProposals((ids) => [...ids, pendingProposal.id])}
+            onDone={(message) => {
+              setDismissedProposals((ids) => [...ids, pendingProposal.id]);
+              setToast(message);
+              void familyAgentClient.getHousehold().then((response) => applyServerHousehold(response.data)).catch(() => undefined);
+            }}
+          />
+        ) : null}
         {menuOpen ? (
           <View
             style={{
@@ -543,16 +705,21 @@ function FamilyOsShellContent() {
               zIndex: 20,
             }}>
             <SpatialNavigationRoot isActive>
-              {[...tabs.map((tab) => tab.route), 'Family' as const].map((item, index) => (
-                <DButton
-                  key={item}
-                  label={item}
-                  onPress={() => visit(item)}
-                  defaultFocus={index === 0}
-                  style={{ height: 58, justifyContent: 'center', paddingHorizontal: 20 }}>
-                  <DText size={26}>{item}</DText>
-                </DButton>
-              ))}
+              {[...tabs.map((tab) => tab.route), 'Family' as const, 'Approvals' as const, 'Move' as const, 'FamilyNight' as const].map((item, index) => {
+                const text =
+                  item === 'FamilyNight' ? 'Family night' : item === 'Move' ? 'Movement break'
+                    : item === 'Approvals' && waitingApprovals ? `Approvals (${waitingApprovals})` : item;
+                return (
+                  <DButton
+                    key={item}
+                    label={text}
+                    onPress={() => visit(item)}
+                    defaultFocus={index === 0}
+                    style={{ height: 50, justifyContent: 'center', paddingHorizontal: 20 }}>
+                    <DText size={24}>{text}</DText>
+                  </DButton>
+                );
+              })}
               <DButton
                 label="Close menu"
                 onPress={() => setMenuOpen(false)}

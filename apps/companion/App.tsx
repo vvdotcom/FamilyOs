@@ -321,7 +321,8 @@ function AccountApp() {
     return <>
       <HouseholdApp key={`${apiURL}:${account.accountId}`} api={api} account={account} dark={dark} appearance={appearance}
         onAppearance={async value => { await SecureStore.setItemAsync(APPEARANCE_KEY, value); setAppearance(value); }}
-        onSignOut={signOut} onServerSettings={() => { setServerDraft(apiURL); setSettingsOpen(true); }} />
+        onSignOut={signOut} onServerSettings={() => { setServerDraft(apiURL); setSettingsOpen(true); }}
+        onReauthenticate={async password => (api.usesCognito ? cognito.signIn(account.email, password) : undefined)} />
       <Modal visible={settingsOpen} transparent animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBackdrop}>
           <View style={styles.settingsSheet}>
