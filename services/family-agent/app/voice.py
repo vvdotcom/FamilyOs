@@ -42,6 +42,14 @@ SCOPE = "household"
 RATE_PER_MINUTE = 60
 
 
+_REASONING = re.compile(r"<thinking>.*?(</thinking>|$)", re.DOTALL | re.IGNORECASE)
+
+
+def strip_model_reasoning(text: str) -> str:
+    """Nova models can prefix tool-use replies with <thinking> notes; never speak those aloud."""
+    return " ".join(_REASONING.sub(" ", text).split())
+
+
 @dataclass(frozen=True)
 class VoiceIdentity:
     owner: str
@@ -556,8 +564,8 @@ class VoiceServer:
             messages.append(message)
             uses = [block["toolUse"] for block in message["content"] if "toolUse" in block]
             if not uses:
-                reply = " ".join(block["text"] for block in message["content"] if "text" in block).strip()
-                return {"mode": "bedrock", "reply": reply, "toolCalls": calls, "proposalIds": proposals}
+                reply = strip_model_reasoning(" ".join(block["text"] for block in message["content"] if "text" in block))
+                return {"mode": "bedrock", "reply": reply or "Sorry, I couldn't find an answer for that.", "toolCalls": calls, "proposalIds": proposals}
             results = []
             for use in uses:
                 calls.append(use["name"])

@@ -193,3 +193,12 @@ def test_voice_server_isolates_households():
     identity_a = VoiceIdentity(owner="owner-a", member_id=None, label="a", connection_id="a")
     asyncio.run(server.simulate(identity_a, "Swap Emma pickup to Alex"))
     assert len(homes["owner-a"].proposals) == 1 and homes["owner-b"].proposals == []
+
+
+def test_model_reasoning_is_never_spoken():
+    from app.voice import strip_model_reasoning
+
+    raw = "<thinking>I have the events. I will relay them.</thinking>\nToday Emma has school at 7:45 AM."
+    assert strip_model_reasoning(raw) == "Today Emma has school at 7:45 AM."
+    assert strip_model_reasoning("<thinking>unfinished note") == ""
+    assert strip_model_reasoning("Leo has 0 stars.") == "Leo has 0 stars."
