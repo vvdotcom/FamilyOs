@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import ipaddress
+import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -14,6 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.routing import Route
 
+from . import calendars
 from .auth import EmailBody, EmailCodeBody, LocalAuthStore, ResetPasswordBody, SignInBody, SignUpBody, Purpose, SESSION_DAYS
 from .briefing import SafeBriefingService
 from .companion import CompanionMutation
@@ -22,7 +26,7 @@ from .domain import DemoRepository, DomainError, snapshot_context, sports_remind
 from .household_ops import FAMILY_NIGHT_RULE, current_picker, household_today
 from .imports import ImportContext, ImportRequest, configured_import_provider, make_import_drafts
 from .models import (
-    APIEnvelope, ActionProposalRequest, ChangeParentAccessCodeBody, ChildAccessBody, ChoreVerificationBody,
+    APIEnvelope, ActionProposalRequest, CalendarAddBody, CalendarSubscriptionMeta, ChangeParentAccessCodeBody, ChildAccessBody, ChoreVerificationBody,
     CognitoExchangeBody, DecisionWithCodeBody, EmptyBody, HouseholdContext, MoveCompleteBody, PairingApproveBody,
     PairingChallengeBody, PairingClaimBody, ParentAccessCodeBody, PhotoUploadBody, ProposalDecisionBody,
     RedemptionDecisionBody, RedemptionRequestBody, ResetAccessCodeBody, StarAdjustmentBody, VoiceTokenBody,
@@ -36,12 +40,15 @@ from .production import CognitoAccessTokenVerifier, CognitoSessionService, Cogni
 from .service import HouseholdService
 from .vision import CHEERS, check_chore_photo, configured_provider
 from .voice import VoiceGateway, VoiceServer
-from .weather import NWSWeatherProvider, WeatherNotConfigured, WeatherUnavailable
+from .weather import NWSWeatherProvider, WeatherNotConfigured, WeatherUnavailable, WeatherUnsupportedLocation
 
 AUTH_MODE = os.getenv("FAMILYOS_AUTH_MODE", "local").strip().lower()
 DEMO_MODE = os.getenv("FAMILYOS_DEMO_MODE", "true").lower() == "true"
 IS_PRODUCTION = AUTH_MODE == "cognito"
 VISION_CHECKS_PER_DAY = int(os.getenv("FAMILYOS_VISION_CHECKS_PER_DAY", "30"))
+# Minutes between background re-reads of connected calendars; 0 turns the background sync off.
+CALENDAR_SYNC_MINUTES = float(os.getenv("FAMILYOS_CALENDAR_SYNC_MINUTES", "15"))
+logger = logging.getLogger("familyos.agent")
 
 if os.getenv("RAILWAY_ENVIRONMENT") and not IS_PRODUCTION:
     raise RuntimeError(
@@ -105,8 +112,13 @@ voice_server = VoiceServer(
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    async with voice_server.lifespan():
-        yield
+    background = asyncio.create_task(calendar_sync_loop()) if CALENDAR_SYNC_MINUTES > 0 else None
+    try:
+        async with voice_server.lifespan():
+            yield
+    finally:
+        if background is not None:
+            background.cancel()
 
 
 app = FastAPI(title="FamilyOS Family Agent", version="0.2.0", lifespan=lifespan)
@@ -425,17 +437,24 @@ async def get_permissions(request: Request):
 
 @app.get("/v1/weather", response_model=APIEnvelope)
 async def get_weather(request: Request, response: Response):
-    household_snapshot(request)
+    """Forecast for the household's saved location; the service-wide setting is only a fallback."""
+    snapshot = household_snapshot(request)
     response.headers["Cache-Control"] = "no-store"
-    if not weather_provider.configured:
-        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set the household weather location to enable forecasts.")
+    place = snapshot.location
+    if place is None and not weather_provider.configured:
+        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set your household's location in the FamilyOS app to show weather.")
     try:
-        forecast = await weather_provider.get_forecast()
+        if place is not None:
+            forecast = await weather_provider.forecast_for(place.latitude, place.longitude, place.label)
+        else:
+            forecast = await weather_provider.get_forecast()
     except WeatherNotConfigured as error:
-        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set the household weather location to enable forecasts.") from error
+        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set your household's location in the FamilyOS app to show weather.") from error
+    except WeatherUnsupportedLocation as error:
+        raise DomainError(503, "WEATHER_UNSUPPORTED_LOCATION", "Weather forecasts are available for US locations only.") from error
     except WeatherUnavailable as error:
         raise DomainError(503, "WEATHER_UNAVAILABLE", "The weather service is temporarily unavailable.") from error
-    return success(request, forecast, provider="nws")
+    return success(request, forecast, provider="nws", source="household" if place else "service")
 
 
 @app.get("/v1/events", response_model=APIEnvelope)
@@ -919,6 +938,109 @@ async def delete_photo(photo_id: str, request: Request):
     svc = service()
     saved = svc.edit(actor, "photoDelete", {"id": photo_id})
     svc.accounts.delete_photo(svc.blob_owner(actor.owner), photo_id)
+    return success(request, saved)
+
+
+# Connected calendars (read-only Google, iCloud, Outlook, or .ics links) -----------------------------
+
+MANUAL_SYNC_SECONDS = 60
+_manual_syncs: dict[tuple[str, str], float] = {}
+
+
+def sync_calendar(svc: HouseholdService, owner: str | None, calendar_id: str):
+    """Re-read one connected calendar and mirror its events. A bad feed is recorded, not raised."""
+    link_owner = svc.blob_owner(owner)
+    snapshot = svc.snapshot(owner)
+    meta = next((item for item in snapshot.calendars if item.id == calendar_id), None)
+    if meta is None:  # Disconnected: drop any link left behind.
+        svc.accounts.delete_calendar_link(link_owner, calendar_id)
+        raise DomainError(404, "CALENDAR_NOT_FOUND", "That calendar was disconnected.")
+    link = svc.accounts.calendar_link(link_owner, calendar_id)
+    events, failure = None, None
+    if link is None:
+        failure = DomainError(422, "CALENDAR_RECONNECT", "Reconnect this calendar by pasting its link again.")
+    else:
+        try:
+            events = calendars.events_from_ics(calendars.fetch_ics(link), meta, snapshot)
+        except DomainError as error:
+            failure = error
+    return svc.transform(owner, lambda current: calendars.apply_sync(current, calendar_id, events, failure), bump=False)
+
+
+def sync_all_calendars() -> int:
+    """One background pass over every connected calendar. Returns how many were read."""
+    svc = service()
+    count = 0
+    for owner, calendar_id in svc.accounts.calendar_links():
+        try:
+            sync_calendar(svc, owner, calendar_id)
+            count += 1
+        except DomainError as error:
+            logger.info("Calendar sync skipped: %s", error.code)
+        except Exception:  # Keep the loop alive; never log the private link.
+            logger.exception("Calendar sync failed for one calendar")
+    return count
+
+
+async def calendar_sync_loop() -> None:
+    while True:
+        await asyncio.sleep(CALENDAR_SYNC_MINUTES * 60)
+        try:
+            await asyncio.to_thread(sync_all_calendars)
+        except Exception:
+            logger.exception("Calendar sync pass failed")
+
+
+def _calendar_payload(saved, calendar_id: str) -> dict[str, object]:
+    return {"calendar": next((item for item in saved.calendars if item.id == calendar_id), None), "household": saved}
+
+
+@app.post("/v1/calendars", response_model=APIEnvelope)
+def connect_calendar(body: CalendarAddBody, request: Request):
+    """Connect a calendar by its private iCal link. The link is checked before anything is saved."""
+    actor = require_parent(request)
+    svc = service()
+    link_owner = svc.blob_owner(actor.owner)
+    url = calendars.normalize_url(body.url)
+    snapshot = svc.snapshot(actor.owner)
+    if len(snapshot.calendars) >= calendars.MAX_CALENDARS:
+        raise DomainError(422, "CALENDAR_LIMIT", f"You can connect up to {calendars.MAX_CALENDARS} calendars.")
+    if any(svc.accounts.calendar_link(link_owner, item.id) == url for item in snapshot.calendars):
+        raise DomainError(409, "CALENDAR_ALREADY_CONNECTED", "That calendar is already connected.")
+    provider = calendars.guess_provider(url)
+    calendar_id = uuid4().hex[:16]
+    meta = CalendarSubscriptionMeta(id=calendar_id, label=body.label.strip()[:60], provider=provider,
+                                    host=calendars.display_host(url), memberIds=body.memberIds)
+    events = calendars.events_from_ics(calendars.fetch_ics(url), meta, snapshot)
+    svc.accounts.put_calendar_link(link_owner, calendar_id, url)
+    try:
+        svc.edit(actor, "calendarAdd", {"id": calendar_id, "label": meta.label, "provider": provider,
+                                         "host": meta.host, "memberIds": body.memberIds}, server=True)
+    except DomainError:
+        svc.accounts.delete_calendar_link(link_owner, calendar_id)
+        raise
+    saved = svc.transform(actor.owner, lambda current: calendars.apply_sync(current, calendar_id, events), bump=False)
+    return success(request, _calendar_payload(saved, calendar_id))
+
+
+@app.post("/v1/calendars/{calendar_id}/sync", response_model=APIEnvelope)
+def sync_calendar_now(calendar_id: str, request: Request):
+    actor = require_parent(request)
+    key = (str(actor.owner), calendar_id)
+    now = time.monotonic()
+    if now - _manual_syncs.get(key, -MANUAL_SYNC_SECONDS) < MANUAL_SYNC_SECONDS:
+        raise DomainError(429, "CALENDAR_SYNC_TOO_SOON", "This calendar just synced. Try again in a minute.")
+    _manual_syncs[key] = now
+    saved = sync_calendar(service(), actor.owner, calendar_id)
+    return success(request, _calendar_payload(saved, calendar_id))
+
+
+@app.post("/v1/calendars/{calendar_id}/delete", response_model=APIEnvelope)
+def disconnect_calendar(calendar_id: str, request: Request):
+    actor = require_parent(request)
+    svc = service()
+    saved = svc.edit(actor, "calendarRemove", {"id": calendar_id}, server=True)
+    svc.accounts.delete_calendar_link(svc.blob_owner(actor.owner), calendar_id)
     return success(request, saved)
 
 

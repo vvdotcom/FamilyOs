@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+from .calendars import link_key, open_link, seal_link
 from .domain import DomainError
 
 Purpose = Literal["verify_email", "reset_password"]
@@ -172,6 +173,13 @@ class LocalAuthStore:
                     content BLOB NOT NULL,
                     created_at TEXT NOT NULL,
                     PRIMARY KEY (owner, photo_id, variant)
+                );
+                CREATE TABLE IF NOT EXISTS calendar_links (
+                    owner TEXT NOT NULL,
+                    calendar_id TEXT NOT NULL,
+                    sealed_url BLOB NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (owner, calendar_id)
                 );
                 """
             )
@@ -525,6 +533,32 @@ class LocalAuthStore:
         with self._connection() as connection:
             row = connection.execute("SELECT coalesce(sum(length(content)), 0) AS total FROM photo_blobs WHERE owner = ?", (owner,)).fetchone()
         return int(row["total"])
+
+    # Connected calendar links (secrets: encrypted, never returned to clients).
+    def put_calendar_link(self, owner: str, calendar_id: str, url: str) -> None:
+        sealed = seal_link(link_key(self._pepper), owner, calendar_id, url)
+        with self._connection() as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO calendar_links(owner, calendar_id, sealed_url, created_at) VALUES (?, ?, ?, ?)",
+                (owner, calendar_id, sealed, _stamp(_now())),
+            )
+
+    def calendar_link(self, owner: str, calendar_id: str) -> str | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT sealed_url FROM calendar_links WHERE owner = ? AND calendar_id = ?", (owner, calendar_id)
+            ).fetchone()
+        return open_link(link_key(self._pepper), owner, calendar_id, bytes(row["sealed_url"])) if row else None
+
+    def delete_calendar_link(self, owner: str, calendar_id: str) -> None:
+        with self._connection() as connection:
+            connection.execute("DELETE FROM calendar_links WHERE owner = ? AND calendar_id = ?", (owner, calendar_id))
+
+    def calendar_links(self) -> list[tuple[str, str]]:
+        """(owner, calendar id) for every connected calendar, for the background sync."""
+        with self._connection() as connection:
+            rows = connection.execute("SELECT owner, calendar_id FROM calendar_links ORDER BY created_at").fetchall()
+        return [(row["owner"], row["calendar_id"]) for row in rows]
 
     def create_child_session(self, account_id: str, member_id: str) -> str:
         token = secrets.token_urlsafe(32)

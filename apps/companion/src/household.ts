@@ -30,6 +30,20 @@ export type Event = {
   arrivalMinutes?: number | null;
   uniform?: string | null;
   moveRoutineId?: string | null;
+  /** Set on events mirrored from a connected calendar. They are read-only in FamilyOS. */
+  calendarId?: string | null;
+};
+export type CalendarProvider = 'google' | 'icloud' | 'outlook' | 'ics';
+export type ConnectedCalendar = {
+  id: string;
+  label: string;
+  provider: CalendarProvider;
+  host: string;
+  memberIds: string[];
+  status: 'pending' | 'ok' | 'error';
+  message: string;
+  lastSyncedAt?: string | null;
+  eventCount: number;
 };
 export type Chore = {
   id: string;
@@ -187,6 +201,8 @@ export type Household = {
   proposals?: Proposal[];
   choreVerifications?: ChoreVerification[];
   photos?: PhotoMeta[];
+  location?: { latitude: number; longitude: number; label: string; source: 'device' | 'search'; updatedAt: string } | null;
+  calendars?: ConnectedCalendar[];
 };
 export type Edit = {
   expectedRevision: number;
@@ -195,7 +211,7 @@ export type Edit = {
     | 'recipe' | 'mealSeries' | 'importConfirm' | 'importCancel' | 'reward' | 'completeChore' | 'deleteListItem'
     | 'deleteChore' | 'deleteRecipe' | 'listItemToggle' | 'prepToggle' | 'redemptionFulfill' | 'team' | 'deleteTeam'
     | 'familyNightSettings' | 'familyNightSuggest' | 'familyNightVote' | 'familyNightClose' | 'familyNightPick'
-    | 'proposalDecide' | 'photoMeta';
+    | 'proposalDecide' | 'photoMeta' | 'householdLocation' | 'calendarMeta';
   value: object;
 };
 export type AccessContext = { accessMode: 'parent' | 'child' | null; memberId: string | null; memberName?: string; elevated?: boolean };
@@ -229,6 +245,9 @@ export interface HouseholdAPI {
   createVoiceConnection?(label: string, memberId?: string): Promise<{ connection: VoiceConnection; token: string; mcpUrl: string }>;
   revokeVoiceConnection?(id: string): Promise<void>;
   simulateVoice?(utterance: string): Promise<{ reply: string; mode: 'rules' | 'bedrock'; toolCalls: string[]; proposalIds: string[]; label: string }>;
+  connectCalendar?(label: string, url: string, memberIds: string[]): Promise<{ calendar: ConnectedCalendar; household: Household }>;
+  syncCalendar?(id: string): Promise<{ calendar: ConnectedCalendar; household: Household }>;
+  disconnectCalendar?(id: string): Promise<Household>;
 }
 /** Error carrying the HTTP status so screens can react to expired sessions. */
 export class APIRequestError extends Error {

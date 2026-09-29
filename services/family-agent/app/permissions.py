@@ -46,6 +46,7 @@ class Actor:
 SERVER_ONLY_KINDS = frozenset({
     "importDraft", "redemptionRequest", "redemptionDecision", "starAdjustment",
     "choreVerificationCreate", "choreVerificationDecide", "proposalCreate", "photoCreate",
+    "calendarAdd", "calendarRemove",
 })
 
 # Changes any family member may make at the shared TV, with item checks below.
@@ -68,6 +69,7 @@ MATRIX: dict[str, dict[str, str]] = {
     "household members and roles": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},
     "imports": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},
     "photos": {"parent": "yes", "child": "no", "tv": "view", "tv+code": "view", "voice": "no"},
+    "connected calendars (Google, iCloud, Outlook links)": {"parent": "yes", "child": "no", "tv": "view events", "tv+code": "view events", "voice": "read events"},
     "teams, carpools, family night settings": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},
     "family night suggest/vote": {"parent": "any member", "child": "self (item)", "tv": "view", "tv+code": "close/pick", "voice": "no"},
     "voice proposals (confirm/reject)": {"parent": "yes", "child": "no", "tv": "chore-done only", "tv+code": "yes", "voice": "no"},

@@ -63,6 +63,7 @@ import {
   type IconName,
 } from './ui';
 import { StarCelebration } from './Pickers';
+import { detectPlace, searchPlace, type WeatherPlace } from './location';
 
 type Page =
   | 'today'
@@ -133,6 +134,7 @@ function HouseholdScreens({
   const [goalRewardId, setGoalRewardId] = useState('');
   const [addSheet, setAddSheet] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [placeQuery, setPlaceQuery] = useState('');
   const [listEditing, setListEditing] = useState(false);
   const [childPicker, setChildPicker] = useState(false);
   const [rewardsView, setRewardsView] = useState<'kids' | 'parent'>('kids');
@@ -366,6 +368,14 @@ function HouseholdScreens({
   const replace = (household: Household) => {
     setData(household);
     setLastSync(new Date());
+  };
+  const savePlace = async (find: () => Promise<WeatherPlace>) => {
+    const place = await run(find);
+    if (!place) return;
+    if (await mutate('householdLocation', { id: 'location', ...place })) {
+      setPlaceQuery('');
+      setNotice(`Weather set to ${place.label}. The TV updates within a few seconds.`);
+    }
   };
   const lockParent = async () => {
     const locked = await run(() => api.lockParentMode?.() ?? Promise.resolve(false));
@@ -807,6 +817,12 @@ function HouseholdScreens({
               </Pressable>
             ) : null}
             {!pairedTVs.length && accessMode === 'parent' && !preview ? tvCard : null}
+            {accessMode === 'parent' && !data.location ? (
+              <Card>
+                <NavRow icon="sparkle" title="Show weather on your TV" subtitle="Set your household’s location once" last
+                  tint={memberTint(4, dark)} onPress={() => navigate('settings')} />
+              </Card>
+            ) : null}
             {weekStrip}
             <View style={s.section}>
               <Label>{isToday ? 'TODAY' : 'SCHEDULE'} · {events.length} {events.length === 1 ? 'EVENT' : 'EVENTS'}</Label>
@@ -1675,6 +1691,34 @@ function HouseholdScreens({
             <Card style={{ padding: 16, gap: 4 }}>
               <Copy weight={700}>{account.householdName}</Copy>
               <Copy size={14} color={t.muted}>{account.email}</Copy>
+            </Card>
+            <Label>WEATHER ON THE TV</Label>
+            <Card style={{ padding: 16, gap: 10 }}>
+              <View style={s.spread}>
+                <View style={s.grow}>
+                  <Copy weight={700}>{data.location ? data.location.label : 'No location yet'}</Copy>
+                  <Copy size={13} color={t.muted}>
+                    {data.location
+                      ? `${data.location.source === 'device' ? 'From this phone' : 'Searched'} · time zone ${data.family.timezone.replace('_', ' ')}`
+                      : 'Set it once so the TV shows your local forecast.'}
+                  </Copy>
+                </View>
+                {data.location ? (
+                  <Button label="Remove weather location" icon="trash" disabled={busy}
+                    onPress={() => void mutate('householdLocation', { id: 'location', clear: true })} />
+                ) : null}
+              </View>
+              <Button primary icon="home" disabled={busy || preview} onPress={() => void savePlace(detectPlace)}>Use my location</Button>
+              <View style={[s.row, { alignItems: 'flex-end', gap: 8 }]}>
+                <View style={s.grow}>
+                  <Input label="Or search a city or ZIP" value={placeQuery} onChangeText={setPlaceQuery} maxLength={80}
+                    placeholder="e.g. Tucson, AZ or 85701" autoCapitalize="words" returnKeyType="search"
+                    onSubmitEditing={() => void savePlace(() => searchPlace(placeQuery))} />
+                </View>
+                <Button disabled={busy || preview || !placeQuery.trim()} onPress={() => void savePlace(() => searchPlace(placeQuery))}
+                  style={{ minHeight: 52 }}>Set</Button>
+              </View>
+              <Copy size={12} color={t.muted}>Saved as an approximate area (about 1 km), never your address. Forecasts cover US locations.</Copy>
             </Card>
             <Label>PARENT CODE</Label>
             <Card>

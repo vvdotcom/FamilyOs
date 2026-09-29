@@ -171,7 +171,7 @@ def test_import_endpoint_is_parent_only_and_returns_draft_for_review(monkeypatch
         def household(self, _owner):
             return self.snapshot()
 
-        def transform(self, _owner, change):
+        def transform(self, _owner, change, bump=True):
             self._data = change(self._data)
             return self.snapshot()
 
@@ -202,7 +202,7 @@ def test_route_requires_session_and_scopes_owner(monkeypatch):
         def household(self, owner):
             return homes[owner]
 
-        def transform(self, owner, change):
+        def transform(self, owner, change, bump=True):
             homes[owner] = change(homes[owner])
             return homes[owner]
 

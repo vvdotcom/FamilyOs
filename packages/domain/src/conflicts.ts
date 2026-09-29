@@ -18,7 +18,8 @@ export function detectConflicts(
   const preparationWindowMs = (options.preparationWindowMinutes ?? 60) * 60_000;
   const conflicts: Conflict[] = [];
 
-  const ordered = [...events].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt) || a.id.localeCompare(b.id));
+  // All-day items (birthdays, holidays, "no school") are informational and never conflict (same rule as the server).
+  const ordered = events.filter((item) => !item.allDay).sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt) || a.id.localeCompare(b.id));
   for (let i = 0; i < ordered.length; i += 1) {
     const first = ordered[i];
     for (let j = i + 1; j < ordered.length; j += 1) {
@@ -95,10 +96,10 @@ export function suggestReassignment(
   const end = Date.parse(event.endAt);
   const available = members.filter((member) => member.role === 'adult'
     && member.id !== event.responsibleMemberId
-    && !events.some((candidate) => candidate.id !== event.id
+    && !events.some((candidate) => candidate.id !== event.id && !candidate.allDay
       && candidate.memberIds.includes(member.id)
       && start < Date.parse(candidate.endAt) && Date.parse(candidate.startAt) < end)
-    && !events.some((candidate) => candidate.id !== event.id
+    && !events.some((candidate) => candidate.id !== event.id && !candidate.allDay
       && candidate.responsibleMemberId === member.id
       && start < Date.parse(candidate.endAt) && Date.parse(candidate.startAt) < end));
   return available.find((member) => member.id === preferredAdultId) ?? available[0];

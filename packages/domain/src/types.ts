@@ -18,7 +18,7 @@ export interface FamilyMember {
 
 export type EventCategory = 'school' | 'appointment' | 'pickup' | 'dropoff' | 'drive' | 'sports' | 'meal' | 'family' | 'move';
 export type ResponsibilityType = 'pickup' | 'dropoff' | 'drive';
-export type EventSource = 'demo' | 'manual' | 'google' | 'outlook' | 'import' | 'voice';
+export type EventSource = 'demo' | 'manual' | 'google' | 'outlook' | 'icloud' | 'ics' | 'import' | 'voice';
 
 export interface PreparationItem {
   id: string;
@@ -48,6 +48,8 @@ export interface CalendarEvent {
   arrivalMinutes?: number | null;
   uniform?: string | null;
   moveRoutineId?: string | null;
+  /** Set on events mirrored from a connected Google, iCloud, or Outlook calendar. They are read-only here. */
+  calendarId?: string | null;
 }
 
 export type ChoreStatus = 'pending' | 'completed';
@@ -249,4 +251,20 @@ export interface HouseholdSnapshot {
   familyNightPolls?: FamilyNightPoll[];
   photos?: HouseholdPhoto[];
   teams?: HouseholdTeam[];
+  /** Approximate household location for weather (about 1 km). */
+  location?: { latitude: number; longitude: number; label: string } | null;
+  /** Connected read-only calendars. The private links stay on the server. */
+  calendars?: ConnectedCalendar[];
+}
+
+export interface ConnectedCalendar {
+  id: string;
+  label: string;
+  provider: 'google' | 'icloud' | 'outlook' | 'ics';
+  host: string;
+  memberIds: string[];
+  status: 'pending' | 'ok' | 'error';
+  message: string;
+  lastSyncedAt?: string | null;
+  eventCount: number;
 }

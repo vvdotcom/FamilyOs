@@ -177,7 +177,7 @@ def test_voice_server_isolates_households():
         def household(self, owner):
             return homes[owner].model_copy(deep=True)
 
-        def transform(self, owner, change):
+        def transform(self, owner, change, bump=True):
             homes[owner] = change(homes[owner])
             return homes[owner].model_copy(deep=True)
 

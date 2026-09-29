@@ -27,6 +27,12 @@
           "photosPermission": "FamilyOS lets you choose family photos for the TV and photos of finished chores.",
           "cameraPermission": "FamilyOS uses the camera when you photograph a finished chore or a flyer to import."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FamilyOS uses your approximate location once to show local weather on your family TV."
+        }
       ]
     ],
     "extra": {

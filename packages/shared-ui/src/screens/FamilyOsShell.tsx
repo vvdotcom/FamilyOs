@@ -233,7 +233,7 @@ function FamilyOsShellContent() {
       },
     };
     const refreshWeather = () => {
-      void loadWeatherData(weatherProvider, 'Tucson, AZ', now.toISOString(), weatherCacheRef.current).then((result) => {
+      void loadWeatherData(weatherProvider, householdRef.current.location?.label ?? '', now.toISOString(), weatherCacheRef.current).then((result) => {
         if (active) setWeatherState(result);
       });
     };

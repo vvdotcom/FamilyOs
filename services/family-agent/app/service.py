@@ -35,9 +35,11 @@ class HouseholdService:
             return self.pg_store.household(str(owner))
         return self.repository.snapshot()
 
-    def transform(self, owner: str | None, change: Callable[[HouseholdSnapshot], HouseholdSnapshot]) -> HouseholdSnapshot:
+    def transform(self, owner: str | None, change: Callable[[HouseholdSnapshot], HouseholdSnapshot], *,
+                  bump: bool = True) -> HouseholdSnapshot:
+        """Apply ``change`` under the household lock. ``bump=False`` keeps the revision unless ``change`` moved it."""
         if self.production:
-            return self.pg_store.transform(str(owner), change)
+            return self.pg_store.transform(str(owner), change, bump=bump)
         with self.repository._lock:
             self.repository._data = change(self.repository._data)
             return self.repository.snapshot()

@@ -3640,6 +3640,7 @@ __metadata:
     expo-font: "npm:~57.0.4"
     expo-image-manipulator: "npm:~57.0.20"
     expo-image-picker: "npm:~57.0.20"
+    expo-location: "npm:~57.0.20"
     expo-secure-store: "npm:~57.0.4"
     expo-web-browser: "npm:~57.0.3"
     react: "npm:19.2.3"
@@ -10418,6 +10419,17 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/403a34d7464d398a2d141237172bb6b4e2bdb302940e55cee0fa52f49e9b70056005cd04cce44483daa3d9573b963714fb55af03ab01999853d89bee9faa6755
+  languageName: node
+  linkType: hard
+
+"expo-location@npm:~57.0.20":
+  version: 57.0.20
+  resolution: "expo-location@npm:57.0.20"
+  dependencies:
+    "@expo/image-utils": "npm:^0.11.5"
+  peerDependencies:
+    expo: "*"
+  checksum: 10c0/fd3af43bfb97dfe0c768aec8995c75b5b5add363d121e9dfd97a8e6ed31f37e859f8fa7040853e0319a658d39b2796886a8650c46f6bb2178775d7395a54143a
   languageName: node
   linkType: hard
 

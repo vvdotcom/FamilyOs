@@ -20,6 +20,7 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setenv("FAMILYOS_DEMO_NOW", "2026-09-22T14:30:00-07:00")
     monkeypatch.setenv("FAMILYOS_AI_PROVIDER", "deterministic")
     monkeypatch.setenv("FAMILYOS_VISION_PROVIDER", "demo")
+    monkeypatch.setenv("FAMILYOS_CALENDAR_SYNC_MINUTES", "0")
     monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
     main = importlib.reload(importlib.import_module("app.main"))
     with TestClient(main.app) as client:

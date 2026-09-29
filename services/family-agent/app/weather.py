@@ -8,7 +8,7 @@ import time
 from datetime import datetime, timezone
 from threading import RLock
 from typing import Any
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -19,6 +19,10 @@ class WeatherNotConfigured(Exception):
 
 class WeatherUnavailable(Exception):
     pass
+
+
+class WeatherUnsupportedLocation(WeatherUnavailable):
+    """The National Weather Service does not forecast this place (it covers the US)."""
 
 
 class NWSWeatherProvider:
@@ -67,10 +71,17 @@ class NWSWeatherProvider:
         )
 
     async def get_forecast(self) -> dict[str, object]:
+        """Forecast for the service-wide fallback location (demo and single-household setups)."""
         if not self.configured:
             raise WeatherNotConfigured
+        return await self.forecast_for(self.latitude, self.longitude, self.location)
 
-        cache_key = f"{self.latitude:.4f},{self.longitude:.4f}"
+    async def forecast_for(self, latitude: float, longitude: float, location: str) -> dict[str, object]:
+        """Forecast for one household's saved location."""
+        if not (math.isfinite(latitude) and math.isfinite(longitude) and -90 <= latitude <= 90 and -180 <= longitude <= 180):
+            raise WeatherNotConfigured
+        location = location.strip()[:100] or "Home"
+        cache_key = f"{latitude:.4f},{longitude:.4f}"
         now = time.monotonic()
         with self._lock:
             cached = self._cache.get(cache_key)
@@ -78,12 +89,12 @@ class NWSWeatherProvider:
                 return dict(cached[1])
 
         try:
-            hourly_url, daily_url = await self._forecast_urls(cache_key)
+            hourly_url, daily_url = await self._forecast_urls(cache_key, latitude, longitude)
             hourly_payload, daily_payload = await asyncio.gather(
                 asyncio.to_thread(self._get_json, hourly_url),
                 asyncio.to_thread(self._get_json, daily_url),
             )
-            result = _build_forecast(self.location, hourly_payload, daily_payload)
+            result = _build_forecast(location, hourly_payload, daily_payload)
         except WeatherUnavailable:
             raise
         except Exception as error:
@@ -93,7 +104,7 @@ class NWSWeatherProvider:
             self._cache[cache_key] = (time.monotonic(), result)
         return dict(result)
 
-    async def _forecast_urls(self, cache_key: str) -> tuple[str, str]:
+    async def _forecast_urls(self, cache_key: str, latitude: float, longitude: float) -> tuple[str, str]:
         now = time.monotonic()
         with self._lock:
             cached = self._grid_cache.get(cache_key)
@@ -102,9 +113,9 @@ class NWSWeatherProvider:
 
         point_url = (
             "https://api.weather.gov/points/"
-            f"{self.latitude:.4f},{self.longitude:.4f}"
+            f"{latitude:.4f},{longitude:.4f}"
         )
-        point_payload = await asyncio.to_thread(self._get_json, point_url)
+        point_payload = await asyncio.to_thread(self._get_json, point_url, True)
         properties = point_payload.get("properties") if isinstance(point_payload, dict) else None
         if not isinstance(properties, dict):
             raise WeatherUnavailable
@@ -118,7 +129,7 @@ class NWSWeatherProvider:
             self._grid_cache[cache_key] = (time.monotonic(), hourly_url, daily_url)
         return hourly_url, daily_url
 
-    def _get_json(self, url: str) -> dict[str, Any]:
+    def _get_json(self, url: str, point_lookup: bool = False) -> dict[str, Any]:
         _validate_nws_url(url)
         request = Request(
             url,
@@ -133,6 +144,11 @@ class NWSWeatherProvider:
             if len(payload) > 2_000_000:
                 raise WeatherUnavailable
             data = json.loads(payload)
+        except HTTPError as error:
+            # weather.gov answers 404 for places outside its US coverage.
+            if point_lookup and error.code == 404:
+                raise WeatherUnsupportedLocation from error
+            raise WeatherUnavailable from error
         except (URLError, TimeoutError, OSError, json.JSONDecodeError) as error:
             raise WeatherUnavailable from error
         if not isinstance(data, dict):

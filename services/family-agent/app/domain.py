@@ -113,7 +113,8 @@ class DemoRepository:
 
 def detect_conflicts(snapshot: HouseholdSnapshot, now: datetime | None = None) -> list[Conflict]:
     current = now or demo_now()
-    events = sorted(snapshot.events, key=lambda item: (parse(item.startAt), item.id))
+    # All-day items (birthdays, holidays, "no school") are informational and never conflict.
+    events = sorted((item for item in snapshot.events if not item.allDay), key=lambda item: (parse(item.startAt), item.id))
     conflicts: list[Conflict] = []
     for index, first in enumerate(events):
         for second in events[index + 1:]:
@@ -202,7 +203,7 @@ def is_available(snapshot: HouseholdSnapshot, target_event: CalendarEvent, membe
         return False
     start, end = parse(target_event.startAt), parse(target_event.endAt)
     return not any(
-        event.id != target_event.id
+        event.id != target_event.id and not event.allDay
         and (member_id in event.memberIds or event.responsibleMemberId == member_id)
         and start < parse(event.endAt) and parse(event.startAt) < end
         for event in snapshot.events

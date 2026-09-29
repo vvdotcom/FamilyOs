@@ -17,6 +17,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from .auth import ELEVATED_IDLE_MINUTES, SESSION_DAYS
+from .calendars import link_key, open_link, seal_link
 from .domain import DemoRepository, DomainError
 from .models import CalendarEvent, HouseholdSnapshot, ProposedAction
 
@@ -557,6 +558,37 @@ class PostgresHouseholdStore:
             ).fetchone()
         return int(row["total"])
 
+    # Connected calendar links (secrets: encrypted, never returned to clients) ---------------------
+    def put_calendar_link(self, owner_sub: str, calendar_id: str, url: str) -> None:
+        sealed = seal_link(link_key(self._pairing_key), owner_sub, calendar_id, url)
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO familyos_calendar_links(owner_sub, calendar_id, sealed_url) VALUES (%s, %s, %s)
+                   ON CONFLICT (owner_sub, calendar_id) DO UPDATE SET sealed_url = EXCLUDED.sealed_url""",
+                (owner_sub, calendar_id, sealed),
+            )
+
+    def calendar_link(self, owner_sub: str, calendar_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT sealed_url FROM familyos_calendar_links WHERE owner_sub = %s AND calendar_id = %s",
+                (owner_sub, calendar_id),
+            ).fetchone()
+        return open_link(link_key(self._pairing_key), owner_sub, calendar_id, bytes(row["sealed_url"])) if row else None
+
+    def delete_calendar_link(self, owner_sub: str, calendar_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM familyos_calendar_links WHERE owner_sub = %s AND calendar_id = %s", (owner_sub, calendar_id)
+            )
+
+    def calendar_links(self) -> list[tuple[str, str]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT owner_sub, calendar_id FROM familyos_calendar_links ORDER BY created_at"
+            ).fetchall()
+        return [(row["owner_sub"], row["calendar_id"]) for row in rows]
+
     def revoke_session(self, token: str | None) -> None:
         if not token:
             return
@@ -666,12 +698,12 @@ class PostgresHouseholdStore:
             raise DomainError(404, "HOUSEHOLD_NOT_FOUND", "That household could not be found.")
         return [ProposedAction.model_validate(item) for item in reversed(row["history"] or [])]
 
-    def _mutate(self, owner_sub: str, operation: Callable[[DemoRepository], T]) -> T:
+    def _mutate(self, owner_sub: str, operation: Callable[[DemoRepository], T], bump: bool = True) -> T:
         with self._connect() as connection:
             repository = self._load_repository(connection, owner_sub)
             revision = repository._data.revision
             result = operation(repository)
-            if repository._data.revision == revision:
+            if bump and repository._data.revision == revision:
                 repository._data.revision += 1
             self._save_repository(connection, owner_sub, repository)
             return result
@@ -689,12 +721,16 @@ class PostgresHouseholdStore:
             return repository.snapshot()
         return self._mutate(owner_sub, operation)
 
-    def transform(self, owner_sub: str, change: Callable[[HouseholdSnapshot], HouseholdSnapshot]) -> HouseholdSnapshot:
-        """Apply ``change`` to the latest snapshot while the household row is locked."""
+    def transform(self, owner_sub: str, change: Callable[[HouseholdSnapshot], HouseholdSnapshot],
+                  bump: bool = True) -> HouseholdSnapshot:
+        """Apply ``change`` to the latest snapshot while the household row is locked.
+
+        With ``bump=False`` the revision moves only if ``change`` moved it (background calendar sync).
+        """
         def operation(repository):
             repository._data = change(repository._data)
             return repository.snapshot()
-        return self._mutate(owner_sub, operation)
+        return self._mutate(owner_sub, operation, bump=bump)
 
     def confirm(self, owner_sub: str, action_id: str):
         return self._mutate(owner_sub, lambda repository: repository.confirm(action_id))

@@ -45,8 +45,9 @@ class CalendarEvent(StrictModel):
     location: str | None = None
     travelMinutes: int | None = None
     preparation: list[PreparationItem] = Field(default_factory=list)
-    source: Literal["demo", "manual", "google", "outlook", "import", "voice"] = "demo"
+    source: Literal["demo", "manual", "google", "outlook", "icloud", "ics", "import", "voice"] = "demo"
     allDay: bool = False
+    calendarId: str | None = Field(default=None, max_length=80)
     seriesId: str | None = Field(default=None, max_length=80)
     recurrence: Literal["weekly"] | None = None
     teamId: str | None = Field(default=None, max_length=80)
@@ -307,6 +308,30 @@ class AuditEntry(StrictModel):
     itemId: str = Field(default="", max_length=160)
 
 
+class HouseholdLocation(StrictModel):
+    """Where the household is, for weather. Stored rounded to about 1 km; never a street address."""
+
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    label: str = Field(min_length=1, max_length=80)
+    source: Literal["device", "search"] = "device"
+    updatedAt: str = Field(max_length=40)
+
+
+class CalendarSubscriptionMeta(StrictModel):
+    """A connected, read-only calendar. The private iCal link is stored separately and never sent to clients."""
+
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=60)
+    provider: Literal["google", "icloud", "outlook", "ics"] = "ics"
+    host: str = Field(default="", max_length=120)
+    memberIds: list[str] = Field(default_factory=list, max_length=30)
+    status: Literal["pending", "ok", "error"] = "pending"
+    message: str = Field(default="", max_length=160)
+    lastSyncedAt: str | None = Field(default=None, max_length=40)
+    eventCount: int = Field(default=0, ge=0, le=100_000)
+
+
 class HouseholdSnapshot(StrictModel):
     family: Family
     members: list[FamilyMember]
@@ -329,6 +354,8 @@ class HouseholdSnapshot(StrictModel):
     choreVerifications: list[ChoreVerification] = Field(default_factory=list, max_length=600)
     photos: list[PhotoMeta] = Field(default_factory=list, max_length=300)
     auditLog: list[AuditEntry] = Field(default_factory=list, max_length=600)
+    location: HouseholdLocation | None = None
+    calendars: list[CalendarSubscriptionMeta] = Field(default_factory=list, max_length=10)
 
 
 class BriefingMember(StrictModel):
@@ -501,6 +528,12 @@ class MoveCompleteBody(StrictModel):
     memberIds: list[str] = Field(min_length=1, max_length=30)
     eventId: str | None = Field(default=None, max_length=120)
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class CalendarAddBody(StrictModel):
+    label: str = Field(min_length=1, max_length=60)
+    url: str = Field(min_length=10, max_length=2048)
+    memberIds: list[str] = Field(default_factory=list, max_length=30)
 
 
 class ChildAccessBody(StrictModel):

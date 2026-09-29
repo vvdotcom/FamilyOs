@@ -6,7 +6,7 @@ from uuid import uuid4
 from pydantic import Field, ValidationError
 
 from .domain import DomainError
-from .household_ops import OPERATION_KINDS, apply_household_op, local_iso, next_driver
+from .household_ops import OPERATION_KINDS, apply_household_op, ensure_editable_event, local_iso, next_driver
 from .models import (
     AuditEntry, CalendarEvent, Chore, FamilyMember, HouseholdList, HouseholdSnapshot, ImportDraft,
     ListItem, Meal, PreparationItem, Recipe, RedemptionRequest, Reward, StarTransaction, StrictModel,
@@ -22,7 +22,8 @@ class CompanionMutation(StrictModel):
         "deleteListItem", "deleteChore", "deleteRecipe", "listItemToggle", "prepToggle", "redemptionFulfill",
         "starAdjustment", "team", "deleteTeam", "familyNightSettings", "familyNightSuggest", "familyNightVote",
         "familyNightClose", "familyNightPick", "proposalCreate", "proposalDecide", "choreVerificationCreate",
-        "choreVerificationDecide", "moveComplete", "photoCreate", "photoMeta", "photoDelete",
+        "choreVerificationDecide", "moveComplete", "photoCreate", "photoMeta", "photoDelete", "householdLocation",
+        "calendarAdd", "calendarMeta", "calendarRemove",
     ]
     value: dict = Field(max_length=30)
 
@@ -296,6 +297,8 @@ def _apply_edit(snapshot: HouseholdSnapshot, edit: CompanionMutation, actor: str
     elif edit.kind in ("deleteEvent", "deleteMeal"):
         if set(value) != {"id"}:
             raise DomainError(422, "INVALID_EDIT", "Unexpected deletion fields.")
+        if edit.kind == "deleteEvent":
+            ensure_editable_event(updated, item_id)
         name = "events" if edit.kind == "deleteEvent" else "meals"
         items = getattr(updated, name)
         if not any(item.id == item_id for item in items):
@@ -307,6 +310,8 @@ def _apply_edit(snapshot: HouseholdSnapshot, edit: CompanionMutation, actor: str
             raise DomainError(403, "WRONG_HOUSEHOLD", "That item belongs to another household.")
         if edit.kind in ("event", "member", "chore"):
             value["familyId"] = updated.family.id
+        if edit.kind == "event":
+            ensure_editable_event(updated, item_id)
         title = value.get("name" if edit.kind == "member" else "title", "")
         if not isinstance(title, str) or not title.strip() or len(title) > 160:
             raise DomainError(422, "INVALID_EDIT", "Enter a name or title of at most 160 characters.")
@@ -325,6 +330,7 @@ def _apply_edit(snapshot: HouseholdSnapshot, edit: CompanionMutation, actor: str
                 if len(item.memberIds) > 30 or len(item.location or "") > 240:
                     raise ValueError("Invalid event")
                 item.source = "manual"
+                item.calendarId = None  # Only calendar sync creates read-only mirrored events.
                 if item.teamId:
                     _apply_team_defaults(updated, item, new=not any(old.id == item.id for old in updated.events))
                     refs.extend(item.memberIds)

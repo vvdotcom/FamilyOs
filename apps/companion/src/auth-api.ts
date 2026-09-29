@@ -4,6 +4,7 @@ import {
   APIRequestError,
   type AccessContext,
   type ChorePhotoResult,
+  type ConnectedCalendar,
   type Household,
   type Edit,
   type ImportDraft,
@@ -129,6 +130,18 @@ export class FamilyOSAPI {
 
   decideChorePhoto(id: string, action: 'approve' | 'reject' | 'retake', code: string): Promise<{ household: Household }> {
     return this.post(`v1/chores/verifications/${encodeURIComponent(id)}/decision`, { action, code }, false, true);
+  }
+
+  connectCalendar(label: string, url: string, memberIds: string[]): Promise<{ calendar: ConnectedCalendar; household: Household }> {
+    return this.post('v1/calendars', { label, url, memberIds }, false, true);
+  }
+
+  syncCalendar(id: string): Promise<{ calendar: ConnectedCalendar; household: Household }> {
+    return this.post(`v1/calendars/${encodeURIComponent(id)}/sync`, {}, false, true);
+  }
+
+  disconnectCalendar(id: string): Promise<Household> {
+    return this.post(`v1/calendars/${encodeURIComponent(id)}/delete`, {}, false, true);
   }
 
   uploadPhoto(contentBase64: string, caption: string): Promise<{ photo: PhotoMeta; household: Household }> {

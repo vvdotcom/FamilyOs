@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from .demo import demo_now
 from .domain import DomainError, is_available, parse
 from .models import (
-    CalendarEvent, ChoreVerification, FamilyNightPoll, FamilyNightSettings, FamilyNightSuggestion,
+    CalendarEvent, CalendarSubscriptionMeta, ChoreVerification, HouseholdLocation, FamilyNightPoll, FamilyNightSettings, FamilyNightSuggestion,
     HouseholdSnapshot, PhotoMeta, Proposal, StarTransaction, Team,
 )
 from .move import MOVE_ROUTINES
@@ -30,8 +30,13 @@ OPERATION_KINDS = frozenset({
     "deleteListItem", "deleteChore", "deleteRecipe", "listItemToggle", "prepToggle", "redemptionFulfill",
     "starAdjustment", "team", "deleteTeam", "familyNightSettings", "familyNightSuggest", "familyNightVote",
     "familyNightClose", "familyNightPick", "proposalCreate", "proposalDecide", "choreVerificationCreate",
-    "choreVerificationDecide", "moveComplete", "photoCreate", "photoMeta", "photoDelete",
+    "choreVerificationDecide", "moveComplete", "photoCreate", "photoMeta", "photoDelete", "householdLocation",
+    "calendarAdd", "calendarMeta", "calendarRemove",
 })
+
+MAX_CALENDARS = 10
+SYNCED_READ_ONLY = ("This event comes from a connected calendar. Change it there and FamilyOS "
+                    "shows the update within 15 minutes.")
 
 
 def now_iso() -> str:
@@ -347,6 +352,8 @@ def _validate_proposal_payload(snapshot: HouseholdSnapshot, kind: str, payload: 
         event = next((item for item in snapshot.events if item.id == payload.get("eventId")), None)
         if event is None:
             raise DomainError(404, "NOT_FOUND", "That event could not be found.")
+        if event.calendarId:
+            raise DomainError(409, "SYNCED_EVENT_READ_ONLY", SYNCED_READ_ONLY)
         start, end = parse(str(payload.get("startAt"))), parse(str(payload.get("endAt")))
         if start.tzinfo is None or end <= start:
             raise DomainError(422, "INVALID_PROPOSAL", "The new time needs a start and a later end.")
@@ -531,3 +538,106 @@ def _op_photoMeta(snapshot, value, _actor):
 
 def _op_photoDelete(snapshot, value, _actor):
     _delete(snapshot, "photos", value, "That photo was already removed.")
+
+
+# Household location (weather) ------------------------------------------------------------------------
+
+def _op_householdLocation(snapshot, value, _actor):
+    """Set or clear the household's weather location, and optionally its time zone."""
+    _exact_fields(value, {"id", "latitude", "longitude", "label", "source", "timezone", "clear"})
+    if value.get("clear"):
+        snapshot.location = None
+        return
+    try:
+        latitude, longitude = float(value["latitude"]), float(value["longitude"])
+        location = HouseholdLocation(
+            # Two decimals is about 1 km: enough for a forecast, not enough to find a home.
+            latitude=round(latitude, 2), longitude=round(longitude, 2),
+            label=str(value.get("label") or "").strip()[:80] or "Home",
+            source=value.get("source") if value.get("source") in ("device", "search") else "device",
+            updatedAt=now_iso(),
+        )
+    except (KeyError, TypeError, ValueError, ValidationError) as error:
+        raise DomainError(422, "INVALID_LOCATION", "Choose a valid place for the weather.") from error
+    zone = value.get("timezone")
+    if zone is not None:
+        try:
+            ZoneInfo(str(zone))
+        except (ZoneInfoNotFoundError, ValueError) as error:
+            raise DomainError(422, "INVALID_TIMEZONE", "That time zone is not recognised.") from error
+        snapshot.family.timezone = str(zone)[:80]
+    snapshot.location = location
+
+
+# Connected calendars (read-only subscriptions) ---------------------------------------------------
+
+def calendar_members(snapshot: HouseholdSnapshot, requested: list[str]) -> list[str]:
+    """Whose calendar this is: the chosen members, or the first adult when none were chosen."""
+    known = {member.id for member in snapshot.members}
+    chosen = [member_id for member_id in dict.fromkeys(requested) if member_id in known]
+    if chosen:
+        return chosen
+    adult = next((member.id for member in snapshot.members if member.role == "adult"), None)
+    return [adult or snapshot.members[0].id] if snapshot.members else []
+
+
+def ensure_editable_event(snapshot: HouseholdSnapshot, event_id: object) -> None:
+    event = next((item for item in snapshot.events if item.id == event_id), None)
+    if event is not None and event.calendarId:
+        raise DomainError(409, "SYNCED_EVENT_READ_ONLY", SYNCED_READ_ONLY)
+
+
+def _calendar_member_ids(snapshot: HouseholdSnapshot, value: object) -> list[str]:
+    if not isinstance(value, list) or len(value) > 30:
+        raise DomainError(422, "INVALID_EDIT", "Choose who this calendar belongs to.")
+    for member_id in value:
+        _member(snapshot, member_id)
+    return list(dict.fromkeys(str(item) for item in value))
+
+
+def _op_calendarAdd(snapshot, value, _actor):
+    """Record a newly connected calendar. Its private link is stored separately by the endpoint."""
+    _exact_fields(value, {"id", "label", "provider", "host", "memberIds"})
+    calendar_id = _require_id(value)
+    if len(snapshot.calendars) >= MAX_CALENDARS:
+        raise DomainError(422, "CALENDAR_LIMIT", f"You can connect up to {MAX_CALENDARS} calendars.")
+    if any(item.id == calendar_id for item in snapshot.calendars):
+        raise DomainError(409, "CALENDAR_ALREADY_CONNECTED", "That calendar is already connected.")
+    members = _calendar_member_ids(snapshot, value.get("memberIds", []))
+    try:
+        meta = CalendarSubscriptionMeta(
+            id=calendar_id, label=str(value.get("label") or "").strip()[:60] or "Calendar",
+            provider=value.get("provider") or "ics", host=str(value.get("host") or "")[:120], memberIds=members,
+        )
+    except ValidationError as error:
+        raise DomainError(422, "INVALID_CALENDAR", "Check the calendar's name.") from error
+    snapshot.calendars.append(meta)
+
+
+def _op_calendarMeta(snapshot, value, _actor):
+    """Rename a connected calendar or change whose it is. Its events move to those members at once."""
+    _exact_fields(value, {"id", "label", "memberIds"})
+    meta = next((item for item in snapshot.calendars if item.id == _require_id(value)), None)
+    if meta is None:
+        raise DomainError(404, "CALENDAR_NOT_FOUND", "That calendar was disconnected.")
+    if "label" in value:
+        label = str(value.get("label") or "").strip()[:60]
+        if not label:
+            raise DomainError(422, "INVALID_CALENDAR", "Give the calendar a name.")
+        meta.label = label
+    if "memberIds" in value:
+        meta.memberIds = _calendar_member_ids(snapshot, value.get("memberIds"))
+        members = calendar_members(snapshot, meta.memberIds)
+        for event in snapshot.events:
+            if event.calendarId == meta.id:
+                event.memberIds, event.ownerMemberId = list(members), members[0]
+
+
+def _op_calendarRemove(snapshot, value, _actor):
+    """Disconnect a calendar and remove the events that came from it. Nothing is deleted at the source."""
+    _exact_fields(value, {"id"})
+    calendar_id = _require_id(value)
+    if not any(item.id == calendar_id for item in snapshot.calendars):
+        raise DomainError(404, "CALENDAR_NOT_FOUND", "That calendar was already disconnected.")
+    snapshot.calendars = [item for item in snapshot.calendars if item.id != calendar_id]
+    snapshot.events = [item for item in snapshot.events if item.calendarId != calendar_id]
