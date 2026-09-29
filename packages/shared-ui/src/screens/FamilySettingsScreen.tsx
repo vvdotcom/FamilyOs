@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { DAction, DButton, DFooter, DPanel, DRow, DText, useDesignPalette } from '../design/DesignSystem';
 import { useFamilyTheme } from '../theme';
 import { usePageBack } from '../hooks/usePageBack';
-import { SpatialNavigationRoot } from 'react-tv-space-navigation';
+import { SpatialNavigationNode } from 'react-tv-space-navigation';
+import { ModalFocusRoot } from '../components/ModalFocusRoot';
 import { CANVAS_COVER, NumberPad } from './FamilyTVFeatures';
 import { FamilyScreenProps } from './familyTypes';
 
@@ -53,6 +54,7 @@ export default function FamilySettingsScreen({
         </DText>
       </View>
       <DRow style={{ flex: 1, gap: 24 }}>
+        <SpatialNavigationNode orientation="vertical">
         <DPanel style={{ flex: 1.2, padding: 36, gap: 24 }}>
           <DText size={22} weight={800} color={p.muted}>
             HOUSEHOLD
@@ -68,7 +70,7 @@ export default function FamilySettingsScreen({
           {tvPairing.status === 'paired' ? (
             <>
               <DText size={24} color={p.muted}>Connected to your household. Calendar, chores, lists, and meals refresh about every 5 seconds.</DText>
-              <DRow style={{ gap: 16, alignItems: 'center' }}>
+              <DRow style={{ gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                 <DAction label="Unpair this TV" onPress={onUnpairTV ?? (() => {})} active={focusActive && !unlocking} />
                 <DAction
                   label={tvParentMode ? 'Lock parent mode' : 'Parent mode · enter code'}
@@ -105,7 +107,12 @@ export default function FamilySettingsScreen({
               />
             </>
           )}
-          <View style={{ height: 1, backgroundColor: p.border }} />
+        </DPanel>
+        </SpatialNavigationNode>
+        {/* Appearance and reset get their own panel so the household column never runs past the
+            1080p canvas (on Vega the single column clipped "Reset demo household"). */}
+        <SpatialNavigationNode orientation="vertical">
+        <DPanel style={{ flex: 1, padding: 36, gap: 24 }}>
           <DText size={34} heading weight={700}>
             Appearance
           </DText>
@@ -165,11 +172,12 @@ export default function FamilySettingsScreen({
             style={{ alignSelf: 'flex-start' }}
           />
         </DPanel>
-        <DPanel style={{ flex: 1, padding: 36, gap: 24 }}>
+        </SpatialNavigationNode>
+        <SpatialNavigationNode orientation="vertical">
+        <DPanel style={{ flex: 1, padding: 32, gap: 16 }}>
           <DText size={34} heading weight={700}>
             About this build
           </DText>
-          <DText size={26}>FamilyOS local preview</DText>
           <View style={{ flexDirection: 'row', gap: 24 }}>
             <DText size={26} weight={700} style={{ flex: 1 }}>
               Family agent
@@ -221,15 +229,19 @@ export default function FamilySettingsScreen({
           />
           <View style={{ flex: 1 }} />
           <DText size={22} color={p.muted}>
-            Web edits are saved in this browser. Native preview edits are session-only. Vega device testing is still
-            required.
+            {tvPairing.status === 'paired'
+              ? 'Changes sync with your family account.'
+              : Platform.OS === 'web'
+                ? 'Chores and theme are saved in this browser.'
+                : 'Chores, theme, and pairing are saved on this TV.'}
           </DText>
         </DPanel>
+        </SpatialNavigationNode>
       </DRow>
       <DFooter action="Select" />
       {unlocking ? (
         <View style={{ position: 'absolute', zIndex: 50, ...CANVAS_COVER, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17130FCC' }}>
-          <SpatialNavigationRoot isActive={focusActive}>
+          <ModalFocusRoot isActive={focusActive}>
             <NumberPad
               title="Parent mode"
               detail="Enter the four-digit parent code. Parent mode locks again after 5 idle minutes."
@@ -238,7 +250,7 @@ export default function FamilySettingsScreen({
               onSubmit={(code) => void unlock(code)}
               onCancel={() => setUnlocking(false)}
             />
-          </SpatialNavigationRoot>
+          </ModalFocusRoot>
         </View>
       ) : null}
     </View>

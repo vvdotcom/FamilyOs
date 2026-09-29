@@ -18,6 +18,7 @@ import {
 } from '../design/DesignSystem';
 import { FamilyScreenProps } from './familyTypes';
 import { usePageBack } from '../hooks/usePageBack';
+import { ModalFocusRoot } from '../components/ModalFocusRoot';
 
 export default function FamilyHomeScreen({
   household,
@@ -380,6 +381,8 @@ export default function FamilyHomeScreen({
             justifyContent: 'center',
             backgroundColor: '#17130FBB',
           }}>
+          {/* Keyed by stage so each step's default-focus button receives focus when it appears. */}
+          <ModalFocusRoot key={resolution}>
           <DPanel
             style={{ width: 1040, padding: 44, gap: 22, borderRadius: 32, borderWidth: 2, borderColor: p.border }}>
             <DText size={22} weight={800} color={p.muted} style={{ letterSpacing: 2 }}>
@@ -477,6 +480,7 @@ export default function FamilyHomeScreen({
               ) : null}
             </DRow>
           </DPanel>
+          </ModalFocusRoot>
         </View>
       ) : null}
     </View>

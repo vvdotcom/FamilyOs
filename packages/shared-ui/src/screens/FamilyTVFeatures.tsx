@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, View } from 'react-native';
 import { SpatialNavigationNode, SpatialNavigationRoot } from 'react-tv-space-navigation';
+import { ModalFocusRoot } from '../components/ModalFocusRoot';
 import {
   familyNightTally,
   FamilyMember,
@@ -395,12 +396,12 @@ export function FamilyApprovalsScreen({ household, focusActive, onRefreshData, t
       )}
       {selected ? (
         <Scrim inScreen>
-          <SpatialNavigationRoot isActive={focusActive}>
+          <ModalFocusRoot isActive={focusActive}>
             <NumberPad
               title={selected.action === 'approve' ? 'Approve' : selected.action === 'retake' ? 'Ask for a retake' : 'Decline'}
               detail={`${name(household, selected.item.memberId)} · ${selected.item.title}`}
               error={error} busy={busy} onSubmit={(code) => void submit(code)} onCancel={() => setSelected(null)} />
-          </SpatialNavigationRoot>
+          </ModalFocusRoot>
         </Scrim>
       ) : null}
       {celebrate ? (

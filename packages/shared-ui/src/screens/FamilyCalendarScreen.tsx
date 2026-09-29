@@ -21,6 +21,8 @@ import {
 import { FamilyScreenProps } from './familyTypes';
 import { usePageBack } from '../hooks/usePageBack';
 
+const WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+
 export function calendarDays(anchor: string, count = 7, week = true) {
   const start = new Date(`${anchor}T12:00:00Z`);
   if (week) start.setUTCDate(start.getUTCDate() - start.getUTCDay());
@@ -30,7 +32,9 @@ export function calendarDays(anchor: string, count = 7, week = true) {
     return {
       key: date.toISOString().slice(0, 10),
       date,
-      label: date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }).toUpperCase(),
+      // Vega's JS engine adds default date fields when only `weekday` is requested
+      // ("SUN, 9/20/2026"), so derive the short label from the UTC weekday index.
+      label: WEEKDAY_LABELS[date.getUTCDay()],
     };
   });
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { SpatialNavigationNode, SpatialNavigationRoot } from 'react-tv-space-navigation';
 import {
   createDemoClock,
@@ -34,7 +34,12 @@ import { FamilyMealsScreen, FamilyListsScreen, FamilyPhotosScreen } from './Fami
 import { FamilyApprovalsScreen, FamilyMoveScreen, FamilyNightTVScreen, ProposalOverlay, StarCelebration } from './FamilyTVFeatures';
 import { FamilyRoute, focusRegionAfterDirection } from '../navigation/familyNavigation';
 import type { TVPairingView } from './familyTypes';
-import { loadHouseholdSnapshot, resetHouseholdSnapshot, saveHouseholdSnapshot } from './householdStorage';
+import {
+  hydrateHouseholdSnapshot,
+  loadHouseholdSnapshot,
+  resetHouseholdSnapshot,
+  saveHouseholdSnapshot,
+} from './householdStorage';
 import { usePlannerData } from './plannerData';
 
 const tabs: { route: FamilyRoute; icon?: IconName; width: number }[] = [
@@ -96,6 +101,7 @@ function FamilyOsShellContent() {
   const briefingInputRef = useRef({ household, conflicts, now });
   briefingInputRef.current = { household, conflicts, now };
   const briefingRequestId = useRef(0);
+  const calendarRequestId = useRef(0);
   const p = useDesignPalette();
 
   useEffect(() => {
@@ -150,9 +156,28 @@ function FamilyOsShellContent() {
     };
   }, [tvPairing.status, refreshVersion]);
 
+  // Native storage is async (Vega): restore the saved local household before saving over it.
+  const [householdRestored, setHouseholdRestored] = useState(Platform.OS === 'web');
   useEffect(() => {
-    if (tvPairing.status === 'unpaired') saveHouseholdSnapshot(household);
-  }, [household, tvPairing.status]);
+    if (householdRestored) return;
+    let active = true;
+    void hydrateHouseholdSnapshot().then((stored) => {
+      if (!active) return;
+      if (stored) {
+        householdRef.current = stored;
+        setHousehold(stored);
+        setRefreshVersion((value) => value + 1);
+      }
+      setHouseholdRestored(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [householdRestored]);
+
+  useEffect(() => {
+    if (householdRestored && tvPairing.status === 'unpaired') saveHouseholdSnapshot(household);
+  }, [household, tvPairing.status, householdRestored]);
 
   useEffect(() => {
     if (tvPairing.status !== 'waiting' || !tvPairing.challengeId || !tvPairing.pollingToken) return;
@@ -181,11 +206,13 @@ function FamilyOsShellContent() {
   }, [tvPairing.status, tvPairing.challengeId, tvPairing.pollingToken]);
   useEffect(() => {
     let active = true;
-    const requestId = ++briefingRequestId.current;
+    // Separate from briefingRequestId: the briefing effect below runs in the same commit and
+    // would otherwise invalidate this request, leaving the calendar stuck on "loading".
+    const requestId = ++calendarRequestId.current;
     setCalendarState({ status: 'loading' });
     if (!weatherCacheRef.current) setWeatherState({ status: 'loading' });
     void loadCalendarData(createDemoCalendarProvider(household), household.events).then((result) => {
-      if (!active || requestId !== briefingRequestId.current) return;
+      if (!active || requestId !== calendarRequestId.current) return;
       setCalendarState(result);
       if (result.data) setHousehold((current) => ({ ...current, events: result.data! }));
     });
@@ -471,6 +498,7 @@ function FamilyOsShellContent() {
         try {
           const response = await familyAgentClient.confirmAction(action.id);
           briefingRequestId.current += 1;
+          calendarRequestId.current += 1;
           const nextHousehold = {
             ...household,
             events: household.events.map((event) =>
@@ -502,6 +530,7 @@ function FamilyOsShellContent() {
       }
       const result = confirmReassignment(household, action, now.toISOString());
       briefingRequestId.current += 1;
+      calendarRequestId.current += 1;
       setHousehold(result.household);
       setActionHistory((current) => [result.action, ...current.filter((item) => item.id !== result.action.id)]);
       setBriefing(

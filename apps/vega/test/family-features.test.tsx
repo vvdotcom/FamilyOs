@@ -21,10 +21,12 @@ import {
 jest.mock('react-tv-space-navigation', () => {
   const ReactModule = require('react');
   const ReactNative = require('react-native');
+  const lockActions = {lock: () => undefined, unlock: () => undefined};
   const passthrough = ({children}: {children: React.ReactNode}) =>
     ReactModule.createElement(ReactModule.Fragment, null, children);
   return {
     DefaultFocus: passthrough,
+    useLockSpatialNavigation: () => lockActions,
     SpatialNavigationRoot: passthrough,
     SpatialNavigationNode: passthrough,
     SpatialNavigationFocusableView: ({

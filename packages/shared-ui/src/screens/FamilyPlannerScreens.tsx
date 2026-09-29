@@ -378,7 +378,7 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
   );
 }
 
-export function FamilyListsScreen({ planner, focusActive }: PlannerProps) {
+export function FamilyListsScreen({ planner, focusActive, tvPairing }: PlannerProps) {
   const p = useDesignPalette();
   const [adding, setAdding] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -395,7 +395,7 @@ export function FamilyListsScreen({ planner, focusActive }: PlannerProps) {
           </DText>
         </View>
         <DText size={22} color={p.muted}>
-          Check off together · Saved on this browser
+          {tvPairing?.status === 'paired' ? 'Check off together · Synced with your family' : 'Check off together · Demo lists'}
         </DText>
       </DRow>
       <DRow style={{ flex: 1, gap: 24 }}>

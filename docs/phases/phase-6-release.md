@@ -9,6 +9,14 @@ gaps before the final documentation and demo phase.
 
 - `single.md` sections 20 / EPIC 11, 21–27, 30–35, and 38.
 
+## Status
+
+2026-09-28: A remote-only regression of the current build ran on the Vega Virtual Device (EC2), with
+and without the local backend. It found and fixed seven problems, including a D-pad startup race,
+unreachable overlay buttons, a 1080p Settings overflow, and missing persistence on Vega. See
+[`VEGA_VVD_TEST_REPORT.md`](../VEGA_VVD_TEST_REPORT.md). Real-device focus, overscan, HDMI, and
+performance checks on Fire TV hardware are still open.
+
 ## Work packages
 
 - [ ] Identify the test device OS and use the correct Vega or Fire OS deployment path.

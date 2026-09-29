@@ -163,6 +163,76 @@ Suggested improvement: A small documented vision benchmark for household scenes,
 (JSON schema) support for image inputs on Nova.  
 Evidence/log: `services/family-agent/eval/results/bedrock.json`, `eval/results/demo.json`.
 
+## Entry 10 — Vega JS engine pads weekday-only date labels
+
+Date: 2026-09-28  
+Tool/API: Vega OS 1.2 JavaScript engine (`Date.prototype.toLocaleDateString`) on the Vega Virtual Device  
+Task attempted: Show short weekday labels in the Calendar and Meals week headers.  
+Steps: Called `toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })`, built the x86_64 package,
+and viewed the Calendar and Meals screens on the VVD.  
+Expected: `SUN`, `MON`, and so on, as in the browser preview.  
+Actual: `SUN, 9/20/2026`. The engine adds the default numeric date fields when only `weekday` is
+requested, and the long labels collided with the day numbers (`SUN, 9/20/2026 20MON, ...`).
+`month: 'long'` and `Intl.DateTimeFormat` with several fields rendered correctly.  
+Severity: Medium  
+Workaround: Derive the label from `getUTCDay()` with a fixed `SUN`–`SAT` table (`calendarDays` in
+`FamilyCalendarScreen.tsx`).  
+Suggested improvement: Follow ECMA-402 `ToDateTimeOptions` (a `weekday` option alone must not add
+year, month, and day), or document the difference.  
+Evidence/log: VVD screenshots from the 2026-09-28 regression; `docs/VEGA_VVD_TEST_REPORT.md`.
+
+## Entry 11 — Remote configured after the first render left the D-pad dead
+
+Date: 2026-09-28  
+Tool/API: `react-tv-space-navigation` 5.2.0 with the Vega `TVEventHandler` remote bridge  
+Task attempted: Drive every FamilyOS screen with the remote on the Vega Virtual Device.  
+Steps: Launched builds with `vega run-app` and `vega device launch-app`, then injected keys with
+`inputd-cli button_press`.  
+Expected: D-pad moves focus on every launch.  
+Actual: On some launches no key moved focus, even though the app log showed
+`[Kepler] Key pressed: Right`. `VegaAppNavigator` configured the remote inside `useEffect`, which runs
+after the child `SpatialNavigationRoot` mount effects. A root that mounts before configuration only logs
+a console warning and does not subscribe until its `isActive` value changes.  
+Severity: High (the app was unusable with a remote for that session)  
+Workaround: Import `configureRemoteControl` at module load in `VegaAppNavigator.tsx`, before any root mounts.  
+Suggested improvement: Have the library subscribe late roots when the remote is configured, or throw
+instead of warning when a root mounts without a remote configuration.  
+Evidence/log: VVD log stream (`vega device start-log-stream`) and the before/after screenshots.
+
+## Entry 12 — VVD automation needs device-side input and host-side screenshots
+
+Date: 2026-09-28  
+Tool/API: Vega CLI 1.4.2, SDK 0.24.12112, Vega Virtual Device on EC2 (Xvfb, llvmpipe)  
+Task attempted: Script a remote-only regression pass with screenshots.  
+Steps: Tried X keyboard events (`xdotool key`) on the VVD window, the on-screen remote, and on-device
+`screenshooter`.  
+Expected: A documented CLI command for key injection and screenshots.  
+Actual: X keyboard events and clicks on the on-screen remote did not reach the app, and
+`screenshooter /tmp/x.png` hung until the command was cancelled. The Vega CLI has no screenshot or
+key-injection command. On-device `inputd-cli button_press KEY_UP|KEY_ENTER|KEY_BACK` works through
+`vega device run-cmd`, and X-level window capture (`import -window`) works for screenshots.  
+Severity: Medium  
+Workaround: `vega device run-cmd -c "inputd-cli button_press KEY_<NAME>"` for keys and ImageMagick
+`import` of the VVD window for 960x540 captures.  
+Suggested improvement: Add `vega device send-key` and `vega device screenshot` commands and document them.  
+Evidence/log: `docs/VEGA_VVD_TEST_REPORT.md`.
+
+## Entry 13 — Overlays inside a screen did not receive remote focus
+
+Date: 2026-09-28  
+Tool/API: `react-tv-space-navigation` `DefaultFocus` inside an already-focused root  
+Task attempted: Resolve the Home pickup conflict with the remote only.  
+Steps: Home, then OK on **Fix pickup**, then OK on **Suggest Alex**.  
+Expected: Focus moves to **Suggest Alex** in the review dialog.  
+Actual: The dialog opened, but focus stayed on **Fix pickup** behind it, so OK did nothing useful and
+the pickup could not be confirmed with the remote. The parent-code pads in Settings and Approvals
+nested a second active root without locking the page, so both roots received keys.  
+Severity: High  
+Workaround: `ModalFocusRoot` locks the page's navigation with `useLockSpatialNavigation` and gives the
+overlay its own root (the same pattern as the Lists and Meals editor).  
+Suggested improvement: A documented modal or focus-trap primitive in the library.  
+Evidence/log: `docs/VEGA_VVD_TEST_REPORT.md`.
+
 ## Feature requests
 
 ### FR-1 — Timed household notifications during other apps' playback

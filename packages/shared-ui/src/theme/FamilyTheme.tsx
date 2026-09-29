@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { ColorPalette, ThemeMode, themePalettes } from './colors';
+import { nativeStore } from '../storage/nativeStore';
 
 const STORAGE_KEY = 'familyos.theme';
 
@@ -24,10 +25,26 @@ function readInitialMode(): ThemeMode {
 
 export function FamilyThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, updateMode] = useState<ThemeMode>(readInitialMode);
+  const chosenRef = useRef(false);
+  useEffect(() => {
+    // Native storage is async: restore the saved theme unless the viewer already picked one.
+    if (Platform.OS === 'web') return;
+    let active = true;
+    void nativeStore
+      .getItem(STORAGE_KEY)
+      .then((stored) => {
+        if (active && !chosenRef.current && (stored === 'dark' || stored === 'light')) updateMode(stored);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
   const value = useMemo<FamilyThemeValue>(() => ({
     mode,
     colors: themePalettes[mode],
     setMode: (nextMode) => {
+      chosenRef.current = true;
       updateMode(nextMode);
       if (Platform.OS === 'web') {
         try {
@@ -35,6 +52,8 @@ export function FamilyThemeProvider({ children }: { children: React.ReactNode })
         } catch {
           // The theme still changes for this session if browser storage is blocked.
         }
+      } else {
+        void nativeStore.setItem(STORAGE_KEY, nextMode).catch(() => undefined);
       }
     },
   }), [mode]);

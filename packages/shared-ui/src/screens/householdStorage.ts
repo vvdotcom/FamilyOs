@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { createDemoHousehold, HouseholdSnapshot } from '@familyos/domain';
+import { nativeStore } from '../storage/nativeStore';
 
 const STORAGE_KEY = 'familyos.household.v1';
 
@@ -17,8 +18,28 @@ export function loadHouseholdSnapshot(): HouseholdSnapshot {
   return fallback;
 }
 
+/**
+ * Native targets cannot read storage synchronously, so the shell starts from the demo snapshot
+ * and swaps in the stored one once this resolves. Returns null on web (already loaded) or when
+ * nothing valid is stored.
+ */
+export async function hydrateHouseholdSnapshot(): Promise<HouseholdSnapshot | null> {
+  if (Platform.OS === 'web') return null;
+  try {
+    const raw = await nativeStore.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const value: unknown = JSON.parse(raw);
+    return isHouseholdSnapshot(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export function saveHouseholdSnapshot(household: HouseholdSnapshot): void {
-  if (Platform.OS !== 'web') return;
+  if (Platform.OS !== 'web') {
+    void nativeStore.setItem(STORAGE_KEY, JSON.stringify(household)).catch(() => undefined);
+    return;
+  }
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(household));
   } catch {

@@ -7,7 +7,8 @@
     "paths": {
       "@familyos/domain": ["../../packages/domain/src/index.ts"],
       "react-native": ["node_modules/react-native"],
-      "react-tv-space-navigation": ["node_modules/react-tv-space-navigation"]
+      "react-tv-space-navigation": ["node_modules/react-tv-space-navigation"],
+      "mitt": ["node_modules/mitt"]
     }
   }
 }
