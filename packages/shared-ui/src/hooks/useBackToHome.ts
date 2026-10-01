@@ -1,10 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { BackHandler, Platform } from 'react-native';
 import { SupportedKeys } from '../app/remote-control/SupportedKeys';
 import RemoteControlManager from '../app/remote-control/RemoteControlManager';
 import { FamilyRoute } from '../screens/familyTypes';
 import { backDestination, FocusRegion } from '../navigation/familyNavigation';
 
+/**
+ * Back goes Home (or up one focus region). The listeners are registered once for the life of the
+ * shell and read the latest route through a ref. Re-registering them on every render (the shell
+ * re-renders on each key press) churned BackHandler and remote listeners on Vega.
+ */
 export function useBackToHome(
   route: FamilyRoute,
   setRoute: (route: FamilyRoute) => void,
@@ -12,12 +17,16 @@ export function useBackToHome(
   setFocusRegion: (region: FocusRegion) => void,
   intercept?: () => boolean,
 ) {
+  const latest = useRef({ route, setRoute, focusRegion, setFocusRegion, intercept });
+  latest.current = { route, setRoute, focusRegion, setFocusRegion, intercept };
+
   useEffect(() => {
     const handleBack = () => {
-      if (intercept?.()) return true;
-      const destination = backDestination(route, focusRegion);
-      setRoute(destination.route);
-      setFocusRegion(destination.focusRegion);
+      const current = latest.current;
+      if (current.intercept?.()) return true;
+      const destination = backDestination(current.route, current.focusRegion);
+      current.setRoute(destination.route);
+      current.setFocusRegion(destination.focusRegion);
       return true;
     };
     const onRemoteKey = (key: SupportedKeys) => {
@@ -49,5 +58,5 @@ export function useBackToHome(
       subscription.remove();
       RemoteControlManager.removeKeydownListener(onRemoteKey);
     };
-  }, [route, focusRegion, setRoute, setFocusRegion, intercept]);
+  }, []);
 }

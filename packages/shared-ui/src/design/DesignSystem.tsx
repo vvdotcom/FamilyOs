@@ -256,8 +256,29 @@ const memberColors = {
   leo: { surface: '#D9EEDA', accent: '#2C7B3B', ink: '#1F5A2A', avatar: '#9EDAA5', dark: '#293E2D' },
   family: { surface: '#F6E7B0', accent: '#8B6A0B', ink: '#5C4500', avatar: '#F6E7B0', dark: '#443D25' },
 };
+type MemberPalette = (typeof memberColors)[keyof typeof memberColors];
+// The phone app's color choices (ui.tsx memberColors), mapped to the TV palette.
+const accentPalette: Record<string, MemberPalette> = {
+  '#2F5FA8': memberColors.alex,
+  '#B4541B': memberColors.jordan,
+  '#2E7A3A': memberColors.leo,
+  '#6B45A8': memberColors.emma,
+  '#8A6A0A': memberColors.family,
+};
+const orderPalette = [memberColors.alex, memberColors.jordan, memberColors.emma, memberColors.leo];
+let householdPalette: Record<string, MemberPalette> = {};
+/** Real households use generated member IDs: color each person by their chosen color, or by family order. */
+export function registerMemberColors(members: { id: string; accentColor?: string }[]) {
+  householdPalette = Object.fromEntries(
+    members.map((member, index) => [
+      member.id,
+      accentPalette[(member.accentColor || '').toUpperCase()] ?? orderPalette[index % orderPalette.length],
+    ]),
+  );
+}
 export function memberColor(id: string | undefined, dark = false) {
-  const result = memberColors[id as keyof typeof memberColors] ?? memberColors.family;
+  const result =
+    memberColors[id as keyof typeof memberColors] ?? (id ? householdPalette[id] : undefined) ?? memberColors.family;
   return { ...result, surface: dark ? result.dark : result.surface, ink: dark ? result.avatar : result.ink };
 }
 export function Avatar({
@@ -379,4 +400,17 @@ export function localDateKey(value: string | Date, timezone: string) {
     day: '2-digit',
     timeZone: timezone,
   }).format(new Date(value));
+}
+
+/** Whether an event belongs on a household-local day. All-day items span every day until their (exclusive) end. */
+export function eventOnDay(event: { startAt: string; endAt: string; allDay?: boolean }, dayKey: string, timezone: string) {
+  const start = localDateKey(event.startAt, timezone);
+  if (!event.allDay) return start === dayKey;
+  const end = localDateKey(event.endAt, timezone);
+  return start <= dayKey && (dayKey < end || start === end);
+}
+/** "All day", or the start (and optionally end) time in the household's time zone. */
+export function eventTimeLabel(event: { startAt: string; endAt: string; allDay?: boolean }, timezone: string, withEnd = true) {
+  if (event.allDay) return 'All day';
+  return withEnd ? `${formatTime(event.startAt, timezone)} – ${formatTime(event.endAt, timezone)}` : formatTime(event.startAt, timezone);
 }

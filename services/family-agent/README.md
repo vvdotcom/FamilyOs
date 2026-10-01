@@ -120,6 +120,61 @@ reachable through their own endpoints; the generic `/v1/companion/edit` route re
 | Chore photos | `POST /v1/chores/{id}/verification`, `POST /v1/chores/verifications/{id}/decision` (code), `GET /v1/chores/verifications/{id}/photo`. The verdict is advice; stars are added only on approval, and the photo is deleted when a parent decides. |
 | Voice | `/mcp` (Streamable HTTP, MCP 2025-11-25), `/.well-known/oauth-protected-resource/mcp`, `GET/POST /v1/voice/connections`, `POST /v1/voice/connections/{id}/revoke`, `GET /v1/proposals`, `POST /v1/proposals/{id}/decision`, `POST /v1/voice/simulate` (labelled simulated Alexa+) |
 | Move, sports, family night | `GET /v1/move/routines`, `POST /v1/move/complete`, `GET /v1/reminders`, `GET /v1/family-night` |
+| Connected calendars | `POST /v1/calendars` (parent; checks the link before saving it), `POST /v1/calendars/{id}/sync` (once a minute), `POST /v1/calendars/{id}/delete`. Rename or change whose calendar it is with the `calendarMeta` edit. |
+
+### Connected calendars
+
+A parent pastes a calendar's private iCal link (Google "Secret address in iCal format", an iCloud public calendar
+link, an Outlook "Publish a calendar" ICS link, or any school or league `.ics` link). The service mirrors the past 7
+days and the next 90, expanding repeating events and exceptions, and never writes back. Mirrored events are
+read-only (`409 SYNCED_EVENT_READ_ONLY`), all-day items never create conflicts, and a failed download keeps the last
+good copy on screen with a message on the phone.
+
+- **Link secrecy:** the link is stored outside the household snapshot, encrypted with AES-GCM and bound to the
+  household (`calendar_links` locally, `familyos_calendar_links` in Postgres, migration 006). It is never returned to
+  clients or logged.
+- **SSRF protection:** HTTPS only (webcal is rewritten to https), no credentials or other ports in the link, and the
+  host must resolve to a public address. That address is pinned for the connection and TLS is still verified
+  against the host name. Every redirect (at most 3) is checked again. Downloads are capped at 3 MB and 10 s.
+- **Background sync:** every `FAMILYOS_CALENDAR_SYNC_MINUTES` (default 15; `0` turns it off, as the tests do). A sync
+  with no changes doesn't bump the household revision, so it never makes someone's edit look stale.
+
+### AI spending cap
+
+Bedrock requests are capped per UTC day: `FAMILYOS_AI_CALLS_PER_DAY` per household (default 200) and
+`FAMILYOS_AI_CALLS_PER_DAY_TOTAL` across the service (default 5,000). Chore photo checks also keep their own
+limit (`FAMILYOS_VISION_CHECKS_PER_DAY`, default 30). Over the cap:
+- briefings use the built-in summary
+- the simulated Alexa+ uses rules
+- chore photos go to a parent as "unclear"
+- photo imports return `429 AI_DAILY_LIMIT` with a "paste the text instead" message
+
+The counters live in memory, so they reset if the service restarts.
+
+### Demo household for judges
+
+`scripts/seed_demo_household.py` fills an account with a realistic family: four people, school, pickups, soccer
+with a carpool rotation, dinners, chores and rewards, and photos. It also connects Google's public US-holidays calendar
+and sets up a pickup conflict every Tuesday. Weekly items repeat for 12 weeks. It goes through the public API as a
+parent, skips anything that already exists, and `--reset` clears an earlier demo first.
+
+```powershell
+python scripts/seed_demo_household.py seed --local            # local demo API
+python scripts/seed_demo_household.py signup                  # hosted: needs FAMILYOS_DEMO_EMAIL / _PASSWORD in .env
+python scripts/seed_demo_household.py confirm 123456          # the code Cognito emails
+python scripts/seed_demo_household.py seed                    # fill the hosted demo account
+```
+
+The demo's parent code is `2468`.
+
+### Measurements
+
+```powershell
+python eval/measure_bedrock_cost.py      # real Bedrock token usage per feature (needs Bedrock in .env)
+python eval/measure_sync_latency.py      # phone-to-TV latency (needs this API and `yarn dev:web` running, plus Playwright)
+```
+
+Results and the per-household cost estimate are in [`docs/MEASUREMENTS.md`](../../docs/MEASUREMENTS.md).
 
 ### Voice (MCP) quick test
 

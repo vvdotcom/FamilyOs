@@ -198,6 +198,11 @@ export class FamilyOSAPI {
     return this.post('v1/pairing/approve', { code }, false, true);
   }
 
+  async accessCodeConfigured(): Promise<boolean> {
+    const result = await this.request<{ configured: boolean }>('v1/access-code', 'GET', undefined, true);
+    return result.configured;
+  }
+
   pairedTVs(): Promise<PairedTV[]> {
     return this.request('v1/devices', 'GET', undefined, true);
   }

@@ -233,6 +233,25 @@ overlay its own root (the same pattern as the Lists and Meals editor).
 Suggested improvement: A documented modal or focus-trap primitive in the library.  
 Evidence/log: `docs/VEGA_VVD_TEST_REPORT.md`.
 
+## Entry 14 — Vega OS cannot keep the display on for a non-media app
+
+Date: 2026-09-29  
+Tool/API: Vega OS display power and screensaver (Fire TV Stick 4K Select class devices)  
+Task attempted: An always-on family wall calendar, the core of a Skylight-style display on the TV.  
+Steps: Leave FamilyOS in the foreground with no remote input.  
+Expected: An opt-in way for a dashboard app to keep the screen on, or a user setting to never start the screensaver.  
+Actual: No keep-awake API exists for non-media apps, and the W3C Screen Wake Lock is not honored. The screensaver
+starts after the idle timeout (about 5 minutes by default), and Settings offers longer timeouts but no "never".
+Amazon staff confirmed this in the developer forum (June 24, July 7, and July 21, 2026) and said it is not on the
+near-term roadmap. Fire OS (Android-based) devices still allow `FLAG_KEEP_SCREEN_ON`.  
+Severity: High (for this product category)  
+Workaround: FamilyOS shows its wall calendar after 2 idle minutes, so the family sees the day in large type before the
+system screensaver takes over. The TV's Settings screen tells families where to lengthen the wait (Settings → Display &
+Sounds → Ambient Experience). Pairing and household state survive the app being closed, as Amazon recommends.  
+Suggested improvement: See FR-2.  
+Evidence/log: [Vega OS: no API or device setting to keep the display awake](https://community.amazondeveloper.com/t/vega-os-no-api-or-device-setting-to-keep-the-display-awake-for-non-media-signage-kiosk-apps-screensaver-engages-despite-foreground-app/28610),
+[Vega ambient mode / idle behavior](https://community.amazondeveloper.com/t/vega-ambient-mode-idle-behavior/28788).
+
 ## Feature requests
 
 ### FR-1 — Timed household notifications during other apps' playback
@@ -253,6 +272,18 @@ result, the planned "reminders while you watch" feature was dropped from scope.
 Priority: Important  
 Status: Not yet tested on hardware. Record the result here if the background toast behavior
 is tested on a Fire TV device.
+
+### FR-2 — Let a user keep a dashboard app on screen
+
+Date: 2026-09-29  
+Tool/API: Vega OS display power management  
+Description: A per-app, user-granted "Keep screen on while this app is open" permission (or a wake lock that
+the resource manager honors), with quiet hours and automatic dimming. Alternatively, let an approved app supply
+content to the Ambient Experience screensaver.  
+Why it matters: A family calendar is only useful when it's visible. Skylight sells a dedicated always-on screen for
+$150–$570; the Fire TV already in the living room could replace it if it were allowed to stay on.  
+Priority: Important  
+Status: Open. Workaround in Entry 14.
 
 ## Entry template
 

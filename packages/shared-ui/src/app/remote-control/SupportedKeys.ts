@@ -8,4 +8,5 @@ export enum SupportedKeys {
   PlayPause = 'PlayPause',
   FastForward = 'FastForward',
   Rewind = 'Rewind',
+  Menu = 'Menu',
 }

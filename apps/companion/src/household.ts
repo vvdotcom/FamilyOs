@@ -224,6 +224,7 @@ export interface HouseholdAPI {
   unpairTV?(deviceId: string): Promise<void>;
   createImportDraft?(body: ImportSource): Promise<{ draft: ImportDraft; drafts?: ImportDraft[]; household: Household }>;
   setParentAccessCode?(code: string): Promise<void>;
+  accessCodeConfigured?(): Promise<boolean>;
   changeParentAccessCode?(oldCode: string, newCode: string): Promise<void>;
   resetParentAccessCode?(newCode: string, password: string, idToken?: string): Promise<void>;
   requestRedemption?(memberId: string, rewardId: string): Promise<{ request: RedemptionRequest; household: Household }>;

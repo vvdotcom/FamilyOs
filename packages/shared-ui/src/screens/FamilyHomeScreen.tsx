@@ -11,6 +11,7 @@ import {
   DPanel,
   DRow,
   DText,
+  eventOnDay,
   formatTime,
   localDateKey,
   memberColor,
@@ -39,8 +40,8 @@ export default function FamilyHomeScreen({
   const timezone = household.family.timezone;
   const events = calendarState.status === 'unavailable' || calendarState.status === 'empty' ? [] : household.events;
   const today = events
-    .filter((event) => localDateKey(event.startAt, timezone) === localDateKey(now, timezone))
-    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
+    .filter((event) => eventOnDay(event, localDateKey(now, timezone), timezone))
+    .sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt));
   // Simultaneous school entries share one timeline row, while both events remain in Calendar.
   const rows = today
     .filter(
@@ -48,8 +49,10 @@ export default function FamilyHomeScreen({
         today.findIndex((other) => other.title === event.title && other.startAt === event.startAt) === index,
     )
     .slice(0, 5);
-  const upcoming = today.filter((event) => Date.parse(event.endAt) > now.getTime());
-  const next = upcoming.find((event) => event.preparation.length > 0) ?? upcoming[0];
+  // All-day items (birthdays, "no school") stay on the timeline but are never "next up".
+  const upcoming = today.filter((event) => !event.allDay && Date.parse(event.endAt) > now.getTime());
+  const notStarted = upcoming.filter((event) => Date.parse(event.startAt) >= now.getTime());
+  const next = notStarted.find((event) => event.preparation.length > 0) ?? notStarted[0] ?? upcoming[0];
   const conflict = conflicts.find((item) => item.type === 'responsibility_overlap');
   const suggested = household.members.find((member) => member.id === conflict?.suggestedMemberId);
   const conflictEvent = today.find((event) => event.category === 'pickup' && conflict?.eventIds.includes(event.id));
@@ -204,8 +207,8 @@ export default function FamilyHomeScreen({
                     gap: 22,
                     backgroundColor: attention ? p.warning : 'transparent',
                   }}>
-                  <DText size={28} weight={700} color={p.ink} style={{ width: 118, textAlign: 'right' }}>
-                    {formatTime(event.startAt, timezone, false)}
+                  <DText size={event.allDay ? 24 : 28} weight={700} color={event.allDay ? p.muted : p.ink} style={{ width: 118, textAlign: 'right' }}>
+                    {event.allDay ? 'All day' : formatTime(event.startAt, timezone, false)}
                   </DText>
                   <View
                     style={{

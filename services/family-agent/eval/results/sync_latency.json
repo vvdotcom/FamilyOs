@@ -1,0 +1,62 @@
+{
+ "results": [
+  {
+   "save_ms": 4,
+   "visible_ms": 1845
+  },
+  {
+   "save_ms": 4,
+   "visible_ms": 2704
+  },
+  {
+   "save_ms": 4,
+   "visible_ms": 3177
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 2009
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 1196
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 1751
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 1705
+  },
+  {
+   "save_ms": 4,
+   "visible_ms": 1955
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 94
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 1638
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 3681
+  },
+  {
+   "save_ms": 5,
+   "visible_ms": 4250
+  }
+ ],
+ "summary": {
+  "trials": 12,
+  "save_ms_median": 5.0,
+  "visible_ms_min": 94,
+  "visible_ms_median": 1900.0,
+  "visible_ms_p90": 3177,
+  "visible_ms_max": 4250,
+  "setup": "local API + TV web build (Chromium) on one Windows PC; TV refreshes every 5 s"
+ },
+ "measured": "2026-09-29"
+}

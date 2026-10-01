@@ -14,6 +14,7 @@ const KEY_CODE_MAPPING: Record<number, SupportedKeys> = {
   85: SupportedKeys.PlayPause,
   89: SupportedKeys.Rewind,
   90: SupportedKeys.FastForward,
+  82: SupportedKeys.Menu,
 };
 
 class RemoteControlManager implements RemoteControlManagerInterface {

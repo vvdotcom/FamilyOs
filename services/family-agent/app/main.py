@@ -13,11 +13,11 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.routing import Route
 
-from . import calendars
+from . import alexa, calendars
 from .auth import EmailBody, EmailCodeBody, LocalAuthStore, ResetPasswordBody, SignInBody, SignUpBody, Purpose, SESSION_DAYS
 from .briefing import SafeBriefingService
 from .companion import CompanionMutation
@@ -38,7 +38,8 @@ from .permissions import MATRIX, Actor
 from .photos import HOUSEHOLD_PHOTO_QUOTA_BYTES, decode_upload, process_image
 from .production import CognitoAccessTokenVerifier, CognitoSessionService, CognitoTokenVerifier, PostgresHouseholdStore
 from .service import HouseholdService
-from .vision import CHEERS, check_chore_photo, configured_provider
+from .vision import CHEERS, FALLBACK as VISION_FALLBACK, check_chore_photo, configured_provider
+from .tv_commands import TVCommandBus
 from .voice import VoiceGateway, VoiceServer
 from .weather import NWSWeatherProvider, WeatherNotConfigured, WeatherUnavailable, WeatherUnsupportedLocation
 
@@ -46,8 +47,16 @@ AUTH_MODE = os.getenv("FAMILYOS_AUTH_MODE", "local").strip().lower()
 DEMO_MODE = os.getenv("FAMILYOS_DEMO_MODE", "true").lower() == "true"
 IS_PRODUCTION = AUTH_MODE == "cognito"
 VISION_CHECKS_PER_DAY = int(os.getenv("FAMILYOS_VISION_CHECKS_PER_DAY", "30"))
+# Amazon Bedrock spending guard: AI requests allowed per household, and for the whole service, per UTC day.
+# At about $0.0001-$0.0002 per request, the service-wide default caps spend near $1 a day.
+AI_CALLS_PER_DAY = int(os.getenv("FAMILYOS_AI_CALLS_PER_DAY", "200"))
+AI_CALLS_PER_DAY_TOTAL = int(os.getenv("FAMILYOS_AI_CALLS_PER_DAY_TOTAL", "5000"))
+_ai_usage: dict[str, int] = {}
 # Minutes between background re-reads of connected calendars; 0 turns the background sync off.
 CALENDAR_SYNC_MINUTES = float(os.getenv("FAMILYOS_CALENDAR_SYNC_MINUTES", "15"))
+# The Alexa skill standing in for the Alexa+ add-on. Unset: the /alexa endpoint is off.
+ALEXA_SKILL_ID = os.getenv("FAMILYOS_ALEXA_SKILL_ID", "").strip()
+ALEXA_MCP_CLIENT_FACTORY = None  # Tests route the skill's MCP client to this app in-process.
 logger = logging.getLogger("familyos.agent")
 
 if os.getenv("RAILWAY_ENVIRONMENT") and not IS_PRODUCTION:
@@ -103,9 +112,10 @@ class _ServiceProxy:
 
 
 voice_gateway = VoiceGateway(_ServiceProxy(), cognito_access_verifier)  # type: ignore[arg-type]
+tv_command_bus = TVCommandBus()
 voice_server = VoiceServer(
     _ServiceProxy(), voice_gateway, public_url=PUBLIC_URL,  # type: ignore[arg-type]
-    authorization_server=cognito_issuer or PUBLIC_URL,
+    authorization_server=cognito_issuer or PUBLIC_URL, tv_commands=tv_command_bus, weather=weather_provider.forecast_for,
     allowed_origins=[value.strip() for value in os.getenv("FAMILYOS_MCP_ALLOWED_ORIGINS", "").split(",") if value.strip()],
 )
 
@@ -149,6 +159,32 @@ async def request_id_header(request: Request, call_next):
     return response
 
 
+def take_ai_call(owner: str | None) -> bool:
+    """Reserve one AI request for today. False means today's budget is spent and the caller must fall back."""
+    day = datetime.now(timezone.utc).date().isoformat()
+    household = f"{day}|{owner or 'anonymous'}"
+    for key in [key for key in _ai_usage if not key.startswith(day)]:
+        del _ai_usage[key]  # Forget earlier days.
+    if _ai_usage.get(household, 0) >= AI_CALLS_PER_DAY or _ai_usage.get(day, 0) >= AI_CALLS_PER_DAY_TOTAL:
+        return False
+    _ai_usage[household] = _ai_usage.get(household, 0) + 1
+    _ai_usage[day] = _ai_usage.get(day, 0) + 1
+    return True
+
+
+class _BudgetedImportReader:
+    """Counts each Bedrock read of a photo or scanned PDF against the daily budget."""
+
+    def __init__(self, provider, owner: str | None) -> None:
+        self.provider, self.owner, self.name = provider, owner, provider.name
+
+    async def from_image(self, raw, media, context):
+        if not take_ai_call(self.owner):
+            raise DomainError(429, "AI_DAILY_LIMIT",
+                              "Your family reached today's limit for reading photos. Paste the text instead, or try again tomorrow.")
+        return await self.provider.from_image(raw, media, context)
+
+
 def success(request: Request, data: object, **meta: object) -> dict[str, object]:
     return {"data": data, "meta": {"request_id": request.state.request_id, **meta}}
 
@@ -167,6 +203,30 @@ async def validation_error_handler(request: Request, _exc: RequestValidationErro
         "error": {"code": "VALIDATION_ERROR", "message": "The request could not be validated."},
         "meta": {"request_id": getattr(request.state, "request_id", uuid4().hex)},
     })
+
+
+PRIVACY_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>FamilyOS privacy</title>
+<style>body{font:16px/1.6 system-ui,sans-serif;max-width:42rem;margin:2rem auto;padding:0 1rem;color:#1f1b16}</style>
+</head><body><h1>FamilyOS privacy</h1>
+<p>FamilyOS keeps a family's calendar, chores, rewards, lists, meals, and photos so they can see them on their TV and
+phones. This page covers the FamilyOS app, its Fire TV app, and its Alexa skill.</p>
+<h2>What we store</h2><p>What your family adds: names, events, chores, stars, lists, meals, photos, and an approximate
+home location (about 1 km) for the weather. Calendar links you connect are encrypted. Photos have location and camera
+details removed.</p>
+<h2>How it's used</h2><p>Only to run FamilyOS for your household. Some features send the minimum needed to Amazon Bedrock
+to read a flyer, check a chore photo, write a briefing, or answer a voice request. We don't sell data, show ads, or share
+it with anyone else.</p>
+<h2>Alexa</h2><p>When you link the FamilyOS skill, Alexa gets access to your household so it can answer questions and show
+screens on your TV. Voice can suggest changes, but a parent confirms them. Unlink the skill in the Alexa app at any time.</p>
+<h2>Your choices</h2><p>Parents can delete items, photos, connected calendars, and voice connections in the app, and sign
+out everywhere. To delete a household, contact the FamilyOS team through the project's GitHub repository.</p>
+</body></html>"""
+
+
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_page():
+    return HTMLResponse(PRIVACY_PAGE, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/health", response_model=APIEnvelope)
@@ -511,7 +571,9 @@ async def get_action_history(request: Request):
 
 
 async def build_briefing(request: Request, context: HouseholdContext):
-    result, fallback = await briefings.generate(context)
+    actor = resolve_actor(request)
+    owner = actor.owner if actor else None
+    result, fallback = await briefings.generate(context, may_use_ai=lambda: take_ai_call(owner))
     return success(request, result, fallback=fallback, provider=result.provider)
 
 
@@ -613,6 +675,34 @@ async def lock_tv_parent_mode(_body: EmptyBody, request: Request):
     else:
         pairing_registry.lock(session_token(request))
     return success(request, {"elevated": False})
+
+
+@app.post("/alexa", include_in_schema=False)
+async def alexa_skill(request: Request):
+    """Alexa Skills Kit endpoint. The skill reaches FamilyOS through the MCP server, with the linked account's token."""
+    if not ALEXA_SKILL_ID:
+        raise DomainError(404, "NOT_FOUND", "That resource could not be found.")
+    body = await request.body()
+    try:
+        envelope = await asyncio.to_thread(alexa.verify_request, request.headers, body, ALEXA_SKILL_ID)
+    except alexa.AlexaRequestRejected as error:
+        logger.info("Alexa request rejected: %s", error)
+        return JSONResponse(status_code=400, content={"error": "invalid request"})
+    reply = await alexa.respond(
+        envelope, identity_for=voice_gateway.identity,
+        open_tools=lambda token: alexa.mcp_tools(f"{PUBLIC_URL}/mcp", token, ALEXA_MCP_CLIENT_FACTORY),
+        converse=voice_server.converse, budget=take_ai_call,
+    )
+    return JSONResponse(reply)
+
+
+@app.get("/v1/tv/commands", response_model=APIEnvelope)
+async def tv_commands(request: Request, response: Response, after: int = Query(default=-1, ge=-1)):
+    """What voice asked this household's TV to show. Polled by paired TVs about every 1.5 seconds."""
+    actor = require_actor(request, {"device", "device_parent"})
+    response.headers["Cache-Control"] = "no-store"
+    commands, latest = tv_command_bus.since(actor.owner, after)
+    return success(request, {"commands": commands, "latest": latest})
 
 
 @app.get("/v1/tv/session", response_model=APIEnvelope)
@@ -719,7 +809,9 @@ def import_context(snapshot) -> ImportContext:
 @app.post("/v1/imports/drafts", response_model=APIEnvelope)
 async def create_import_draft(body: ImportRequest, request: Request):
     actor = require_parent(request)
-    drafts = await make_import_drafts(body, import_context(service().snapshot(actor.owner)), configured_import_provider())
+    reader = configured_import_provider()
+    drafts = await make_import_drafts(body, import_context(service().snapshot(actor.owner)),
+                                      _BudgetedImportReader(reader, actor.owner) if reader else None)
     snapshot = None
     for draft in drafts:
         snapshot = service().edit(actor, "importDraft", draft.model_dump(mode="json"), server=True)
@@ -836,7 +928,11 @@ async def submit_chore_photo(chore_id: str, body: ChoreVerificationBody, request
     if len(recent) >= VISION_CHECKS_PER_DAY:
         raise DomainError(429, "PHOTO_CHECK_LIMIT", "Your family reached today's photo check limit. A parent can approve the chore directly.")
     variants, _, _ = process_image(decode_upload(body.contentBase64), ("thumb", "check"))
-    result = await check_chore_photo(configured_provider(), chore.title, chore.photoHint or "", variants["check"])
+    provider = configured_provider()
+    if provider.name == "bedrock" and not take_ai_call(actor.owner):
+        result = VISION_FALLBACK  # Over today's AI budget: a parent decides, as with any unclear photo.
+    else:
+        result = await check_chore_photo(provider, chore.title, chore.photoHint or "", variants["check"])
     photo_id = f"chk-{uuid4().hex}"
     owner = svc.blob_owner(actor.owner)
     svc.accounts.put_photo(owner, photo_id, variants)
@@ -1104,7 +1200,8 @@ async def simulate_voice(body: VoiceUtteranceBody, request: Request):
     if identity is None:
         actor = require_parent(request)
         identity = VoiceIdentity(owner=actor.owner, member_id=None, label="simulated", connection_id=f"sim:{actor.owner[:12]}")
-    result = await voice_server.simulate(identity, body.utterance)
+    result = await voice_server.simulate(identity, body.utterance, may_use_ai=lambda: take_ai_call(identity.owner))
+    result.pop("unresolved", None)
     return success(request, {**result, "simulated": True, "label": "Simulated Alexa+ (not a live Alexa device)"})
 
 

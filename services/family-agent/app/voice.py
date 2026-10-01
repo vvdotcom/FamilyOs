@@ -17,7 +17,7 @@ from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Awaitable, Callable
 from uuid import uuid4
 
 from mcp.server.auth.middleware.auth_context import AuthContextMiddleware, get_access_token
@@ -30,6 +30,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.responses import JSONResponse
 
 from .demo import demo_now
+from .tv_commands import TV_SCREENS, TVCommandBus, resolve_screen
 from .domain import DomainError, detect_conflicts, member_name, parse, sports_reminders
 from .household_ops import current_picker, household_zone, local_iso, tally
 from .imports import TIME_PATTERN, _clock
@@ -43,6 +44,15 @@ RATE_PER_MINUTE = 60
 
 
 _REASONING = re.compile(r"<thinking>.*?(</thinking>|$)", re.DOTALL | re.IGNORECASE)
+
+
+# Tools that ask for a change. The rules handle clear requests for these before any model is involved.
+COMMAND_TOOLS = frozenset({"propose_pickup_swap", "propose_reschedule", "propose_event", "mark_chore_done_request",
+                           "show_on_tv"})
+
+
+def bedrock_enabled() -> bool:
+    return os.getenv("FAMILYOS_AI_PROVIDER", "").lower() == "bedrock" and bool(os.getenv("AWS_BEARER_TOKEN_BEDROCK"))
 
 
 def strip_model_reasoning(text: str) -> str:
@@ -187,8 +197,11 @@ def event_sentence(snapshot: HouseholdSnapshot, event) -> str:
 
 class VoiceServer:
     def __init__(self, service: HouseholdService, gateway: VoiceGateway, *, public_url: str,
-                 authorization_server: str, allowed_origins: list[str]) -> None:
+                 authorization_server: str, allowed_origins: list[str], tv_commands: TVCommandBus | None = None,
+                 weather: Callable[[float, float, str], Awaitable[dict[str, Any]]] | None = None) -> None:
         self.service = service
+        self.tv_commands = tv_commands or TVCommandBus()
+        self.weather = weather
         self.gateway = gateway
         self.public_url = public_url.rstrip("/")
         self.authorization_server = authorization_server
@@ -198,8 +211,10 @@ class VoiceServer:
             name="FamilyOS",
             instructions=(
                 "FamilyOS is a family's shared calendar, chores, and rewards on their TV. Use the read tools to "
-                "answer schedule questions briefly. To change anything, use a propose_ tool: it creates a request "
-                "that a family member confirms on the TV or phone. Nothing changes until they confirm. Say that."
+                "answer schedule questions briefly. Use show_on_tv when someone asks to open or show something on "
+                "the TV, and get_weather for the weather at home. To change anything, use a propose_ tool: it "
+                "creates a request that a family member confirms on the TV or phone. Nothing changes until they "
+                "confirm. Say that."
             ),
             stateless_http=True, json_response=True,
         )
@@ -285,6 +300,42 @@ class VoiceServer:
 
     def _register_tools(self) -> None:
         mcp = self.mcp
+
+        @mcp.tool(description="Show a screen on the family's TV: home, calendar, chores, meals, lists, photos, family night, "
+                               "a movement break, approvals, settings, or the wall calendar. For the calendar, `day` can "
+                               "be today, tomorrow, or a weekday. This only changes what the TV shows.")
+        def show_on_tv(screen: str, day: str | None = None) -> dict[str, Any]:
+            identity = self.current()
+            snapshot = self.snapshot(identity)
+            key = resolve_screen(screen)
+            if key is None:
+                raise ToolError("I can show the calendar, chores, meals, lists, photos, family night, a movement break, "
+                                "or the wall calendar.")
+            route, spoken = TV_SCREENS[key]
+            target = spoken_date(day, household_today(snapshot)).isoformat() if day and route == "Calendar" else None
+            self.tv_commands.push(identity.owner, {"screen": route, "day": target, "label": spoken})
+            self.log(identity, "show_on_tv", "ok")
+            spoken_day = (day or "").strip().lower()
+            when = f" for {spoken_day.capitalize() if spoken_day in WEEKDAYS else spoken_day}" if target else ""
+            return {"speech": f"Showing {spoken}{when} on the TV.", "screen": route, "day": target}
+
+        @mcp.tool(description="Today's weather where the family lives: right now, the high and low, and the forecast.")
+        async def get_weather() -> dict[str, Any]:
+            identity = self.current()
+            snapshot = self.snapshot(identity)
+            place = snapshot.location
+            if place is None or self.weather is None:
+                raise ToolError("Set your home location in the FamilyOS app first, under Settings, Weather on the TV.")
+            try:
+                forecast = await self.weather(place.latitude, place.longitude, place.label)
+            except Exception as error:  # Unsupported places and outages get the same short answer.
+                raise ToolError("I couldn't get the weather right now. The forecast covers US addresses only.") from error
+            self.log(identity, "get_weather", "ok")
+            condition = str(forecast.get("condition") or "").strip().lower()
+            speech = (f"Right now in {forecast.get('location') or place.label} it's {forecast.get('temperatureF')} degrees"
+                      f"{' and ' + condition if condition else ''}. Today's high is {forecast.get('highF')} and the low is "
+                      f"{forecast.get('lowF')}.")
+            return {"speech": speech, **{key: forecast.get(key) for key in ("location", "temperatureF", "highF", "lowF", "condition", "summary")}}
 
         @mcp.tool(description="What's happening today (or on a given day): events, conflicts, sports reminders, and family night.")
         def get_today(day: str | None = None) -> dict[str, Any]:
@@ -388,7 +439,9 @@ class VoiceServer:
             if identity.is_child:
                 raise ToolError("Only a parent's voice connection can ask for that. You can mark your own chores done.")
 
-        @mcp.tool(description="Propose a different adult for a pickup or drive. Creates a request to confirm on the TV or phone; changes nothing yet.")
+        @mcp.tool(description="Propose a different adult for a pickup or drive. `event` can be the user's words, like 'Emma pickup' "
+                               "or 'soccer drive'; the tool finds today's (or the given day's) matching event. Creates a request to "
+                               "confirm on the TV or phone; changes nothing yet.")
         def propose_pickup_swap(event: str, to_member: str, day: str | None = None) -> dict[str, Any]:
             identity = self.current()
             parent_only(identity)
@@ -474,20 +527,37 @@ class VoiceServer:
             return json.dumps(data)
 
     # Simulated Alexa+ ------------------------------------------------------------------------------
-    async def simulate(self, identity: VoiceIdentity, utterance: str) -> dict[str, Any]:
-        """The rules-permitted simulated Alexa+ experience: Bedrock (or rules) driving this MCP server's tools."""
+    async def simulate(self, identity: VoiceIdentity, utterance: str,
+                       may_use_ai: Callable[[], bool] | None = None) -> dict[str, Any]:
+        """The rules-permitted simulated Alexa+ experience: Bedrock (or rules) driving this MCP server's tools.
+
+        Clear change commands ("swap Emma pickup to Alex") run through the rules first, so the demo is predictable
+        and free. Questions, and commands the rules couldn't resolve, go to Bedrock when it's on and in budget.
+        ``may_use_ai`` is asked only right before a Bedrock call.
+        """
         token = _in_process_identity.set(identity)
         try:
-            if os.getenv("FAMILYOS_AI_PROVIDER", "").lower() == "bedrock" and os.getenv("AWS_BEARER_TOKEN_BEDROCK"):
-                try:
-                    return await asyncio.wait_for(self._simulate_bedrock(utterance), timeout=40)
-                except (ToolError, DomainError):
-                    raise
-                except Exception:
-                    logger.warning("Simulated voice: Bedrock unavailable, using rules")
-            return await self._simulate_rules(utterance)
+            return await self.converse(utterance, LocalTools(self), may_use_ai)
         finally:
             _in_process_identity.reset(token)
+
+    async def converse(self, utterance: str, tools: "ToolAccess", may_use_ai: Callable[[], bool] | None = None,
+                       ai_timeout: float = 40) -> dict[str, Any]:
+        """One spoken request, the way an Alexa+ orchestrator would handle it, with ``tools`` as the MCP client."""
+        plan = self._rules_plan(utterance)
+        ruled = None
+        if plan[0][0] in COMMAND_TOOLS:
+            ruled = await self._run_rules(plan, tools)
+            if not ruled.get("unresolved"):
+                return ruled
+        if bedrock_enabled() and (may_use_ai is None or may_use_ai()):
+            try:
+                return await asyncio.wait_for(self._simulate_bedrock(utterance, tools=tools), timeout=ai_timeout)
+            except (ToolError, DomainError):
+                raise
+            except Exception:
+                logger.warning("Voice: Bedrock unavailable, using rules")
+        return ruled or await self._run_rules(plan, tools)
 
     async def _call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         result = await self.mcp.call_tool(name, arguments)
@@ -502,10 +572,19 @@ class VoiceServer:
             return {"speech": text}
 
     async def _simulate_rules(self, utterance: str) -> dict[str, Any]:
+        return await self._run_rules(self._rules_plan(utterance), LocalTools(self))
+
+    def _rules_plan(self, utterance: str) -> list[tuple[str, dict]]:
         text = utterance.strip()
         low = text.lower()
         calls: list[tuple[str, dict]] = []
-        if m := re.search(r"(?:swap|switch|change|have|let)\s+(?:the\s+)?(.+?)\s+(?:pickup|pick up|drive|driving)?\s*(?:to|so)\s+(\w+)", low):
+        shown = re.search(r"\b(?:open|show|go to|switch to|bring up|pull up|display|put)\s+(?:me\s+)?(.+?)(?:\s+on the tv)?[.!?]*$", low)
+        if any(word in low for word in ("weather", "temperature", "forecast", "rain")):
+            calls.append(("get_weather", {}))
+        elif shown and (screen := resolve_screen(shown.group(1))):
+            day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if re.search(rf"\b{word}\b", shown.group(1))), None)
+            calls.append(("show_on_tv", {"screen": screen, **({"day": day} if day and screen == "calendar" else {})}))
+        elif m := re.search(r"(?:swap|switch|change|have|let)\s+(?:the\s+)?(.+?)\s+(?:pickup|pick up|drive|driving)?\s*(?:to|so)\s+(\w+)", low):
             calls.append(("propose_pickup_swap", {"event": m.group(1).replace("pickup", "").strip(), "to_member": m.group(2)}))
         elif m := re.search(r"(?:move|reschedule)\s+(.+?)\s+to\s+(.+)", low):
             day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if word in m.group(2)), None)
@@ -528,30 +607,38 @@ class VoiceServer:
             calls.append(("get_member_schedule", {"member": m.group(1), "day": "tomorrow" if "tomorrow" in low else "today"}))
         else:
             calls.append(("get_today", {"day": "tomorrow" if "tomorrow" in low else "today"}))
+        return calls
+
+    async def _run_rules(self, calls: list[tuple[str, dict]], tools: "ToolAccess") -> dict[str, Any]:
         outputs = []
+        unresolved = False
         for name, arguments in calls:
             try:
-                outputs.append((name, await self._call(name, arguments)))
+                outputs.append((name, await tools.call(name, arguments)))
             except ToolError as error:
-                outputs.append((name, {"speech": str(error)}))
+                unresolved = True
+                outputs.append((name, {"speech": re.sub(r"^Error executing tool \w+: ", "", str(error))}))
         reply = " ".join(str(output.get("speech", "")) for _, output in outputs)
         return {"mode": "rules", "reply": reply, "toolCalls": [name for name, _ in outputs],
-                "proposalIds": [o["proposalId"] for _, o in outputs if "proposalId" in o]}
+                "proposalIds": [o["proposalId"] for _, o in outputs if "proposalId" in o], "unresolved": unresolved}
 
-    async def _simulate_bedrock(self, utterance: str) -> dict[str, Any]:
+    async def _simulate_bedrock(self, utterance: str, tools: "ToolAccess | None" = None) -> dict[str, Any]:
         import boto3
         from botocore.config import Config
 
-        tools = await self.mcp.list_tools()
-        tool_config = {"tools": [{"toolSpec": {"name": tool.name, "description": tool.description or tool.name,
-                                               "inputSchema": {"json": tool.inputSchema}}} for tool in tools]}
+        tools = tools or LocalTools(self)
+        listed = await tools.list_tools()
+        tool_config = {"tools": [{"toolSpec": {"name": tool["name"], "description": tool["description"] or tool["name"],
+                                               "inputSchema": {"json": tool["inputSchema"]}}} for tool in listed]}
         client = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_REGION") or "us-west-2",
                               config=Config(connect_timeout=4, read_timeout=20, retries={"max_attempts": 0}))
         system = [{"text": (
             "You are a simulated Alexa+ assistant for one family, connected to the FamilyOS MCP tools. "
             "Answer in one or two short spoken sentences. Always use tools for facts; never invent events. "
-            "To change anything, call a propose_ tool and tell the user it is waiting for confirmation on the TV or phone. "
-            "Never say a change is done."
+            "To change anything, call a propose_ tool right away, passing the user's own words "
+            "(for example event='Emma pickup', to_member='Alex'); the tools find the matching item and return an "
+            "error if they can't. Ask a follow-up question only after a tool returns an error. "
+            "Tell the user the change is waiting for confirmation on the TV or phone. Never say a change is done."
         )}]
         messages: list[dict] = [{"role": "user", "content": [{"text": utterance}]}]
         calls: list[str] = []
@@ -570,7 +657,7 @@ class VoiceServer:
             for use in uses:
                 calls.append(use["name"])
                 try:
-                    output = await self._call(use["name"], use.get("input") or {})
+                    output = await tools.call(use["name"], use.get("input") or {})
                     if "proposalId" in output:
                         proposals.append(output["proposalId"])
                     results.append({"toolResult": {"toolUseId": use["toolUseId"], "content": [{"json": output}]}})
@@ -579,3 +666,27 @@ class VoiceServer:
             messages.append({"role": "user", "content": results})
         return {"mode": "bedrock", "reply": "Sorry, I couldn't finish that. Try asking a simpler way.",
                 "toolCalls": calls, "proposalIds": proposals}
+
+
+class ToolAccess:
+    """How a voice turn reaches the FamilyOS tools: in-process (the simulator) or over MCP (the Alexa skill)."""
+
+    async def list_tools(self) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    async def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """The tool's structured result. Raises ToolError with a speakable message when the tool refuses."""
+        raise NotImplementedError
+
+
+class LocalTools(ToolAccess):
+    def __init__(self, server: VoiceServer) -> None:
+        self.server = server
+
+    async def list_tools(self) -> list[dict[str, Any]]:
+        return [{"name": tool.name, "description": tool.description or tool.name, "inputSchema": tool.inputSchema}
+                for tool in await self.server.mcp.list_tools()]
+
+    async def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        return await self.server._call(name, arguments)
+

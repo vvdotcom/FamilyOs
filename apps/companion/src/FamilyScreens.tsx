@@ -39,7 +39,7 @@ export type ScreenContext = {
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const memberName = (data: Household, id?: string | null) => data.members.find((m) => m.id === id)?.name || 'Someone';
 
-function Chips<T extends string>({ options, value, onChange, label }: {
+export function Chips<T extends string>({ options, value, onChange, label }: {
   options: { id: T; label: string }[];
   value: T[] | T;
   onChange: (id: T) => void;

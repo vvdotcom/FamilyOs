@@ -20,7 +20,7 @@ import {
   WeatherForecast,
 } from '@familyos/domain';
 import { FamilyThemeProvider } from '../theme';
-import { DButton, DIcon, DRow, DText, IconName, formatTime, useDesignPalette } from '../design/DesignSystem';
+import { DButton, DIcon, DRow, DText, IconName, formatTime, registerMemberColors, useDesignPalette } from '../design/DesignSystem';
 import { WeatherIcon } from '../design/WeatherIcon';
 import { createFamilyAgentContext, familyAgentClient, FamilyAgentError } from '../api/familyAgentClient';
 import { useBackToHome } from '../hooks/useBackToHome';
@@ -41,6 +41,15 @@ import {
   saveHouseholdSnapshot,
 } from './householdStorage';
 import { usePlannerData } from './plannerData';
+import { voiceTVAction } from '../navigation/voiceCommands';
+import FamilyWallScreen, { WALL_IDLE_MINUTES } from './FamilyWallScreen';
+import RemoteControlManager from '../app/remote-control/RemoteControlManager';
+import { SupportedKeys } from '../app/remote-control/SupportedKeys';
+import { nativeStore } from '../storage/nativeStore';
+
+const WALL_KEY = 'familyos.wall-calendar';
+// A movement break keeps its timer, and the photo slideshow is already ambient.
+const WALL_EXEMPT: FamilyRoute[] = ['Move', 'Photos'];
 
 const tabs: { route: FamilyRoute; icon?: IconName; width: number }[] = [
   { route: 'Home', icon: 'home', width: 167 },
@@ -72,6 +81,7 @@ function FamilyOsShellContent() {
   const [household, setHousehold] = useState<HouseholdSnapshot>(loadHouseholdSnapshot);
   const householdRef = useRef(household);
   householdRef.current = household;
+  registerMemberColors(household.members);
   const [calendarState, setCalendarState] = useState<ProviderState<HouseholdSnapshot['events']>>({ status: 'loading' });
   const [weatherState, setWeatherState] = useState<ProviderState<WeatherForecast>>({ status: 'loading' });
   const weatherCacheRef = useRef<WeatherForecast | undefined>(undefined);
@@ -100,13 +110,19 @@ function FamilyOsShellContent() {
       household.family.timezone,
     ),
   );
-  const [agentStatus, setAgentStatus] = useState<'checking' | 'available' | 'offline'>('checking');
+  const [agentStatus, setAgentStatus] = useState<'checking' | 'available' | 'unpaired' | 'offline'>('checking');
   const [actionHistory, setActionHistory] = useState<ProposedAction[]>([]);
   const planner = usePlannerData(false);
   const [toast, setToast] = useState('');
   const [celebration, setCelebration] = useState<{ memberId: string; stars: number; detail: string } | null>(null);
   const [tvElevated, setTVElevated] = useState(false);
   const [dismissedProposals, setDismissedProposals] = useState<string[]>([]);
+  const [wallEnabled, setWallEnabled] = useState(true);
+  const [wallMode, setWallMode] = useState(false);
+  const lastInputRef = useRef(Date.now());
+  const [calendarDay, setCalendarDay] = useState<string | null>(null);
+  const [voiceVisit, setVoiceVisit] = useState(0);
+  const commandSeq = useRef(-1);
   const paired = tvPairing.status === 'paired';
   const briefingInputRef = useRef({ household, conflicts, now });
   briefingInputRef.current = { household, conflicts, now };
@@ -259,19 +275,27 @@ function FamilyOsShellContent() {
     );
     setBriefing(fallback);
     setAgentStatus('checking');
+    const health = familyAgentClient.getHealth().then(
+      () => true,
+      () => false,
+    );
     void Promise.all([
-      familyAgentClient.getHealth(),
+      health,
       familyAgentClient.createBriefing(createFamilyAgentContext(input.household, input.conflicts, input.now)),
     ])
-      .then(([, response]) => {
+      .then(([reachable, response]) => {
         if (!active || requestId !== briefingRequestId.current) return;
         setBriefing(response.data);
-        setAgentStatus('available');
+        setAgentStatus(reachable ? 'available' : 'offline');
       })
-      .catch(() => {
+      .catch(async (error) => {
         if (!active || requestId !== briefingRequestId.current) return;
         setBriefing(fallback);
-        setAgentStatus('offline');
+        // A hosted service answers an unpaired TV with 401/403: it is reachable, the TV just is not paired yet.
+        const refused = error instanceof FamilyAgentError && (error.status === 401 || error.status === 403);
+        const reachable = await health;
+        if (!active || requestId !== briefingRequestId.current) return;
+        setAgentStatus(reachable && refused ? 'unpaired' : 'offline');
       });
     void familyAgentClient
       .getActionHistory()
@@ -373,6 +397,101 @@ function FamilyOsShellContent() {
     : 0;
 
   const pageBack = useRef<(() => void) | null>(null);
+  // Wall calendar: restore the family's choice, leave on any key, and return after idle minutes.
+  useEffect(() => {
+    let active = true;
+    const read = Platform.OS === 'web'
+      ? Promise.resolve((() => { try { return globalThis.localStorage?.getItem(WALL_KEY) ?? null; } catch { return null; } })())
+      : nativeStore.getItem(WALL_KEY).catch(() => null);
+    void read.then((stored) => { if (active && stored === 'off') setWallEnabled(false); });
+    return () => { active = false; };
+  }, []);
+  const toggleWall = () => {
+    const next = !wallEnabled;
+    setWallEnabled(next);
+    const value = next ? 'on' : 'off';
+    if (Platform.OS === 'web') {
+      try { globalThis.localStorage?.setItem(WALL_KEY, value); } catch { /* Session-only when storage is blocked. */ }
+    } else void nativeStore.setItem(WALL_KEY, value).catch(() => undefined);
+  };
+  useEffect(() => {
+    const onKey = (key: SupportedKeys) => {
+      lastInputRef.current = Date.now();
+      if (wallMode) {
+        setWallMode(false);
+        return;
+      }
+      if (key === SupportedKeys.Menu && !pendingProposal) setMenuOpen((open) => !open);
+    };
+    RemoteControlManager.addKeydownListener(onKey);
+    const onWebKey = () => {
+      lastInputRef.current = Date.now();
+    };
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('keydown', onWebKey);
+    return () => {
+      RemoteControlManager.removeKeydownListener(onKey);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.removeEventListener('keydown', onWebKey);
+    };
+  }, [wallMode, pendingProposal]);
+  // A pairing code must stay readable for its whole 10 minutes, so the wall never covers it.
+  const pairingOnScreen = tvPairing.status === 'creating' || tvPairing.status === 'waiting';
+  useEffect(() => {
+    if (!wallEnabled || wallMode) return;
+    const timer = setInterval(() => {
+      if (Date.now() - lastInputRef.current >= WALL_IDLE_MINUTES * 60_000 && !WALL_EXEMPT.includes(route) && !menuOpen && !celebration && !pairingOnScreen) {
+        setWallMode(true);
+      }
+    }, 10_000);
+    return () => clearInterval(timer);
+  }, [wallEnabled, wallMode, route, menuOpen, celebration, pairingOnScreen]);
+  const leaveWall = () => {
+    lastInputRef.current = Date.now();
+    setWallMode(false);
+  };
+  const showWall = wallMode && !pendingProposal;
+  // Voice ("Alexa, ask family o. s. to open the calendar") reaches this TV through the household service.
+  useEffect(() => {
+    if (!paired) return;
+    let active = true;
+    let busy = false;
+    commandSeq.current = -1;
+    const poll = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const reply = await familyAgentClient.tvCommands(commandSeq.current);
+        if (!active) return;
+        const starting = commandSeq.current < 0;
+        commandSeq.current = reply.data.latest;
+        if (starting) return;
+        for (const command of reply.data.commands) {
+          const action = voiceTVAction(command);
+          if (action.kind === 'ignore') continue;
+          lastInputRef.current = Date.now();
+          setMenuOpen(false);
+          if (action.kind === 'wall') {
+            setWallMode(true);
+          } else {
+            setWallMode(false);
+            setVoiceVisit((value) => value + 1);
+            visit(action.route);
+            setCalendarDay(action.day); // After visit(), which clears it for ordinary navigation.
+          }
+          setToast(`Voice: ${command.label || command.screen}`);
+        }
+      } catch {
+        // Keep the current screen; the next poll retries.
+      } finally {
+        busy = false;
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 1500);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [paired]);
   useBackToHome(route, setRoute, focusRegion, setFocusRegion, () => {
     if (menuOpen) {
       setMenuOpen(false);
@@ -387,6 +506,7 @@ function FamilyOsShellContent() {
   const visit = (next: FamilyRoute) => {
     setRoute(next);
     setCalendarEventId(null);
+    setCalendarDay(null);
     setFocusRegion(next === 'Photos' ? 'navigation' : 'content');
     setMenuOpen(false);
   };
@@ -441,9 +561,19 @@ function FamilyOsShellContent() {
     tvParentMode: tvElevated,
     onUnlockParentMode: unlockTVParentMode,
     onLockParentMode: lockTVParentMode,
+    wallCalendar: {
+      enabled: wallEnabled,
+      idleMinutes: WALL_IDLE_MINUTES,
+      onToggle: toggleWall,
+      onShowNow: () => {
+        setMenuOpen(false);
+        setWallMode(true);
+      },
+    },
     onNavigate: visit,
     onFocusNavigation: () => setFocusRegion('navigation'),
     initialEventId: calendarEventId,
+    initialDay: calendarDay,
     onOpenEvent: (id: string) => {
       setCalendarEventId(id);
       setRoute('Calendar');
@@ -487,7 +617,7 @@ function FamilyOsShellContent() {
           );
         }
       }
-      if (agentStatus !== 'offline') {
+      if (agentStatus === 'available') {
         try {
           const response = await familyAgentClient.proposeAction({ conflictId, eventId, targetMemberId });
           return { action: response.data, remote: true };
@@ -504,7 +634,7 @@ function FamilyOsShellContent() {
       return { action, remote: false };
     },
     onConfirmAction: async (action: ProposedAction, remote: boolean) => {
-      if (remote && agentStatus !== 'offline') {
+      if (remote && agentStatus === 'available') {
         try {
           const response = await familyAgentClient.confirmAction(action.id);
           briefingRequestId.current += 1;
@@ -626,6 +756,11 @@ function FamilyOsShellContent() {
           paddingTop: 54,
           paddingBottom: 40,
         }}>
+        {showWall ? (
+          <FamilyWallScreen household={household} now={now} weatherState={weatherState} paired={paired} onExit={leaveWall} conflicts={conflicts} />
+        ) : null}
+        {showWall ? null : (
+        <>
         <SpatialNavigationRoot
           key={`navigation-${route}`}
           isActive={navActive}
@@ -692,11 +827,13 @@ function FamilyOsShellContent() {
             setFocusRegion(focusRegionAfterDirection('content', String(direction)))
           }>
           <PageBackContext.Provider value={pageBack}>
-            <View key={route} style={{ flex: 1, minHeight: 0 }}>
+            <View key={`${route}-${voiceVisit}`} style={{ flex: 1, minHeight: 0 }}>
               {screen()}
             </View>
           </PageBackContext.Provider>
         </SpatialNavigationRoot>
+        </>
+        )}
         {toast ? (
           <View
             accessibilityLiveRegion="polite"
@@ -759,6 +896,15 @@ function FamilyOsShellContent() {
                   </DButton>
                 );
               })}
+              <DButton
+                label="Wall calendar"
+                onPress={() => {
+                  setMenuOpen(false);
+                  setWallMode(true);
+                }}
+                style={{ height: 50, justifyContent: 'center', paddingHorizontal: 20 }}>
+                <DText size={24}>Wall calendar</DText>
+              </DButton>
               <DButton
                 label="Close menu"
                 onPress={() => setMenuOpen(false)}

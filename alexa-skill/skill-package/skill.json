@@ -1,0 +1,52 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "name": "FamilyOS",
+          "summary": "Your family's calendar, chores, and pickups on the Fire TV you already own.",
+          "description": "Ask FamilyOS what's on today, who's picking up the kids, or the weather at home, and tell it to open the calendar, chores, meals, or the wall calendar on your Fire TV. Changes like swapping a pickup wait for a parent to confirm on the TV or phone. Requires a FamilyOS account.",
+          "examplePhrases": [
+            "Alexa, open family o. s.",
+            "Alexa, ask family o. s. to open the calendar",
+            "Alexa, ask family o. s. what's the weather"
+          ],
+          "keywords": [
+            "family",
+            "calendar",
+            "chores",
+            "fire tv"
+          ]
+        }
+      },
+      "isAvailableWorldwide": false,
+      "distributionCountries": [
+        "US"
+      ],
+      "testingInstructions": "Link a FamilyOS account, pair a Fire TV running FamilyOS, then ask to open the calendar.",
+      "category": "ORGANIZERS_AND_ASSISTANTS"
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "https://familyos-api-production.up.railway.app/alexa",
+          "sslCertificateType": "Wildcard"
+        },
+        "interfaces": []
+      }
+    },
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "usesPersonalInfo": true,
+      "isChildDirected": false,
+      "isExportCompliant": true,
+      "containsAds": false,
+      "locales": {
+        "en-US": {
+          "privacyPolicyUrl": "https://familyos-api-production.up.railway.app/privacy"
+        }
+      }
+    },
+    "manifestVersion": "1.0"
+  }
+}

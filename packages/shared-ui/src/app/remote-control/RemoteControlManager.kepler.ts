@@ -14,6 +14,7 @@ const EVENT_TYPE_MAPPING: Record<string, SupportedKeys> = {
   playpause: SupportedKeys.PlayPause,
   skip_backward: SupportedKeys.Rewind,
   skip_forward: SupportedKeys.FastForward,
+  menu: SupportedKeys.Menu,
 };
 
 class RemoteControlManager implements RemoteControlManagerInterface {
@@ -26,7 +27,7 @@ class RemoteControlManager implements RemoteControlManagerInterface {
     const { TVEventHandler } = require('react-native');
     this.tvEventHandler = new TVEventHandler();
     this.tvEventHandler.enable(this, this.handleHWEvent);
-    console.log('[RemoteControlManager.kepler] TVEventHandler enabled');
+    if (__DEV__) console.log('[RemoteControlManager.kepler] TVEventHandler enabled');
   }
 
   private handleHWEvent = (_component: any, event: TVHardwareEvent): void => {
@@ -35,7 +36,7 @@ class RemoteControlManager implements RemoteControlManagerInterface {
     if (event.eventKeyAction === 0 || event.eventKeyAction === undefined) {
       const mappedKey = EVENT_TYPE_MAPPING[event.eventType];
       if (mappedKey) {
-        console.log(`[Kepler] Key pressed: ${mappedKey} (eventType: ${event.eventType})`);
+        if (__DEV__) console.log(`[Kepler] Key pressed: ${mappedKey} (eventType: ${event.eventType})`);
         this.eventEmitter.emit('keyDown', mappedKey);
       }
     }
@@ -43,13 +44,13 @@ class RemoteControlManager implements RemoteControlManagerInterface {
 
   addKeydownListener = (listener: (event: SupportedKeys) => void): (() => void) => {
     this.eventEmitter.on('keyDown', listener);
-    console.log('[RemoteControlManager.kepler] Key listener added');
+    if (__DEV__) console.log('[RemoteControlManager.kepler] Key listener added');
     return () => this.removeKeydownListener(listener);
   };
 
   removeKeydownListener = (listener: (event: SupportedKeys) => void): void => {
     this.eventEmitter.off('keyDown', listener);
-    console.log('[RemoteControlManager.kepler] Key listener removed');
+    if (__DEV__) console.log('[RemoteControlManager.kepler] Key listener removed');
   };
 
   emitKeyDown = (key: SupportedKeys): void => {
@@ -58,7 +59,7 @@ class RemoteControlManager implements RemoteControlManagerInterface {
 
   cleanup = (): void => {
     this.tvEventHandler.disable();
-    console.log('[RemoteControlManager.kepler] TVEventHandler disabled');
+    if (__DEV__) console.log('[RemoteControlManager.kepler] TVEventHandler disabled');
   };
 }
 

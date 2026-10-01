@@ -549,7 +549,7 @@ export function FamilyMoveScreen({ household, now, focusActive, onRefreshData, t
     );
   }
   return (
-    <View style={{ flex: 1, gap: 26 }}>
+    <View style={{ flex: 1, gap: 26, paddingBottom: 20 }}>
       <BriefingCard icon="sparkle" label={scheduled ? `SCHEDULED TODAY · ${scheduled.title.toUpperCase()}` : 'MOVEMENT BREAK'}
         headline="Time to get the wiggles out" summary={MOVE_SAFETY_NOTE} />
       <SectionLabel>WHO IS MOVING?</SectionLabel>

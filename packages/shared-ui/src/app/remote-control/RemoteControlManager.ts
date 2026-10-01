@@ -11,6 +11,7 @@ const KEY_MAPPING: Record<string, SupportedKeys> = {
   Enter: SupportedKeys.Enter,
   Backspace: SupportedKeys.Back,
   GoBack: SupportedKeys.Back, // For LG WebOS Magic Remote
+  ContextMenu: SupportedKeys.Menu,
 };
 
 class RemoteControlManager implements RemoteControlManagerInterface {

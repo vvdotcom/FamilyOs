@@ -12,6 +12,8 @@ import {
   DPanel,
   DRow,
   DText,
+  eventOnDay,
+  eventTimeLabel,
   formatDate,
   formatTime,
   localDateKey,
@@ -55,8 +57,8 @@ export default function FamilyCalendarScreen(props: FamilyScreenProps) {
   const p = useDesignPalette();
   const timezone = household.family.timezone;
   const today = localDateKey(now, timezone);
-  const [anchor, setAnchor] = useState(today);
-  const [view, setView] = useState<'Day' | 'Week' | 'Month'>('Week');
+  const [anchor, setAnchor] = useState(props.initialDay ?? today);
+  const [view, setView] = useState<'Day' | 'Week' | 'Month'>(props.initialDay ? 'Day' : 'Week');
   const [selectedId, setSelectedId] = useState<string | null>(props.initialEventId ?? null);
   usePageBack(() => setSelectedId(null), selectedId !== null);
   const [members, setMembers] = useState(household.members.map((member) => member.id));
@@ -65,9 +67,9 @@ export default function FamilyCalendarScreen(props: FamilyScreenProps) {
   const providerEvents = ['unavailable', 'empty'].includes(calendarState.status) ? [] : household.events;
   const events = providerEvents.filter(
     (event) =>
-      event.memberIds.some((id) => members.includes(id)) &&
-      days.some((day) => day.key === localDateKey(event.startAt, timezone)),
+      event.memberIds.some((id) => members.includes(id)) && days.some((day) => eventOnDay(event, day.key, timezone)),
   );
+  const allDay = events.filter((event) => event.allDay);
   const selected = household.events.find((event) => event.id === selectedId);
   const move = (direction: number) => {
     const date = new Date(`${anchor}T12:00:00Z`);
@@ -197,7 +199,9 @@ export default function FamilyCalendarScreen(props: FamilyScreenProps) {
               {Array.from({ length: 6 }, (_, row) => (
                 <DRow key={row} style={{ flex: 1, gap: 10 }}>
                   {monthDays.slice(row * 7, row * 7 + 7).map((day) => {
-                    const dayEvents = events.filter((event) => localDateKey(event.startAt, timezone) === day.key);
+                    const dayEvents = events
+                      .filter((event) => eventOnDay(event, day.key, timezone))
+                      .sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt));
                     return (
                       <DButton
                         key={day.key}
@@ -266,6 +270,34 @@ export default function FamilyCalendarScreen(props: FamilyScreenProps) {
                   </DButton>
                 ))}
               </DRow>
+              {allDay.length ? (
+                <DRow style={{ height: 44, marginTop: 12, marginLeft: 108, gap: 12 }}>
+                  {days.map((day) => {
+                    const items = allDay.filter((event) => eventOnDay(event, day.key, timezone));
+                    const first = items[0];
+                    if (!first) return <View key={day.key} style={{ flex: 1 }} />;
+                    const c = memberColor(first.memberIds.length === household.members.length ? 'family' : first.ownerMemberId, p.dark);
+                    return (
+                      <DButton
+                        key={day.key}
+                        label={`Open ${first.title}, all day`}
+                        active={focusActive}
+                        onPress={() => setSelectedId(first.id)}
+                        radius={12}
+                        style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, backgroundColor: c.surface }}>
+                        <DText size={18} weight={800} color={c.ink} numberOfLines={1} style={{ flex: 1 }}>
+                          {first.title}
+                        </DText>
+                        {items.length > 1 ? (
+                          <DText size={16} weight={800} color={c.ink}>
+                            +{items.length - 1}
+                          </DText>
+                        ) : null}
+                      </DButton>
+                    );
+                  })}
+                </DRow>
+              ) : null}
               <View
                 style={{ flex: 1, marginTop: 20, flexDirection: 'row', gap: 12 }}
                 accessibilityLabel={view === 'Week' ? 'Weekly family calendar' : 'Daily family calendar'}>
@@ -307,7 +339,7 @@ export default function FamilyCalendarScreen(props: FamilyScreenProps) {
                       <SpatialNavigationNode orientation="vertical">
                         <>
                           {layoutEvents(
-                            events.filter((event) => localDateKey(event.startAt, timezone) === day.key),
+                            events.filter((event) => !event.allDay && localDateKey(event.startAt, timezone) === day.key),
                             timezone,
                           ).map(({ event, hour, duration, lane, lanes }, index) => {
                             const c = memberColor(
@@ -445,6 +477,12 @@ function layoutEvents(events: CalendarEvent[], timezone: string) {
   return items;
 }
 
+const PROVIDER_NAMES = { google: 'Google Calendar', icloud: 'iCloud', outlook: 'Outlook', ics: 'a calendar link' } as const;
+function calendarSource(household: FamilyScreenProps['household'], event: CalendarEvent) {
+  const calendar = household.calendars?.find((item) => item.id === event.calendarId);
+  return calendar ? `${PROVIDER_NAMES[calendar.provider]} (${calendar.label})` : 'a connected calendar';
+}
+
 function EventDetails({ event, onClose, ...props }: FamilyScreenProps & { event: CalendarEvent; onClose: () => void }) {
   const p = useDesignPalette();
   const { household, focusActive, weatherState } = props;
@@ -462,9 +500,14 @@ function EventDetails({ event, onClose, ...props }: FamilyScreenProps & { event:
         {event.title}
       </DText>
       <DText size={30} color={p.muted}>
-        {formatTime(event.startAt, timezone)} – {formatTime(event.endAt, timezone)}
+        {eventTimeLabel(event, timezone)}
         {event.location ? ` · ${event.location}` : ''}
       </DText>
+      {event.calendarId ? (
+        <DText size={24} color={p.muted}>
+          From {calendarSource(household, event)} · change it there and this screen updates
+        </DText>
+      ) : null}
       <DRow style={{ flex: 1, gap: 24 }}>
         <DPanel style={{ flex: 1, gap: 24 }}>
           <DText size={22} weight={800} color={p.muted}>

@@ -24,13 +24,19 @@ export default function FamilySettingsScreen({
   tvParentMode = false,
   onUnlockParentMode,
   onLockParentMode,
+  wallCalendar,
 }: FamilyScreenProps & { onResetDemo: () => void }) {
   const p = useDesignPalette();
   const { mode, setMode } = useFamilyTheme();
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState('');
   const [unlockBusy, setUnlockBusy] = useState(false);
-  usePageBack(() => setUnlocking(false), unlocking);
+  const [confirmUnpair, setConfirmUnpair] = useState(false);
+  usePageBack(() => {
+    setUnlocking(false);
+    setConfirmUnpair(false);
+  }, unlocking || confirmUnpair);
+  const paired = tvPairing.status === 'paired';
   const unlock = async (code: string) => {
     setUnlockBusy(true);
     setUnlockError('');
@@ -71,7 +77,7 @@ export default function FamilySettingsScreen({
             <>
               <DText size={24} color={p.muted}>Connected to your household. Calendar, chores, lists, and meals refresh about every 5 seconds.</DText>
               <DRow style={{ gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                <DAction label="Unpair this TV" onPress={onUnpairTV ?? (() => {})} active={focusActive && !unlocking} />
+                <DAction label="Unpair this TV" onPress={() => setConfirmUnpair(true)} active={focusActive && !unlocking && !confirmUnpair} />
                 <DAction
                   label={tvParentMode ? 'Lock parent mode' : 'Parent mode · enter code'}
                   primary={!tvParentMode}
@@ -82,7 +88,7 @@ export default function FamilySettingsScreen({
                       setUnlocking(true);
                     }
                   }}
-                  active={focusActive && !unlocking}
+                  active={focusActive && !unlocking && !confirmUnpair}
                 />
               </DRow>
               <DText size={22} color={p.muted} accessibilityLiveRegion="polite">
@@ -141,36 +147,35 @@ export default function FamilySettingsScreen({
             <DText size={24} color={p.muted}>
               {mode === 'dark' ? 'On' : 'Off'}
             </DText>
-            <View
-              style={{
-                width: 88,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: mode === 'dark' ? p.selected : p.muted,
-              }}>
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 6,
-                  left: mode === 'dark' ? 46 : 6,
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: '#FFFFFF',
-                }}
-              />
-            </View>
+            <SwitchPill on={mode === 'dark'} />
           </DButton>
           <DText size={22} color={p.muted} accessibilityLiveRegion="polite">
             {mode === 'light' ? 'Light theme selected' : 'Dark theme selected'}
           </DText>
-          <View style={{ flex: 1 }} />
-          <DAction
-            label="Reset demo household"
-            onPress={onResetDemo}
-            active={focusActive}
-            style={{ alignSelf: 'flex-start' }}
-          />
+          {wallCalendar ? (
+            <>
+              <DButton
+                label="Wall calendar when idle"
+                role="switch"
+                checked={wallCalendar.enabled}
+                active={focusActive && !confirmUnpair}
+                onPress={wallCalendar.onToggle}
+                radius={20}
+                style={{ height: 88, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 24, backgroundColor: p.background }}>
+                <DText size={28} weight={700} style={{ flex: 1 }}>
+                  Wall calendar when idle
+                </DText>
+                <DText size={24} color={p.muted}>
+                  {wallCalendar.enabled ? 'On' : 'Off'}
+                </DText>
+                <SwitchPill on={wallCalendar.enabled} />
+              </DButton>
+              <DText size={22} color={p.muted}>
+                {`After ${wallCalendar.idleMinutes} idle minutes, show today in large type. For longer, raise the Fire TV screensaver wait: Settings → Display & Sounds → Ambient Experience.`}
+              </DText>
+              <DAction label="Show wall calendar now" onPress={wallCalendar.onShowNow} active={focusActive && !confirmUnpair} style={{ alignSelf: 'flex-start' }} />
+            </>
+          ) : null}
         </DPanel>
         </SpatialNavigationNode>
         <SpatialNavigationNode orientation="vertical">
@@ -185,7 +190,9 @@ export default function FamilySettingsScreen({
             <DText size={24} color={p.muted}>
               {agentStatus === 'available'
                 ? 'Connected'
-                : agentStatus === 'offline'
+                : agentStatus === 'unpaired'
+                  ? 'Reachable · not paired'
+                  : agentStatus === 'offline'
                   ? 'Offline · local demo'
                   : 'Connecting'}
             </DText>
@@ -210,23 +217,30 @@ export default function FamilySettingsScreen({
             ['Weather', weatherState],
           ].map(([label, state]) => {
             const status = state as typeof calendarState;
+            const live = label === 'Weather' ? status.source === 'National Weather Service' : paired;
+            const place = label === 'Weather' ? weatherState.data?.location : undefined;
+            const text = status.status === 'available'
+              ? live ? `Live${place ? ` · ${place}` : ''}` : 'Demo'
+              : status.status === 'cached' ? 'Saved copy' : status.status === 'loading' ? 'Loading' : status.status === 'empty' ? 'Nothing yet' : 'Unavailable';
             return (
               <View key={String(label)} style={{ flexDirection: 'row', gap: 24 }}>
                 <DText size={26} weight={700} style={{ flex: 1 }}>
                   {String(label)}
                 </DText>
-                <DText size={24} color={p.muted}>
-                  {status.status === 'available' ? 'Demo ready' : status.status}
+                <DText size={24} color={p.muted} numberOfLines={1} style={{ maxWidth: 360 }}>
+                  {text}
                 </DText>
               </View>
             );
           })}
-          <DAction
-            label="Refresh demo data"
-            onPress={onRefreshData}
-            active={focusActive}
-            style={{ alignSelf: 'flex-start' }}
-          />
+          <DRow style={{ gap: 12, flexWrap: 'wrap' }}>
+            <DAction
+              label={paired ? 'Refresh now' : 'Refresh demo data'}
+              onPress={onRefreshData}
+              active={focusActive && !confirmUnpair}
+            />
+            {paired ? null : <DAction label="Reset demo household" onPress={onResetDemo} active={focusActive} />}
+          </DRow>
           <View style={{ flex: 1 }} />
           <DText size={22} color={p.muted}>
             {tvPairing.status === 'paired'
@@ -239,6 +253,31 @@ export default function FamilySettingsScreen({
         </SpatialNavigationNode>
       </DRow>
       <DFooter action="Select" />
+      {confirmUnpair ? (
+        <View style={{ position: 'absolute', zIndex: 50, ...CANVAS_COVER, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17130FCC' }}>
+          <ModalFocusRoot isActive={focusActive}>
+            <DPanel style={{ width: 860, padding: 48, gap: 24 }}>
+              <DText heading size={44} weight={800}>
+                Unpair this TV?
+              </DText>
+              <DText size={26} color={p.muted}>
+                Your family’s calendar, chores, and photos leave this TV. To bring them back, pair again with the FamilyOS phone app.
+              </DText>
+              <DRow style={{ gap: 16 }}>
+                <DAction label="Keep this TV paired" primary defaultFocus onPress={() => setConfirmUnpair(false)} active={focusActive} />
+                <DAction
+                  label="Unpair"
+                  onPress={() => {
+                    setConfirmUnpair(false);
+                    onUnpairTV?.();
+                  }}
+                  active={focusActive}
+                />
+              </DRow>
+            </DPanel>
+          </ModalFocusRoot>
+        </View>
+      ) : null}
       {unlocking ? (
         <View style={{ position: 'absolute', zIndex: 50, ...CANVAS_COVER, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17130FCC' }}>
           <ModalFocusRoot isActive={focusActive}>
@@ -253,6 +292,15 @@ export default function FamilySettingsScreen({
           </ModalFocusRoot>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function SwitchPill({ on }: { on: boolean }) {
+  const p = useDesignPalette();
+  return (
+    <View style={{ width: 88, height: 48, borderRadius: 24, backgroundColor: on ? p.selected : p.muted }}>
+      <View style={{ position: 'absolute', top: 6, left: on ? 46 : 6, width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFFFFF' }} />
     </View>
   );
 }

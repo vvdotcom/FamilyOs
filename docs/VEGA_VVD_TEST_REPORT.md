@@ -93,6 +93,75 @@ The Vega Jest mocks gained `useLockSpatialNavigation`, and `yarn.lock` includes 
 - **Run this checklist again on real Fire TV hardware in Phase 15**, including overscan, HDMI color,
   and remote latency.
 
+### Follow-up, 2026-09-29 (code changes; not yet re-run on the VVD)
+
+- Unpair now asks first: **Keep this TV paired** is the default, and **Unpair** is a separate choice.
+- Settings shows **Live · Tucson, AZ** for the National Weather Service forecast and **Live** for a paired
+  household calendar (**Demo** otherwise).
+- The Vega `menu` event (and Android key code 82) opens and closes the FamilyOS menu.
+- The Movement break routine picker keeps a 20 px bottom margin like the other screens, ending about 1020 px down.
+
+Jest covers the unpair confirmation and the live label (`apps/vega/test/family-experience.test.tsx`).
+The Menu button needs a VVD or hardware run to confirm the `menu` event name.
+
+### Hosted backend run, 2026-09-29 (Railway, VVD)
+
+Source synced from the working tree at 21:17 MST. The TV app was built with
+`EXPO_PUBLIC_FAMILYOS_API_URL=https://familyos-api-production.up.railway.app` and installed on the VVD.
+
+| Check | Result |
+| --- | --- |
+| `yarn typecheck`, Vega lint, `yarn test`, backend `pytest` | Pass: lint 0 errors (266 warnings), Expo TV 15/15, Vega 27/27 |
+| Backend URL baked into the Vega bundle | Pass after fix 8: bundle contains the Railway URL, no `127.0.0.1:8787`, no `process.env` reference |
+| VVD reaches Railway over the internet | Pass: `/health` from the device, and TV pairing codes come from Railway |
+| Railway `/health` | `ai_provider: bedrock`, `bedrock_configured: true`, `weather_configured: false` |
+| Menu (≡) button | Pass: `inputd-cli button_press KEY_MENU` arrives as the `menu` event and toggles the FamilyOS menu. When the Wall calendar is showing, the first press only closes the Wall |
+| Wall calendar | Pass: appears after 2 idle minutes, any button returns to the previous screen |
+| Movement break bottom margin | Pass: routine cards end about 1020 px down |
+| Unpaired Settings | Fixed (see 11): shows "Reachable · not paired" when Railway answers but the TV is unpaired; "Offline · local demo" only when the service cannot be reached |
+| Memory (device `MemAvailable`, app stopped vs running) | Home after launch about 93–102 MB. Rises with page changes and levels off at about 165 MB (see "Memory follow-up" below). Idle stays flat, and closing the app returns it to baseline |
+| Pairing with a real phone, paired household, Bedrock briefing on the TV, chore approval | Not run yet: needs the owner's signed-in phone (Cognito) |
+
+8. **Every Vega build called `127.0.0.1:8787`.** Vega's Metro preset does not inline `EXPO_PUBLIC_*`
+   variables, so `process.env.EXPO_PUBLIC_FAMILYOS_API_URL` was undefined at runtime on the TV. A small Babel
+   plugin in `apps/vega/babel.config.js` now inlines it at build time (clear Metro's cache after changing it).
+9. **The Wall calendar covered the pairing code.** After 2 idle minutes the Wall replaced Settings while
+   the 10-minute code was still needed. The Wall now waits while a code is being created or shown.
+   (`FamilyOsShell.tsx`)
+10. **Voice replies spoke the model's reasoning.** Nova can prefix tool-use answers with `<thinking>` notes,
+    and `/v1/voice/simulate` returned them. They are stripped before the reply is returned.
+    (`services/family-agent/app/voice.py`, test in `tests/test_voice_mcp.py`)
+11. **"Offline" when the TV was only unpaired.** The shell now checks `/health` separately. If the service
+    answers but refuses the unpaired TV (401/403), Settings says **Reachable · not paired**, and pickup
+    proposals stay local until the TV is paired. (`FamilyOsShell.tsx`, `FamilySettingsScreen.tsx`,
+    `familyTypes.ts`; Jest test in `apps/vega/test/family-experience.test.tsx`)
+12. **Back listeners re-registered on every render.** `useBackToHome` removed and re-added its
+    `BackHandler` and remote listeners on each key press. It now registers once and reads the latest
+    page through a ref (Jest test added). Per-key `console.log` calls in the Kepler remote manager now run
+    only in development builds.
+
+Recommendations from this run:
+
+- **Confirm the memory ceiling on Fire TV hardware** with the Vega memory tools. On the VVD it levels off
+  at about 165 MB (see below); a real device may size its JavaScript heap differently.
+- **Railway weather is off.** Set `FAMILYOS_WEATHER_*`; the forecast is one location for the whole server.
+
+#### Memory follow-up, 2026-09-30
+
+Measured on the VVD as device `MemAvailable` below the app-stopped baseline, Railway build:
+
+| Test | Result |
+| --- | --- |
+| Moving focus along the top bar only (104 key presses, no page change) | +3 MB: key presses alone do not add memory |
+| 8 round trips Home → page → Home | Calendar +30 MB, Lists +16, Chores +14, Settings +12, Meals +10, Photos +4 |
+| 30 round trips Home → Calendar | 95, 122, 138, 155, 165, 166 MB after 0, 6, 12, 18, 24, 30 trips: levels off |
+| Same, with the top-bar pages kept mounted instead of rebuilt (experiment) | 94, 135, 153, 164, 165 MB: same ceiling, so rebuilding views is not the cause |
+
+Growth tracks how much rendering a page does and stops at about 165 MB, which matches the JavaScript
+runtime growing its heap to a working size rather than an unbounded leak. The keep-mounted experiment
+was reverted because it changed page behaviour without lowering the ceiling. Fix 12 removes listener
+churn but does not change the ceiling.
+
 ## Reproduce
 
 1. Start the VVD (see `docs/VEGA-AWS-DISPLAY.md`) and install with `vega run-app`.

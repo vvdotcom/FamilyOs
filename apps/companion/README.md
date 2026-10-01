@@ -32,6 +32,10 @@ needed. Photos are downscaled and re-encoded on the phone, which drops EXIF/loca
 
 ### iOS test checklist (Phases 7-14)
 
+0. Today → "Set up FamilyOS in 5 minutes": each step opens the right screen and is checked off when done. Family →
+   Connected calendars: follow the Google steps to paste your "Secret address in iCal format" (or an iCloud public
+   link or Outlook ICS link). The events appear in Calendar and on the TV. Tap one: it opens read-only. Try "Whose
+   calendar", "Sync now", and "Disconnect".
 1. Today: the "Needs you" card, agenda, dinner/groceries, and Coming up at home cards open the right screens.
 2. Calendar: Day/Week/Month switch, the Filters button, and + → New event with a driver, a checklist, and "Repeat weekly".
 3. + → From a flyer, email, or file: photograph a flyer (needs Bedrock on the server) or choose an `.ics`; edit and confirm.

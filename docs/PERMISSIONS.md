@@ -18,6 +18,7 @@ the code for every decision, even when a session is already unlocked.
 | household members and roles | yes | no | no | no | no |
 | imports | yes | no | no | no | no |
 | photos | yes | no | view | view | no |
+| connected calendars (Google, iCloud, Outlook links) | yes | no | view events | view events | read events |
 | teams, carpools, family night settings | yes | no | no | no | no |
 | family night suggest/vote | any member | self (item) | view | close/pick | no |
 | voice proposals (confirm/reject) | yes | no | chore-done only | yes | no |
@@ -26,3 +27,9 @@ the code for every decision, even when a session is already unlocked.
 Every change is recorded in the household audit log with the actor type (`parent`, `parent:code`,
 `child:<member>`, `tv:<device>`, `tv-parent:<device>`, `voice`), the change kind, and the item ID. Codes, tokens,
 and photo content are never logged.
+
+Connected calendars are read-only mirrors. Events that came from Google, iCloud, Outlook, or another iCal
+link cannot be edited, deleted, or rescheduled by voice in FamilyOS (`409 SYNCED_EVENT_READ_ONLY`); change
+them at the source. The private iCal link is encrypted at rest (AES-GCM, bound to the household), is never
+returned to any client or written to logs, and is fetched only over HTTPS from a public internet address
+that is checked before connecting and pinned for the connection.

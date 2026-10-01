@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  family-agent:
+    name: Family agent API (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/family-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/family-agent/pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      # Tests use the deterministic AI and demo vision providers; no AWS credentials are needed.
+      - run: python -m pytest -q
+
+  apps:
+    name: TV and phone apps (typecheck + jest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: yarn install --immutable
+      - name: Typecheck shared TV UI
+        run: yarn workspace @familyos/shared-ui typecheck:phase2
+      - name: Typecheck phone app
+        run: yarn workspace @familyos/companion-expo typecheck
+      - name: TV tests (Expo multi-TV and Vega)
+        run: yarn test

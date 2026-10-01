@@ -50,7 +50,8 @@ def test_mcp_negotiates_protocol_and_requires_authorization(api):
     assert init.json()["result"]["serverInfo"]["name"] == "FamilyOS"
     tools = {tool["name"] for tool in rpc(api, token, "tools/list", **{"MCP-Protocol-Version": "2025-11-25"}).json()["result"]["tools"]}
     assert tools == {"get_today", "get_week", "list_conflicts", "get_member_schedule", "get_chores", "get_reward_balance",
-                     "propose_pickup_swap", "propose_event", "propose_reschedule", "mark_chore_done_request"}
+                     "propose_pickup_swap", "propose_event", "propose_reschedule", "mark_chore_done_request",
+                     "show_on_tv", "get_weather"}
 
 
 def test_mcp_rejects_cross_site_browser_origins(api):

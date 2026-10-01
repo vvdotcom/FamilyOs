@@ -32,6 +32,7 @@ import {
   type ParentAccount,
 } from './household';
 import { EditorForm, type Editor } from './Editors';
+import { CalendarsScreen, PROVIDER_NAMES, SyncedEventSheet } from './CalendarsScreen';
 import {
   ApprovalsScreen,
   ChorePhotoScreen,
@@ -63,11 +64,13 @@ import {
   type IconName,
 } from './ui';
 import { StarCelebration } from './Pickers';
+import { SecureStore } from './storage';
 import { detectPlace, searchPlace, type WeatherPlace } from './location';
 
 type Page =
   | 'today'
   | 'calendar'
+  | 'calendars'
   | 'lists'
   | 'remote'
   | 'settings'
@@ -86,6 +89,11 @@ type Page =
   | 'familyNight'
   | 'move'
   | 'voice';
+const SOURCE_LABELS: Record<string, string> = {
+  all: 'Anywhere', synced: 'Connected calendars', manual: 'This app', import: 'Imports', voice: 'Voice',
+};
+const fromSource = (event: { source: string; calendarId?: string | null }, filter: string) =>
+  filter === 'all' || (filter === 'synced' ? !!event.calendarId : event.source === filter);
 type Props = {
   api: HouseholdAPI;
   account: ParentAccount;
@@ -170,6 +178,9 @@ function HouseholdScreens({
   const [rewardStars, setRewardStars] = useState('10');
   const [parentModeCode, setParentModeCode] = useState('');
   const [pairedTVs, setPairedTVs] = useState<PairedTV[]>([]);
+  const [codeConfigured, setCodeConfigured] = useState<boolean | null>(null);
+  const [setupHidden, setSetupHidden] = useState(true);
+  const setupKey = `familyos.setup-hidden.${account.accountId.replace(/[^A-Za-z0-9._-]/g, '')}`;
   const [pairPrompt, setPairPrompt] = useState(false);
   const [pairCode, setPairCode] = useState('');
   const [pairError, setPairError] = useState('');
@@ -393,8 +404,7 @@ function HouseholdScreens({
   const events = data ? eventsForDay(data.events, selectedDate) : [];
   const calendarEvents = data
     ? events.filter((event) =>
-        (memberFilter === 'all' || event.memberIds.includes(memberFilter)) &&
-        (sourceFilter === 'all' || event.source === sourceFilter))
+        (memberFilter === 'all' || event.memberIds.includes(memberFilter)) && fromSource(event, sourceFilter))
     : [];
   const eventRows = data
     ? (page === 'calendar' ? calendarEvents : events).map((event) => {
@@ -416,7 +426,7 @@ function HouseholdScreens({
             </Copy>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Edit ${event.title}`}
+              accessibilityLabel={event.calendarId ? `${event.title}, from ${PROVIDER_NAMES[(data.calendars || []).find((c) => c.id === event.calendarId)?.provider || 'ics']}` : `Edit ${event.title}`}
               disabled={accessMode === 'child'}
               onPress={() => { if (accessMode === 'parent') openEditor({ kind: 'event', item: event }); }}
               style={{
@@ -437,6 +447,7 @@ function HouseholdScreens({
                 {event.responsibleMemberId
                   ? ` · ${data.members.find((m) => m.id === event.responsibleMemberId)?.name} ${event.responsibilityType === 'drive' ? 'drives' : 'picks up'}`
                   : ''}
+                {event.calendarId ? ` · ${PROVIDER_NAMES[(data.calendars || []).find((c) => c.id === event.calendarId)?.provider || 'ics'].replace(' Calendar', '')}` : ''}
               </Copy>
             </Pressable>
           </View>
@@ -500,6 +511,65 @@ function HouseholdScreens({
       </Copy>
     </Pressable>
   );
+  useEffect(() => {
+    let active = true;
+    void SecureStore.getItemAsync(setupKey).then((value) => active && setSetupHidden(value === 'yes')).catch(() => active && setSetupHidden(false));
+    return () => { active = false; };
+  }, [setupKey]);
+  useEffect(() => {
+    if (page !== 'today' || accessMode !== 'parent' || !api.accessCodeConfigured) return;
+    let active = true;
+    void api.accessCodeConfigured().then((value) => active && setCodeConfigured(value)).catch(() => undefined);
+    return () => { active = false; };
+  }, [page, accessMode, api]);
+  const hideSetup = () => {
+    setSetupHidden(true);
+    void SecureStore.setItemAsync(setupKey, 'yes').catch(() => undefined);
+  };
+  const setupSteps: { id: string; title: string; subtitle: string; done: boolean; open: () => void }[] =
+    data && accessMode === 'parent'
+      ? [
+          { id: 'calendars', title: 'Connect your calendars', subtitle: 'Google, iCloud, or Outlook, kept in sync', done: !!data.calendars?.length, open: () => navigate('calendars') },
+          { id: 'kids', title: 'Add your kids', subtitle: 'Their chores, stars, and their own view', done: data.members.some((m) => m.role === 'child'), open: () => navigate('members') },
+          { id: 'code', title: 'Set a parent code', subtitle: 'Four digits for approvals on the TV', done: codeConfigured === true, open: () => { setRewardsView('parent'); navigate('rewards'); } },
+          { id: 'tv', title: 'Pair your Fire TV', subtitle: 'Show the code on the TV, enter it here', done: pairedTVs.length > 0, open: () => navigate('remote') },
+          { id: 'weather', title: 'Show weather on the TV', subtitle: 'Set your household’s location once', done: !!data.location, open: () => navigate('settings') },
+        ]
+      : [];
+  const setupDone = setupSteps.filter((step) => step.done).length;
+  const showSetup = !preview && !setupHidden && setupSteps.length > 0 && setupDone < setupSteps.length;
+  const setupCard = showSetup ? (
+    <Card style={{ padding: 16, gap: 10 }}>
+      <View style={s.spread}>
+        <View style={s.grow}>
+          <Label>SWITCH FROM A WALL CALENDAR</Label>
+          <Copy size={17} weight={800}>Set up FamilyOS in 5 minutes</Copy>
+        </View>
+        <Copy size={13} weight={700} color={t.muted}>{setupDone} of {setupSteps.length}</Copy>
+      </View>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: t.soft }} accessibilityLabel={`${setupDone} of ${setupSteps.length} steps done`}>
+        <View style={{ width: `${(setupDone / setupSteps.length) * 100}%`, height: 6, borderRadius: 3, backgroundColor: t.ok }} />
+      </View>
+      {setupSteps.map((step, index) => (
+        <Pressable key={step.id} accessibilityRole="button" accessibilityLabel={`${step.title}${step.done ? ', done' : ''}`}
+          accessibilityState={{ disabled: step.done }} disabled={step.done} onPress={step.open}
+          style={[s.row, { minHeight: 48, gap: 12 }]}>
+          <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: step.done ? t.okBg : 'transparent', borderWidth: step.done ? 0 : 2, borderColor: t.checkBorder }}>
+            {step.done ? <Icon name="check" size={16} color={t.ok} /> : <Copy size={12} weight={800} color={t.muted}>{index + 1}</Copy>}
+          </View>
+          <View style={s.grow}>
+            <Copy weight={700} color={step.done ? t.muted : t.ink} style={step.done ? { textDecorationLine: 'line-through' } : undefined}>{step.title}</Copy>
+            {step.done ? null : <Copy size={12} color={t.muted}>{step.subtitle}</Copy>}
+          </View>
+          {step.done ? null : <Icon name="right" size={16} color={t.muted} />}
+        </Pressable>
+      ))}
+      <Pressable accessibilityRole="button" onPress={hideSetup} style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}>
+        <Copy size={13} weight={700} color={t.muted}>Hide this checklist</Copy>
+      </Pressable>
+    </Card>
+  ) : null;
   const tvCard = (
     <Pressable accessibilityRole="button" onPress={() => navigate('remote')}>
       <Card style={[s.row, { paddingVertical: 12, paddingHorizontal: 14 }]}>
@@ -816,8 +886,9 @@ function HouseholdScreens({
                 </Card>
               </Pressable>
             ) : null}
-            {!pairedTVs.length && accessMode === 'parent' && !preview ? tvCard : null}
-            {accessMode === 'parent' && !data.location ? (
+            {setupCard}
+            {!showSetup && !pairedTVs.length && accessMode === 'parent' && !preview ? tvCard : null}
+            {!showSetup && accessMode === 'parent' && !data.location ? (
               <Card>
                 <NavRow icon="sparkle" title="Show weather on your TV" subtitle="Set your household’s location once" last
                   tint={memberTint(4, dark)} onPress={() => navigate('settings')} />
@@ -903,8 +974,7 @@ function HouseholdScreens({
                     const key = dateKey(day);
                     // Count by the phone's local day (stored times are UTC ISO strings).
                     const count = eventsForDay(data?.events || [], day).filter((event) =>
-                      (memberFilter === 'all' || event.memberIds.includes(memberFilter)) &&
-                      (sourceFilter === 'all' || event.source === sourceFilter)).length;
+                      (memberFilter === 'all' || event.memberIds.includes(memberFilter)) && fromSource(event, sourceFilter)).length;
                     const active = key === dateKey(selectedDate);
                     return <Pressable key={key} accessibilityRole="button" accessibilityLabel={`${key}, ${count} events`}
                       accessibilityState={{ selected: active }} onPress={() => setSelectedDate(day)}
@@ -925,7 +995,7 @@ function HouseholdScreens({
                 </ScrollView>
                 <Label>ADDED FROM</Label>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {['all', 'manual', 'import', 'voice'].map((source) => <Button key={source} primary={sourceFilter === source} onPress={() => setSourceFilter(source)}>{source === 'all' ? 'Anywhere' : source === 'manual' ? 'This app' : source === 'import' ? 'Imports' : 'Voice'}</Button>)}
+                  {['all', ...((data.calendars || []).length ? ['synced'] : []), 'manual', 'import', 'voice'].map((source) => <Button key={source} primary={sourceFilter === source} onPress={() => setSourceFilter(source)}>{SOURCE_LABELS[source]}</Button>)}
                 </ScrollView>
               </Card>
             ) : null}
@@ -1480,6 +1550,8 @@ function HouseholdScreens({
       }
       case 'photos':
         return <PhotosScreen {...screenContext()!} />;
+      case 'calendars':
+        return <CalendarsScreen {...screenContext()!} />;
       case 'more': {
         const children = data.members.filter((member) => member.role === 'child');
         const tvLabel = pairedTVs.length ? `${pairedTVs.length} TV${pairedTVs.length === 1 ? '' : 's'} connected` : 'Not connected yet';
@@ -1518,6 +1590,9 @@ function HouseholdScreens({
                   <Label>YOUR HOUSEHOLD</Label>
                   <Card>
                     <NavRow icon="people" title="Family members" subtitle={`${data.members.length} profiles`} onPress={() => navigate('members')} />
+                    <NavRow icon="calendar" title="Connected calendars" onPress={() => navigate('calendars')}
+                      subtitle={(data.calendars || []).length ? `${(data.calendars || []).length} connected${(data.calendars || []).some((c) => c.status === 'error') ? ' · needs attention' : ''}` : 'Google, iCloud, or Outlook'}
+                      badge={(data.calendars || []).filter((c) => c.status === 'error').length} />
                     <NavRow icon="tv" title="TV" subtitle={tvLabel} onPress={() => navigate('remote')} />
                     <NavRow icon="mic" title="Voice · Alexa+" subtitle="Ask about your day, suggest changes" onPress={() => navigate('voice')} />
                     <NavRow icon="star" title="Hand this phone to a child" last
@@ -1780,7 +1855,7 @@ function HouseholdScreens({
   const TAB_OF: Partial<Record<Page, Page>> = {
     grocery: 'lists', meal: 'lists', recipes: 'lists', rewards: 'chores', chorePhoto: 'chores', imports: 'calendar',
     approvals: 'today', members: 'more', photos: 'more', remote: 'more', settings: 'more', sports: 'more',
-    familyNight: 'more', move: 'more', voice: 'more',
+    familyNight: 'more', move: 'more', voice: 'more', calendars: 'more',
   };
   const tabPage = TAB_OF[page] || page;
   const tabs: { page: Page; label: string; icon: IconName; badge?: number }[] = [
@@ -1879,7 +1954,14 @@ function HouseholdScreens({
             setConfirm(null);
           }}
         >
-          {editor && data && (
+          {editor && data && editor.kind === 'event' && editor.item?.calendarId ? (
+            <ThemeContext.Provider value={t}>
+              <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
+                <SyncedEventSheet data={data} event={editor.item} onClose={() => setEditor(null)} />
+              </SafeAreaView>
+            </ThemeContext.Provider>
+          ) : null}
+          {editor && data && !(editor.kind === 'event' && editor.item?.calendarId) && (
             <ThemeContext.Provider value={t}>
               <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -1956,6 +2038,7 @@ function HouseholdScreens({
             <Card style={{ margin: 12, marginBottom: Math.max(insets.bottom, 12), borderRadius: 22 }}>
               <NavRow icon="calendar" title="New event" subtitle="Add it to the family calendar" onPress={() => { setAddSheet(false); openEditor({ kind: 'event' }); }} />
               <NavRow icon="import" title="From a flyer, email, or file" subtitle="Take a photo or choose a PDF, email, or team calendar" onPress={() => { setAddSheet(false); navigate('imports'); }} />
+              <NavRow icon="refresh" title="Connect Google, iCloud, or Outlook" subtitle="Keep a calendar you already use in sync" onPress={() => { setAddSheet(false); navigate('calendars'); }} />
               <NavRow icon="chores" title="New chore" subtitle="Assign it and set its stars" last onPress={() => { setAddSheet(false); openEditor({ kind: 'chore' }); }} />
             </Card>
           </Pressable>

@@ -25,12 +25,14 @@ export interface FamilyScreenProps {
   calendarState: ProviderState<CalendarEvent[]>;
   weatherState: ProviderState<WeatherForecast>;
   briefing?: FamilyBriefing;
-  agentStatus?: 'checking' | 'available' | 'offline';
+  agentStatus?: 'checking' | 'available' | 'unpaired' | 'offline';
   actionHistory?: ProposedAction[];
   focusActive: boolean;
   onNavigate: (route: FamilyRoute) => void;
   onOpenEvent?: (eventId: string) => void;
   initialEventId?: string | null;
+  /** Open the calendar's day view on this household date (YYYY-MM-DD), e.g. from a voice request. */
+  initialDay?: string | null;
   onFocusNavigation: () => void;
   onCompleteChore: (choreId: string, completed: boolean) => void;
   onToggleRoutineStep: (routineId: string, stepId: string) => void;
@@ -50,4 +52,6 @@ export interface FamilyScreenProps {
   tvParentMode?: boolean;
   onUnlockParentMode?: (code: string) => Promise<void>;
   onLockParentMode?: () => Promise<void>;
+  /** The idle wall calendar: whether it turns on by itself, and a way to show it now. */
+  wallCalendar?: { enabled: boolean; idleMinutes: number; onToggle: () => void; onShowNow: () => void };
 }

@@ -56,6 +56,13 @@ export class FamilyAgentError extends Error {
 
 const apiBase = (process.env.EXPO_PUBLIC_FAMILYOS_API_URL || 'http://127.0.0.1:8787').replace(/\/$/, '');
 
+export interface VoiceTVCommand {
+  seq: number;
+  screen: string;
+  day?: string | null;
+  label?: string;
+}
+
 async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 8000): Promise<Envelope<T>> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -154,6 +161,9 @@ export const familyAgentClient = {
       body: JSON.stringify({ kind, value, expectedRevision }),
     }),
   tvSession: () => request<{ paired: boolean; elevated: boolean }>('/v1/tv/session'),
+  /** What voice asked this TV to show since `after` (-1 on start: learn the position, replay nothing). */
+  tvCommands: (after: number) =>
+    request<{ commands: VoiceTVCommand[]; latest: number }>(`/v1/tv/commands?after=${after}`, {}, 4000),
   unlockParentMode: (code: string) =>
     request<{ elevated: boolean; expiresAt: string; idleMinutes: number }>('/v1/tv/parent-mode', {
       method: 'POST',

@@ -6,7 +6,7 @@ import logging
 import os
 import re
 from hashlib import sha256
-from typing import Protocol
+from typing import Callable, Protocol
 
 import boto3
 from botocore.config import Config
@@ -141,7 +141,8 @@ class SafeBriefingService:
     def bedrock_configured(self) -> bool:
         return bool(os.getenv("AWS_BEARER_TOKEN_BEDROCK") and os.getenv("FAMILYOS_BEDROCK_MODEL_ID"))
 
-    async def generate(self, context: HouseholdContext) -> tuple[FamilyBriefing, bool]:
+    async def generate(self, context: HouseholdContext,
+                       may_use_ai: Callable[[], bool] | None = None) -> tuple[FamilyBriefing, bool]:
         cache_key = sha256(context.model_dump_json().encode("utf-8")).hexdigest()
         entry = self.cache.get(cache_key)
         if entry:
@@ -150,7 +151,7 @@ class SafeBriefingService:
                 return value.model_copy(deep=True), False
             self.cache.pop(cache_key, None)
 
-        if self.provider_name == "bedrock" and self.bedrock_configured:
+        if self.provider_name == "bedrock" and self.bedrock_configured and (may_use_ai is None or may_use_ai()):
             try:
                 provider = BedrockBriefingProvider(
                     os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-west-2",

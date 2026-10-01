@@ -1,0 +1,212 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "family o. s.",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "OpenIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "open {request}",
+            "go to {request}",
+            "switch to {request}",
+            "take me to {request}"
+          ]
+        },
+        {
+          "name": "ShowIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "show {request}",
+            "show me {request}",
+            "display {request}",
+            "bring up {request}",
+            "pull up {request}"
+          ]
+        },
+        {
+          "name": "WhatIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "what {request}",
+            "what's {request}",
+            "what is {request}",
+            "what are {request}"
+          ]
+        },
+        {
+          "name": "WhoIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "who {request}",
+            "who's {request}",
+            "who is {request}"
+          ]
+        },
+        {
+          "name": "WhenIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "when {request}",
+            "when's {request}",
+            "when is {request}"
+          ]
+        },
+        {
+          "name": "HowManyIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "how many {request}",
+            "how much {request}"
+          ]
+        },
+        {
+          "name": "IsIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "is {request}",
+            "are {request}",
+            "do {request}",
+            "does {request}"
+          ]
+        },
+        {
+          "name": "AnyIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "any {request}"
+          ]
+        },
+        {
+          "name": "SwapIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "swap {request}",
+            "change {request}"
+          ]
+        },
+        {
+          "name": "MoveIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "move {request}",
+            "reschedule {request}"
+          ]
+        },
+        {
+          "name": "AddIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "add {request}",
+            "schedule {request}"
+          ]
+        },
+        {
+          "name": "DoneIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "i finished {request}",
+            "i did {request}",
+            "we finished {request}",
+            "i'm done with {request}",
+            "i am done with {request}"
+          ]
+        },
+        {
+          "name": "TellIntent",
+          "slots": [
+            {
+              "name": "request",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "tell me {request}",
+            "give me {request}"
+          ]
+        }
+      ],
+      "types": []
+    }
+  }
+}

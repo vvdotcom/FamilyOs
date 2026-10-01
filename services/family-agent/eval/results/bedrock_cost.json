@@ -1,0 +1,86 @@
+{
+ "measured": "2026-09-29",
+ "model": "us.amazon.nova-lite-v1:0",
+ "pricing_usd_per_1k_tokens": {
+  "input": 6e-05,
+  "output": 0.00024
+ },
+ "records": [
+  {
+   "feature": "briefing",
+   "input": 1019,
+   "output": 148,
+   "ms": 1783
+  },
+  {
+   "feature": "flyer import",
+   "input": 1828,
+   "output": 77,
+   "ms": 2021
+  },
+  {
+   "feature": "chore photo",
+   "input": 1806,
+   "output": 44,
+   "ms": 1390
+  },
+  {
+   "feature": "chore photo",
+   "input": 1806,
+   "output": 38,
+   "ms": 1467
+  },
+  {
+   "feature": "voice",
+   "input": 1520,
+   "output": 38,
+   "ms": 1236
+  },
+  {
+   "feature": "voice",
+   "input": 2415,
+   "output": 139,
+   "ms": 1511
+  },
+  {
+   "feature": "voice",
+   "input": 1519,
+   "output": 40,
+   "ms": 1214
+  }
+ ],
+ "summary": {
+  "briefing": {
+   "requests": 1,
+   "model_calls": 1,
+   "input_tokens_per_request": 1019,
+   "output_tokens_per_request": 148,
+   "usd_per_request": 9.7e-05,
+   "median_ms_per_call": 1783
+  },
+  "flyer import": {
+   "requests": 1,
+   "model_calls": 1,
+   "input_tokens_per_request": 1828,
+   "output_tokens_per_request": 77,
+   "usd_per_request": 0.000128,
+   "median_ms_per_call": 2021
+  },
+  "chore photo": {
+   "requests": 2,
+   "model_calls": 2,
+   "input_tokens_per_request": 1806,
+   "output_tokens_per_request": 41,
+   "usd_per_request": 0.000118,
+   "median_ms_per_call": 1467
+  },
+  "voice": {
+   "requests": 2,
+   "model_calls": 3,
+   "input_tokens_per_request": 2727,
+   "output_tokens_per_request": 108,
+   "usd_per_request": 0.00019,
+   "median_ms_per_call": 1236
+  }
+ }
+}
