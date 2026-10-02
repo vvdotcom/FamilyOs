@@ -1,0 +1,6 @@
+/* Full-height app shell: the app scrolls inside its own views, not the page. */
+html, body, #root { height: 100%; margin: 0; }
+body { overflow: hidden; overscroll-behavior: none; background: #F7F5F0; -webkit-tap-highlight-color: transparent; }
+@media (prefers-color-scheme: dark) { body { background: #1A1714; } }
+#root { display: flex; }
+/* Wide windows get a sidebar layout from the app itself (HouseholdApp), so the page spans the window. */

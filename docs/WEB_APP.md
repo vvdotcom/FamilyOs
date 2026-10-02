@@ -18,7 +18,8 @@ match the phone app.
 - `app/webapp/` is generated output. Rebuild it before each deploy; the Dockerfile already copies
   everything under `app/`, so `railway up` from `services/family-agent` ships it.
 - `apps/companion/public/` holds the HTML template, the web app manifest, icons, and a small CSS
-  file. On wide screens the app is shown at phone width.
+  file. Browser windows 900 px and wider get a desktop layout (sidebar navigation, centered content,
+  editors as dialogs); narrower windows keep the phone layout with bottom tabs.
 
 ### Deploy
 

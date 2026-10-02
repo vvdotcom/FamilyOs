@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +13,7 @@ import {
   StatusBar,
   Switch,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { randomUUID } from 'expo-crypto';
@@ -133,6 +135,10 @@ function HouseholdScreens({
   const t = useTheme();
   const [deletePassword, setDeletePassword] = useState('');
   const insets = useSafeAreaInsets();
+  // A browser window wide enough for a sidebar gets the desktop layout; phones keep the bottom tabs.
+  const { width: windowWidth } = useWindowDimensions();
+  const wide = Platform.OS === 'web' && windowWidth >= 900;
+  const dialog = wide ? ({ width: '100%', maxWidth: 520, alignSelf: 'center' } as const) : null;
   const [page, setPage] = useState<Page>('today');
   const [accessMode, setAccessMode] = useState<'parent' | 'child'>('parent');
   const [elevated, setElevated] = useState(false);
@@ -1863,7 +1869,7 @@ function HouseholdScreens({
     }
   };
   const confirmation = (
-    <Card style={{ padding: 20, gap: 16 }}>
+    <Card style={[{ padding: 20, gap: 16 }, dialog]}>
       <Copy weight={700}>{confirm?.title}</Copy>
       <Copy size={14} color={t.muted}>
         {confirm?.detail || 'This removes the item from your household.'}
@@ -1908,13 +1914,64 @@ function HouseholdScreens({
             </Copy>
           </View>
         )}
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+        {wide ? (
+          <View
+            accessibilityRole="tablist"
+            style={{ width: 248, paddingHorizontal: 16, paddingTop: 28, paddingBottom: 20, gap: 4, borderRightWidth: 1, borderColor: t.line, backgroundColor: t.card }}
+          >
+            <View style={[s.row, { paddingHorizontal: 12, marginBottom: 24, gap: 10 }]}>
+              <Image source={require('../assets/brand-mark.png')} style={{ width: 32, height: 32 }} accessibilityIgnoresInvertColors />
+              <Copy size={19} weight={800}>Hometide</Copy>
+            </View>
+            {tabs.map((tab) => {
+              const selected = tabPage === tab.page;
+              return (
+                <Pressable
+                  key={tab.page}
+                  accessibilityRole="tab"
+                  accessibilityLabel={tab.badge ? `${tab.label}, ${tab.badge} waiting` : tab.label}
+                  accessibilityState={{ selected }}
+                  aria-selected={selected}
+                  onPress={() => navigate(tab.page)}
+                  style={(state) => [
+                    s.row,
+                    {
+                      minHeight: 46, paddingHorizontal: 12, borderRadius: 12,
+                      backgroundColor: selected ? t.soft : (state as { hovered?: boolean }).hovered ? t.bg : 'transparent',
+                    },
+                  ]}
+                >
+                  <Icon name={tab.icon} size={22} color={selected ? t.ink : t.muted} />
+                  <Copy size={15} weight={selected ? 800 : 600} color={selected ? t.ink : t.muted} style={{ flex: 1 }}>
+                    {tab.label}
+                  </Copy>
+                  {tab.badge ? (
+                    <View style={{ minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: t.danger }}>
+                      <Copy size={12} weight={800} color="#FFFFFF">{tab.badge}</Copy>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            <View style={{ flex: 1 }} />
+            <Copy size={13} color={t.muted} style={{ paddingHorizontal: 12 }}>
+              {account.parentName}
+            </Copy>
+          </View>
+        ) : null}
         <ScrollView
           key={page}
+          style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={loading && !!data} onRefresh={() => void refresh(true)} tintColor={t.ink} />
           }
-          contentContainerStyle={[s.body, { paddingTop: Platform.OS === 'web' ? 20 : 12 }]}
+          contentContainerStyle={[
+            s.body,
+            { paddingTop: Platform.OS === 'web' ? 20 : 12 },
+            wide && { width: '100%', maxWidth: 880, alignSelf: 'center', paddingHorizontal: 40, paddingTop: 36, paddingBottom: 48 },
+          ]}
         >
           {!!error && data && (
             <Card style={{ padding: 14, gap: 8 }}>
@@ -1945,7 +2002,8 @@ function HouseholdScreens({
           )}
           {renderContent()}
         </ScrollView>
-        <View
+        </View>
+        {!wide && <View
           accessibilityRole="tablist"
           style={{
             flexDirection: 'row',
@@ -1977,15 +2035,18 @@ function HouseholdScreens({
               </Copy>
             </Pressable>
           ))}
-        </View>
+        </View>}
         <Modal
           visible={!!editor}
-          animationType="slide"
+          transparent={wide}
+          animationType={wide ? 'fade' : 'slide'}
           onRequestClose={() => {
             if (!busy) setEditor(null);
             setConfirm(null);
           }}
         >
+          <View style={wide ? { flex: 1, backgroundColor: '#00000066', alignItems: 'center', justifyContent: 'center', padding: 32 } : { flex: 1 }}>
+          <View style={wide ? { width: '100%', maxWidth: 680, height: '100%', maxHeight: 860, borderRadius: 22, overflow: 'hidden', backgroundColor: t.bg } : { flex: 1 }}>
           {editor && data && editor.kind === 'event' && editor.item?.calendarId ? (
             <ThemeContext.Provider value={t}>
               <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
@@ -2059,6 +2120,8 @@ function HouseholdScreens({
               </SafeAreaView>
             </ThemeContext.Provider>
           )}
+          </View>
+          </View>
         </Modal>
         <Modal visible={!!confirm && !editor} transparent animationType="fade" onRequestClose={() => setConfirm(null)}>
           <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}>
@@ -2066,8 +2129,8 @@ function HouseholdScreens({
           </View>
         </Modal>
         <Modal visible={addSheet} transparent animationType="fade" onRequestClose={() => setAddSheet(false)}>
-          <Pressable accessibilityLabel="Close" onPress={() => setAddSheet(false)} style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }}>
-            <Card style={{ margin: 12, marginBottom: Math.max(insets.bottom, 12), borderRadius: 22 }}>
+          <Pressable accessibilityLabel="Close" onPress={() => setAddSheet(false)} style={{ flex: 1, backgroundColor: '#00000066', justifyContent: wide ? 'center' : 'flex-end' }}>
+            <Card style={[{ margin: 12, marginBottom: Math.max(insets.bottom, 12), borderRadius: 22 }, dialog]}>
               <NavRow icon="calendar" title="New event" subtitle="Add it to the family calendar" onPress={() => { setAddSheet(false); openEditor({ kind: 'event' }); }} />
               <NavRow icon="import" title="From a flyer, email, or file" subtitle="Take a photo or choose a PDF, email, or team calendar" onPress={() => { setAddSheet(false); navigate('imports'); }} />
               <NavRow icon="refresh" title="Connect Google, iCloud, or Outlook" subtitle="Keep a calendar you already use in sync" onPress={() => { setAddSheet(false); navigate('calendars'); }} />
@@ -2076,8 +2139,8 @@ function HouseholdScreens({
           </Pressable>
         </Modal>
         <Modal visible={childPicker} transparent animationType="fade" onRequestClose={() => setChildPicker(false)}>
-          <Pressable accessibilityLabel="Close" onPress={() => setChildPicker(false)} style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }}>
-            <Card style={{ margin: 12, marginBottom: Math.max(insets.bottom, 12), borderRadius: 22, padding: 16, gap: 10 }}>
+          <Pressable accessibilityLabel="Close" onPress={() => setChildPicker(false)} style={{ flex: 1, backgroundColor: '#00000066', justifyContent: wide ? 'center' : 'flex-end' }}>
+            <Card style={[{ margin: 12, marginBottom: Math.max(insets.bottom, 12), borderRadius: 22, padding: 16, gap: 10 }, dialog]}>
               <Heading small>Hand this phone to…</Heading>
               <Copy size={13} color={t.muted}>They’ll see their own chores and rewards. Your four-digit code unlocks parent mode again.</Copy>
               {(data?.members || []).filter((m) => m.role === 'child').map((m) => (
@@ -2089,7 +2152,7 @@ function HouseholdScreens({
         <StarCelebration message={celebration?.message || null} detail={celebration?.detail} onDone={() => setCelebration(null)} />
         <Modal visible={!!groceryReview} transparent animationType="fade" onRequestClose={() => setGroceryReview(null)}>
           <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}>
-            <Card style={{ padding: 20, gap: 12 }}>
+            <Card style={[{ padding: 20, gap: 12 }, dialog]}>
               <Heading small>Add to Groceries?</Heading>
               <Copy size={13} color={t.muted}>Review before adding. Matching items are combined; nothing is added twice.</Copy>
               {data && groceryReview
@@ -2127,7 +2190,7 @@ function HouseholdScreens({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}
           >
-            <Card style={{ padding: 20, gap: 16 }}>
+            <Card style={[{ padding: 20, gap: 16 }, dialog]}>
               <Input label="List name" value={listDraft} onChangeText={setListDraft} maxLength={60} />
               <Copy size={13} color={t.muted}>
                 Your list is saved to the cloud when you add its first item.
@@ -2163,7 +2226,7 @@ function HouseholdScreens({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}
           >
-            <Card style={{ padding: 20, gap: 14 }}>
+            <Card style={[{ padding: 20, gap: 14 }, dialog]}>
               <Heading small>Connect your TV</Heading>
               <Copy size={14} color={t.muted}>
                 Enter the six digit code shown in Hometide TV Settings. The code expires after 10 minutes.
@@ -2199,7 +2262,7 @@ function HouseholdScreens({
           onRequestClose={() => !pairBusy && setUnpairPrompt(null)}
         >
           <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: 24 }}>
-            <Card style={{ padding: 20, gap: 14 }}>
+            <Card style={[{ padding: 20, gap: 14 }, dialog]}>
               <Heading small>Unpair {unpairPrompt?.deviceName}?</Heading>
               <Copy size={14} color={t.muted}>
                 This revokes the TV session. It will lose access to household data on its next request.
