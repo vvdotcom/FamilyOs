@@ -346,7 +346,9 @@ class VoiceServer:
             conflicts = [item for item in detect_conflicts(snapshot, demo_now()) if any(e.id in item.eventIds for e in events)]
             reminders = sports_reminders(snapshot, demo_now()) if target == household_today(snapshot) else []
             night = next((poll for poll in snapshot.familyNightPolls if poll.id == target.isoformat()), None)
-            parts = [f"{len(events)} {'thing' if len(events) == 1 else 'things'} on the calendar"]
+            when = "today" if target == household_today(snapshot) else f"on {target.strftime('%A')}"
+            parts = [f"Nothing on the calendar {when}" if not events
+                     else f"{len(events)} {'thing' if len(events) == 1 else 'things'} on the calendar {when}"]
             if events:
                 parts.append("; ".join(event_sentence(snapshot, event) for event in events[:5]))
             if conflicts:
@@ -552,7 +554,10 @@ class VoiceServer:
                 return ruled
         if bedrock_enabled() and (may_use_ai is None or may_use_ai()):
             try:
-                return await asyncio.wait_for(self._simulate_bedrock(utterance, tools=tools), timeout=ai_timeout)
+                answered = await asyncio.wait_for(self._simulate_bedrock(utterance, tools=tools), timeout=ai_timeout)
+                if answered.get("reply"):
+                    return answered
+                logger.warning("Voice: Bedrock gave no spoken answer, using rules")
             except (ToolError, DomainError):
                 raise
             except Exception:
@@ -643,6 +648,7 @@ class VoiceServer:
         messages: list[dict] = [{"role": "user", "content": [{"text": utterance}]}]
         calls: list[str] = []
         proposals: list[str] = []
+        spoken: list[str] = []  # What the tools themselves said, in case the model replies with reasoning only.
         model = os.getenv("FAMILYOS_BEDROCK_MODEL_ID") or "us.amazon.nova-lite-v1:0"
         for _ in range(4):
             response = await asyncio.to_thread(client.converse, modelId=model, system=system, messages=messages,
@@ -652,7 +658,9 @@ class VoiceServer:
             uses = [block["toolUse"] for block in message["content"] if "toolUse" in block]
             if not uses:
                 reply = strip_model_reasoning(" ".join(block["text"] for block in message["content"] if "text" in block))
-                return {"mode": "bedrock", "reply": reply or "Sorry, I couldn't find an answer for that.", "toolCalls": calls, "proposalIds": proposals}
+                # Nova sometimes answers with only <thinking> notes; then speak the tools' own answer, or let the
+                # caller fall back to the rules (an empty reply).
+                return {"mode": "bedrock", "reply": reply or " ".join(spoken[-2:]), "toolCalls": calls, "proposalIds": proposals}
             results = []
             for use in uses:
                 calls.append(use["name"])
@@ -660,6 +668,8 @@ class VoiceServer:
                     output = await tools.call(use["name"], use.get("input") or {})
                     if "proposalId" in output:
                         proposals.append(output["proposalId"])
+                    if isinstance(output.get("speech"), str) and output["speech"].strip():
+                        spoken.append(output["speech"].strip())
                     results.append({"toolResult": {"toolUseId": use["toolUseId"], "content": [{"json": output}]}})
                 except ToolError as error:
                     results.append({"toolResult": {"toolUseId": use["toolUseId"], "content": [{"text": str(error)}], "status": "error"}})

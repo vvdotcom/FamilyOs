@@ -1,44 +1,54 @@
-"""Fill an Amazon Appstore reviewer's Hometide account with a small sample household.
+"""Fill a Hometide account with a realistic sample family (for Amazon's reviewer and the demo account).
 
-Run this yourself after creating the reviewer account in the web app (/app/) and verifying its email.
-It signs in to Cognito with the reviewer's credentials (taken from environment variables, never from
-this file), then adds two adults, two children, today's events, chores (one needs a photo), a grocery
-list, tonight's dinner, and the parent code. Running it twice does not add duplicates.
+Run it yourself; the password is read from your terminal and never stored or printed:
 
-    $env:FAMILYOS_REVIEWER_EMAIL = "reviewer@your-domain.example"
-    $env:FAMILYOS_REVIEWER_PASSWORD = "<the password you set>"
-    $env:FAMILYOS_REVIEWER_PARENT_CODE = "2468"
-    python setup/seed-reviewer-household.py
+    python setup/seed-reviewer-household.py                       # asks for email, password and parent code
+    python setup/seed-reviewer-household.py --email demo@x.com    # asks only for the password
 
-Only the Python standard library is needed. Optional: FAMILYOS_API_URL (defaults to the Railway service).
+What it adds (repeating weekly for 12 weeks, so the account still looks lived-in whenever it is opened):
+  - Family: Jordan (adult), Emma (9) and Leo (6), next to the account's own parent.
+  - School drop-offs and pickups every weekday, piano, soccer practice and Saturday games, Friday movie night,
+    Sunday brunch. Every Tuesday and Thursday Jordan's meeting overlaps Emma's pickup: a conflict to fix.
+  - Daily chores (one needs a photo), rewards and some stars, a pending reward request to approve on the TV.
+  - A week of dinners (repeating), a grocery list and a weekend to-do list.
+  - Weather location (Phoenix, AZ) and the four-digit parent code.
+
+Running it again updates the same items instead of duplicating them. Standard library only.
+Optional: HOMETIDE_API_URL (default https://hometide.up.railway.app).
 """
 from __future__ import annotations
 
+import argparse
+import getpass
 import json
 import os
 import sys
 import urllib.error
 import urllib.request
-import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-API = os.getenv("FAMILYOS_API_URL", "https://hometide.up.railway.app").rstrip("/")
+API = (os.getenv("HOMETIDE_API_URL") or os.getenv("FAMILYOS_API_URL") or "https://hometide.up.railway.app").rstrip("/")
 APP_JSON = Path(__file__).resolve().parents[1] / "apps" / "companion" / "app.json"
-MARKER = "Reviewer sample household"
+ZONE = "America/Phoenix"
+TZ = timezone(timedelta(hours=-7))  # Phoenix has no daylight saving; avoids needing tzdata on Windows.
 
 
-def post_json(url: str, body: object, headers: dict[str, str] | None = None, method: str = "POST") -> dict:
+def fail(message: str) -> None:
+    sys.exit(f"\n{message}")
+
+
+def http(method: str, url: str, body: object = None, headers: dict | None = None) -> dict:
     data = None if body is None else json.dumps(body).encode()
-    request = urllib.request.Request(url, data=data, method=method, headers={"Content-Type": "application/json", **(headers or {})})
+    request = urllib.request.Request(url, data=data, method=method,
+                                     headers={"Content-Type": "application/json", **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=30) as reply:
             return json.loads(reply.read() or b"{}")
     except urllib.error.HTTPError as error:
         detail = json.loads(error.read() or b"{}")
         message = (detail.get("error") or {}).get("message") or detail.get("message") or error.reason
-        sys.exit(f"{method} {url.split('?')[0]} failed ({error.code}): {message}")
+        raise RuntimeError(f"{method} {url.split('?')[0].replace(API, '')} failed ({error.code}): {message}") from None
 
 
 def cognito_id_token(email: str, password: str) -> str:
@@ -47,14 +57,16 @@ def cognito_id_token(email: str, password: str) -> str:
 
     def call(operation: str, body: dict) -> dict:
         request = urllib.request.Request(
-            f"https://cognito-idp.{region}.amazonaws.com/", method="POST", data=json.dumps({"ClientId": client, **body}).encode(),
-            headers={"Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": f"AWSCognitoIdentityProviderService.{operation}"})
+            f"https://cognito-idp.{region}.amazonaws.com/", method="POST",
+            data=json.dumps({"ClientId": client, **body}).encode(),
+            headers={"Content-Type": "application/x-amz-json-1.1",
+                     "X-Amz-Target": f"AWSCognitoIdentityProviderService.{operation}"})
         try:
             with urllib.request.urlopen(request, timeout=30) as reply:
                 return json.loads(reply.read())
         except urllib.error.HTTPError as error:
-            sys.exit(f"Cognito sign-in failed: {json.loads(error.read() or b'{}').get('__type', error.code)}. "
-                     "Create the account in /app/ and verify its email first.")
+            kind = json.loads(error.read() or b"{}").get("__type", error.code)
+            fail(f"Sign-in failed ({kind}). Check the email and password, and that the account's email is verified.")
 
     result = call("InitiateAuth", {"AuthFlow": "USER_AUTH",
                                    "AuthParameters": {"USERNAME": email, "PREFERRED_CHALLENGE": "PASSWORD", "PASSWORD": password}})
@@ -63,79 +75,183 @@ def cognito_id_token(email: str, password: str) -> str:
                                                  "ChallengeResponses": {"USERNAME": email, "PASSWORD": password}})
     token = (result.get("AuthenticationResult") or {}).get("IdToken")
     if not token:
-        sys.exit("Cognito asked for an extra sign-in step this script doesn't support (for example MFA).")
+        fail("This account needs an extra sign-in step (for example MFA) that this script doesn't support.")
     return token
 
 
+class Household:
+    def __init__(self, session: str) -> None:
+        self.auth = {"Authorization": f"Bearer {session}"}
+        self.data = http("GET", f"{API}/v1/household", headers=self.auth)["data"]
+
+    def edit(self, kind: str, value: dict) -> None:
+        reply = http("POST", f"{API}/v1/companion/edit",
+                     {"kind": kind, "value": value, "expectedRevision": self.data.get("revision", 0)}, self.auth)
+        self.data = reply["data"]
+
+    def ids(self, collection: str) -> set[str]:
+        return {item["id"] for item in self.data.get(collection, [])}
+
+
 def main() -> None:
-    email = os.getenv("FAMILYOS_REVIEWER_EMAIL", "").strip()
-    password = os.getenv("FAMILYOS_REVIEWER_PASSWORD", "")
-    code = os.getenv("FAMILYOS_REVIEWER_PARENT_CODE", "").strip()
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--email", default=os.getenv("HOMETIDE_SEED_EMAIL"))
+    parser.add_argument("--code", default=os.getenv("HOMETIDE_SEED_PARENT_CODE"), help="four-digit parent code")
+    parser.add_argument("--parent-name", default="Alex")
+    parser.add_argument("--household-name", default="The Rivera Family")
+    args = parser.parse_args()
+
+    email = (args.email or input("Hometide account email: ")).strip()
+    password = getpass.getpass("Hometide password (not shown): ")
+    code = (args.code or input("Four-digit parent code [2468]: ").strip() or "2468")
     if not email or not password or len(code) != 4 or not code.isdigit():
-        sys.exit("Set FAMILYOS_REVIEWER_EMAIL, FAMILYOS_REVIEWER_PASSWORD and a four-digit FAMILYOS_REVIEWER_PARENT_CODE.")
+        fail("An email, a password and a four-digit parent code are required.")
 
-    session = post_json(f"{API}/v1/auth/exchange",
-                        {"idToken": cognito_id_token(email, password), "parentName": "Alex", "householdName": "The Rivera Family"},
-                        {"X-FamilyOS-Session-Transport": "bearer"})["data"]["sessionToken"]
-    auth = {"Authorization": f"Bearer {session}"}
-    household = post_json(f"{API}/v1/household", None, auth, method="GET")["data"]
-    if any(event.get("title") == MARKER for event in household["events"]):
-        print("Sample household already present; nothing to do.")
-        return
+    print(f"Signing in to {API} as {email} ...")
+    session = http("POST", f"{API}/v1/auth/exchange",
+                   {"idToken": cognito_id_token(email, password), "parentName": args.parent_name,
+                    "householdName": args.household_name},
+                   {"X-FamilyOS-Session-Transport": "bearer"})["data"]["sessionToken"]
+    password = ""  # Not needed any more.
+    home = Household(session)
 
-    def edit(kind: str, value: dict) -> None:
-        nonlocal household
-        household = post_json(f"{API}/v1/companion/edit",
-                              {"kind": kind, "value": value, "expectedRevision": household.get("revision")}, auth)["data"]
+    # Weather and time zone first, so "today" means today in Phoenix.
+    home.edit("householdLocation", {"id": "home", "latitude": 33.45, "longitude": -112.07, "label": "Phoenix, AZ",
+                                    "source": "search", "timezone": ZONE})
+    print("  weather location: Phoenix, AZ")
 
-    family = household["family"]
-    zone = ZoneInfo(family.get("timezone") or "America/Phoenix")
-    today = datetime.now(zone).replace(hour=0, minute=0, second=0, microsecond=0)
-    names = {member["name"]: member["id"] for member in household["members"]}
-    parent_id = next(member["id"] for member in household["members"] if member["role"] == "adult")
-    people = [("Jordan", "adult", "#3E7C6B"), ("Emma", "child", "#C2543A"), ("Leo", "child", "#5165B8")]
-    for name, role, color in people:
-        if name not in names:
-            member_id = uuid.uuid4().hex
-            edit("member", {"id": member_id, "familyId": family["id"], "name": name, "initials": name[0],
-                            "role": role, "accentColor": color})
-            names[name] = member_id
+    family = home.data["family"]
+    members = {member["name"]: member["id"] for member in home.data["members"]}
+    parent = next(member["id"] for member in home.data["members"] if member["role"] == "adult")
+    for name, member_id, role, color in [("Jordan", "seed-jordan", "adult", "#3E7C6B"),
+                                         ("Emma", "seed-emma", "child", "#C2543A"),
+                                         ("Leo", "seed-leo", "child", "#5165B8")]:
+        if name not in members:
+            home.edit("member", {"id": member_id, "familyId": family["id"], "name": name, "initials": name[0],
+                                 "role": role, "accentColor": color})
+            members[name] = member_id
+    jordan, emma, leo = members["Jordan"], members["Emma"], members["Leo"]
+    print("  family: parent, Jordan, Emma, Leo")
 
-    def at(day: int, hour: int, minute: int = 0) -> str:
-        return (today + timedelta(days=day, hours=hour, minutes=minute)).isoformat()
+    today = datetime.now(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    monday = today - timedelta(days=today.weekday())
 
-    events = [
-        (MARKER, "family", 0, 7, 0, 7, 15, [parent_id]),
-        ("School drop-off", "dropoff", 0, 7, 45, 8, 15, [names["Emma"], names["Leo"]]),
-        ("Dentist: Emma", "appointment", 0, 15, 30, 16, 30, [names["Emma"], names["Jordan"]]),
-        ("Soccer practice", "sports", 0, 17, 0, 18, 0, [names["Leo"]]),
-        ("Family dinner", "family", 0, 18, 30, 19, 30, [parent_id, names["Jordan"], names["Emma"], names["Leo"]]),
-        ("Library visit", "family", 1, 10, 0, 11, 0, [names["Emma"], names["Leo"], parent_id]),
-    ]
-    for title, category, day, sh, sm, eh, em, members in events:
-        edit("event", {"id": uuid.uuid4().hex, "familyId": family["id"], "title": title, "category": category,
-                       "startAt": at(day, sh, sm), "endAt": at(day, eh, em), "ownerMemberId": parent_id, "memberIds": members})
-    chores = [
-        ("Make your bed", "Emma", False, None), ("Pack your backpack", "Leo", True, "Backpack zipped and by the door"),
-        ("Feed the cat", "Leo", False, None), ("Set the table", "Emma", False, None),
-    ]
-    for title, who, photo, hint in chores:
-        edit("chore", {"id": uuid.uuid4().hex, "familyId": family["id"], "title": title, "assignedToMemberId": names[who],
-                       "dueAt": at(0, 19), "status": "pending", "points": 5, "verifyWithPhoto": photo, "photoHint": hint})
-    for item in ("Milk", "Apples", "Pasta", "Granola bars"):
-        edit("listItem", {"id": uuid.uuid4().hex, "listName": "Groceries", "title": item, "category": "Food", "addedBy": "Alex"})
-    edit("meal", {"id": uuid.uuid4().hex, "title": "Tacos", "date": today.date().isoformat(), "category": "Dinner",
-                  "cookIds": [parent_id], "servings": 4, "minutes": 30,
-                  "ingredients": ["Tortillas", "Beans", "Cheese", "Salsa"], "instructions": ["Warm the tortillas", "Fill and serve"]})
-    reply = urllib.request.Request(f"{API}/v1/access-code", method="POST", data=json.dumps({"code": code}).encode(),
-                                   headers={"Content-Type": "application/json", **auth})
+    def at(weekday: int, hour: int, minute: int = 0) -> datetime:
+        return monday + timedelta(days=weekday, hours=hour, minutes=minute)
+
+    existing_events = home.ids("events")
+    added = 0
+
+    def weekly(event_id: str, title: str, category: str, weekday: int, start: tuple[int, int], minutes: int,
+               who: list[str], **extra) -> None:
+        nonlocal added
+        if event_id in existing_events:
+            return  # Already seeded with its 12 weekly copies.
+        begin = at(weekday, *start)
+        home.edit("event", {"id": event_id, "familyId": family["id"], "title": title, "category": category,
+                            "startAt": begin.isoformat(), "endAt": (begin + timedelta(minutes=minutes)).isoformat(),
+                            "ownerMemberId": parent, "memberIds": who, "recurrence": "weekly", **extra})
+        added += 1
+
+    for day, name in enumerate(["mon", "tue", "wed", "thu", "fri"]):
+        weekly(f"seed-dropoff-{name}", "School drop-off", "dropoff", day, (7, 45), 30, [emma, leo],
+               responsibleMemberId=parent, responsibilityType="dropoff", location="Desert Willow Elementary",
+               travelMinutes=12)
+        weekly(f"seed-school-{name}", "School", "school", day, (8, 15), 420, [emma, leo],
+               location="Desert Willow Elementary")
+        weekly(f"seed-pickup-{name}", "Emma pickup", "pickup", day, (15, 15), 20, [emma],
+               responsibleMemberId=jordan if day in (1, 3) else parent, responsibilityType="pickup",
+               location="Desert Willow Elementary", travelMinutes=12)
+    # Jordan's meeting overlaps Emma's Tuesday/Thursday pickup: the briefing flags it and suggests Alex.
+    weekly("seed-meeting-tue", "Team meeting", "appointment", 1, (14, 45), 75, [jordan], location="Office")
+    weekly("seed-meeting-thu", "Team meeting", "appointment", 3, (14, 45), 75, [jordan], location="Office")
+    weekly("seed-piano-wed", "Piano lesson", "appointment", 2, (16, 0), 45, [emma], location="Music Studio",
+           travelMinutes=10)
+    for day, name in [(1, "tue"), (3, "thu")]:
+        weekly(f"seed-soccer-{name}", "Soccer practice", "sports", day, (17, 30), 60, [leo], location="Encanto Park",
+               travelMinutes=15, preparation=[{"id": "ball", "label": "Soccer ball", "completed": False},
+                                              {"id": "water", "label": "Water bottle", "completed": False}])
+    weekly("seed-soccer-game", "Soccer game", "sports", 5, (9, 0), 90, [leo, parent, jordan],
+           location="Encanto Park", travelMinutes=15,
+           preparation=[{"id": "jersey", "label": "Blue jersey", "completed": False},
+                        {"id": "snacks", "label": "Team snacks", "completed": False}])
+    weekly("seed-movie-night", "Family movie night", "family", 4, (19, 0), 120, [parent, jordan, emma, leo])
+    weekly("seed-brunch", "Brunch at Grandma's", "family", 6, (11, 0), 120, [parent, jordan, emma, leo],
+           location="Grandma's house", travelMinutes=20)
+    weekly("seed-dinner", "Family dinner", "meal", 0, (18, 30), 45, [parent, jordan, emma, leo])
+    print(f"  calendar: {added} weekly series added (12 weeks each)" if added else "  calendar: already seeded")
+
+    due = today.replace(hour=19)
+    chores = [("seed-chore-bed", "Make your bed", emma, 5, False, None),
+              ("seed-chore-backpack", "Pack your backpack", leo, 5, True, "Backpack zipped and by the door"),
+              ("seed-chore-cat", "Feed the cat", leo, 5, False, None),
+              ("seed-chore-table", "Set the table", emma, 5, False, None),
+              ("seed-chore-toys", "Put toys away", leo, 3, False, None),
+              ("seed-chore-reading", "Read for 20 minutes", emma, 5, False, None)]
+    for chore_id, title, who, points, photo, hint in chores:
+        home.edit("chore", {"id": chore_id, "familyId": family["id"], "title": title, "assignedToMemberId": who,
+                            "dueAt": due.isoformat(), "status": "pending", "points": points, "recurrence": "daily",
+                            "verifyWithPhoto": photo, "photoHint": hint})
+    print(f"  chores: {len(chores)} daily")
+
+    for reward_id, title, stars in [("seed-reward-movie", "Pick the movie", 20),
+                                    ("seed-reward-screen", "30 minutes extra screen time", 15),
+                                    ("seed-reward-icecream", "Ice cream trip", 40)]:
+        home.edit("reward", {"id": reward_id, "title": title, "stars": stars, "available": True})
+    print("  rewards: 3")
+
+    meals = [("Tacos", ["Tortillas", "Ground turkey", "Cheese", "Salsa"]),
+             ("Spaghetti and meatballs", ["Spaghetti", "Meatballs", "Marinara"]),
+             ("Sheet-pan chicken and veggies", ["Chicken thighs", "Broccoli", "Potatoes"]),
+             ("Homemade pizza", ["Pizza dough", "Mozzarella", "Pepperoni"]),
+             ("Burgers on the grill", ["Burger buns", "Ground beef", "Lettuce", "Tomatoes"]),
+             ("Pancakes for dinner", ["Pancake mix", "Eggs", "Berries"]),
+             ("Roast chicken", ["Whole chicken", "Carrots", "Rice"])]
+    planned = {(meal["date"], meal["title"]) for meal in home.data.get("meals", [])}
+    for offset, (title, ingredients) in enumerate(meals):
+        day = (monday + timedelta(days=offset)).date().isoformat()
+        if (day, title) not in planned:
+            home.edit("meal", {"id": f"seed-meal-{offset}", "title": title, "date": day, "category": "Dinner",
+                               "cookIds": [parent if offset % 2 == 0 else jordan], "servings": 4, "minutes": 35,
+                               "ingredients": ingredients, "instructions": ["Prep", "Cook", "Serve"],
+                               "recurrence": "weekly"})
+    print("  meals: a week of dinners, repeating weekly")
+
+    items = [("Groceries", ["Milk", "Apples", "Bananas", "Bread", "Eggs", "Granola bars", "Spinach"], "Food"),
+             ("Weekend to-do", ["Clean out the garage", "Return library books", "Buy a gift for Ava's party"], "Home")]
+    for list_name, titles, category in items:
+        for number, title in enumerate(titles):
+            home.edit("listItem", {"id": f"seed-{list_name[:4].lower()}-{number}", "listName": list_name,
+                                   "title": title, "category": category, "addedBy": args.parent_name})
+    print("  lists: Groceries and Weekend to-do")
+
     try:
-        urllib.request.urlopen(reply, timeout=30).read()
-    except urllib.error.HTTPError as error:
-        if error.code != 409:  # 409: a code is already set; keep it.
-            sys.exit(f"Setting the parent code failed ({error.code}).")
-    print(f"Sample household ready for {email}: 4 people, {len(events)} events, {len(chores)} chores, groceries and dinner.")
+        http("POST", f"{API}/v1/access-code", {"code": code}, home.auth)
+        print(f"  parent code set: {code}")
+    except RuntimeError as error:
+        if "(409)" not in str(error):
+            raise
+        print("  parent code: already set (kept)")
+
+    balances = http("GET", f"{API}/v1/rewards", headers=home.auth)["data"]["balances"]
+    for who, stars in [(emma, 18), (leo, 12)]:
+        if balances.get(who, 0) == 0:
+            try:
+                http("POST", f"{API}/v1/stars/adjust", {"code": code, "memberId": who, "delta": stars}, home.auth)
+            except RuntimeError as error:
+                print(f"  stars skipped ({error}); the parent code on this account may differ")
+                break
+    rewards = http("GET", f"{API}/v1/rewards", headers=home.auth)["data"]
+    if not any(item["status"] == "pending" for item in rewards["redemptions"]):
+        http("POST", f"{API}/v1/redemptions/request", {"memberId": leo, "rewardId": "seed-reward-screen"}, home.auth)
+    print("  stars: Emma 18, Leo 12; Leo is asking for extra screen time (approve it on the TV)")
+    print(f"\nDone. Open {API}/app/ or pair a TV to see the Rivera family.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RuntimeError as error:
+        fail(str(error))
+    except KeyboardInterrupt:
+        fail("Stopped.")

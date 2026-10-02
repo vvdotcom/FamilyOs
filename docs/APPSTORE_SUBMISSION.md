@@ -49,16 +49,18 @@ Amazon's testers must be able to complete every sign-in path, including pairing 
 
 1. Create a reviewer account yourself: open `https://hometide.up.railway.app/app/`, choose **Create
    account**, use an address you control (for example `appstore-review@your-domain`), and verify it.
-2. Fill it with a sample household (two adults, two children, today's events, chores, groceries, dinner, parent code):
+2. Fill it with the sample family (run it yourself; it asks for the password and never stores it):
 
    ```powershell
-   $env:FAMILYOS_REVIEWER_EMAIL = "appstore-review@your-domain.example"
-   $env:FAMILYOS_REVIEWER_PASSWORD = "<the password you chose>"
-   $env:FAMILYOS_REVIEWER_PARENT_CODE = "2468"
-   python setup/seed-reviewer-household.py
+   python setup/seed-reviewer-household.py --email review@your-domain.example --code 2468
    ```
 
-   Run it again any time; it does not duplicate the sample. Re-run after a reviewer deletes data.
+   It adds the Rivera family (Alex, Jordan, Emma, Leo) with weekly school runs, pickups, piano, soccer, movie
+   night and brunch for the next 12 weeks, so the account looks lived-in whenever Amazon opens it. Every Tuesday
+   and Thursday has a pickup conflict to fix. It also adds daily chores (one with a photo check), rewards, stars,
+   a reward request waiting for approval, a week of dinners, grocery and to-do lists, Phoenix weather and the
+   parent code. Run it again any time (for example after a reviewer deletes things); it updates instead of
+   duplicating. Use the same command for the demo account.
 3. Paste this into **Testing Instructions** (fill in the account):
 
    > Hometide shows a family's calendar, chores and meals on the TV. The TV pairs with a parent's phone; you don't

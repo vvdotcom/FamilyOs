@@ -55,3 +55,17 @@ def test_without_bedrock_the_rules_explain_what_went_wrong(api, monkeypatch):
     parent = parent_token(api)
     data = ask(api, parent, "Swap the zumba class to Alex")
     assert data["mode"] == "rules" and "couldn't find" in data["reply"]
+
+
+def test_a_bedrock_answer_with_only_hidden_reasoning_falls_back_to_the_rules(api, monkeypatch):
+    """Nova can reply with nothing but <thinking> notes; Alexa must still hear an answer, not an apology."""
+    monkeypatch.setenv("FAMILYOS_AI_PROVIDER", "bedrock")
+    monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "test-only")
+
+    async def silent_bedrock(self, utterance, tools=None):
+        return {"mode": "bedrock", "reply": "", "toolCalls": [], "proposalIds": []}
+
+    monkeypatch.setattr(api.main.VoiceServer, "_simulate_bedrock", silent_bedrock)
+    api.main._ai_usage.clear()
+    data = ask(api, parent_token(api), "What's on today?")
+    assert data["mode"] == "rules" and data["reply"].strip(), data
