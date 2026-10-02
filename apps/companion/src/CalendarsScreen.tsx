@@ -34,7 +34,7 @@ const GUIDES: Record<CalendarProvider, { steps: string[]; note: string }> = {
       'Under “Publish a calendar”, choose the calendar and “Can view all details”, then Publish.',
       'Copy the ICS link.',
     ],
-    note: 'You can stop publishing in Outlook anytime; FamilyOS then shows the last copy it had.',
+    note: 'You can stop publishing in Outlook anytime; Hometide then shows the last copy it had.',
   },
   ics: {
     steps: [
@@ -89,7 +89,7 @@ function CalendarCard({ ctx, calendar }: { ctx: ScreenContext; calendar: Connect
       ) : null}
       {confirming ? (
         <View style={{ gap: 8 }}>
-          <Copy size={13}>Disconnect “{calendar.label}”? Its events leave FamilyOS. Nothing changes in {PROVIDER_NAMES[calendar.provider]}.</Copy>
+          <Copy size={13}>Disconnect “{calendar.label}”? Its events leave Hometide. Nothing changes in {PROVIDER_NAMES[calendar.provider]}.</Copy>
           <View style={[s.row, { gap: 6 }]}>
             <Button primary disabled={busy} onPress={() => void ctx.run(async () => ctx.replace(await api.disconnectCalendar!(calendar.id)), 'Calendar disconnected.')}>Disconnect</Button>
             <Button onPress={() => setConfirming(false)}>Keep it</Button>
@@ -136,11 +136,11 @@ export function CalendarsScreen(ctx: ScreenContext) {
       <Label>GOOGLE · ICLOUD · OUTLOOK</Label>
       <Heading>Connected calendars</Heading>
       <Copy size={14} color={t.muted}>
-        Bring in the calendars your family already uses. FamilyOS checks them about every 15 minutes and shows them on the TV. It only reads them; it never changes them.
+        Bring in the calendars your family already uses. Hometide checks them about every 15 minutes and shows them on the TV. It only reads them; it never changes them.
       </Copy>
       {connected.map((calendar) => <CalendarCard key={calendar.id} ctx={ctx} calendar={calendar} />)}
       {connected.length >= 10 ? (
-        <Card style={{ padding: 16 }}><Copy color={t.muted}>You’ve connected 10 calendars, the most FamilyOS supports.</Copy></Card>
+        <Card style={{ padding: 16 }}><Copy color={t.muted}>You’ve connected 10 calendars, the most Hometide supports.</Copy></Card>
       ) : (
         <Card style={{ padding: 16, gap: 12 }}>
           <Copy weight={800}>{connected.length ? 'Connect another calendar' : 'Connect a calendar'}</Copy>
@@ -164,7 +164,7 @@ export function CalendarsScreen(ctx: ScreenContext) {
           <Button primary icon="calendar" disabled={busy || !looksRight || !owners.length || !api.connectCalendar} onPress={() => void connect()}>
             {busy ? 'Checking the link…' : 'Connect'}
           </Button>
-          <Copy size={12} color={t.muted}>The link is stored encrypted on your FamilyOS server and is never shown on the TV.</Copy>
+          <Copy size={12} color={t.muted}>The link is stored encrypted on your Hometide server and is never shown on the TV.</Copy>
         </Card>
       )}
     </>
@@ -188,7 +188,7 @@ export function SyncedEventSheet({ data, event, onClose }: { data: Household; ev
         {who ? <Copy color={t.muted}>{who}</Copy> : null}
       </Card>
       <Copy size={14} color={t.muted}>
-        This event comes from a connected calendar, so it’s read-only here. Change it in {syncedLabel(data, event).split(' · ')[0]} and FamilyOS shows the update within about 15 minutes.
+        This event comes from a connected calendar, so it’s read-only here. Change it in {syncedLabel(data, event).split(' · ')[0]} and Hometide shows the update within about 15 minutes.
       </Copy>
       <Button primary onPress={onClose}>Done</Button>
     </View>

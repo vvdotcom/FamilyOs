@@ -29,7 +29,7 @@
     "apis": {
       "custom": {
         "endpoint": {
-          "uri": "https://familyos-api-production.up.railway.app/alexa",
+          "uri": "https://hometide.up.railway.app/alexa",
           "sslCertificateType": "Wildcard"
         },
         "interfaces": []
@@ -43,7 +43,7 @@
       "containsAds": false,
       "locales": {
         "en-US": {
-          "privacyPolicyUrl": "https://familyos-api-production.up.railway.app/privacy"
+          "privacyPolicyUrl": "https://hometide.up.railway.app/privacy"
         }
       }
     },

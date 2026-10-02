@@ -13,7 +13,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.routing import Route
 
@@ -29,7 +29,7 @@ from .models import (
     APIEnvelope, ActionProposalRequest, CalendarAddBody, CalendarSubscriptionMeta, ChangeParentAccessCodeBody, ChildAccessBody, ChoreVerificationBody,
     CognitoExchangeBody, DecisionWithCodeBody, EmptyBody, HouseholdContext, MoveCompleteBody, PairingApproveBody,
     PairingChallengeBody, PairingClaimBody, ParentAccessCodeBody, PhotoUploadBody, ProposalDecisionBody,
-    RedemptionDecisionBody, RedemptionRequestBody, ResetAccessCodeBody, StarAdjustmentBody, VoiceTokenBody,
+    DeleteAccountBody, RedemptionDecisionBody, RedemptionRequestBody, ResetAccessCodeBody, StarAdjustmentBody, VoiceTokenBody,
     VoiceUtteranceBody,
 )
 from .move import MOVE_ROUTINES, SAFETY_NOTE, routine_summary
@@ -61,7 +61,7 @@ logger = logging.getLogger("familyos.agent")
 
 if os.getenv("RAILWAY_ENVIRONMENT") and not IS_PRODUCTION:
     raise RuntimeError(
-        "FamilyOS deployment is blocked unless Cognito authentication and PostgreSQL are enabled. "
+        "Hometide deployment is blocked unless Cognito authentication and PostgreSQL are enabled. "
         "Do not expose the local demo API on Railway."
     )
 
@@ -131,7 +131,7 @@ async def lifespan(_app: FastAPI):
             background.cancel()
 
 
-app = FastAPI(title="FamilyOS Family Agent", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Hometide Family Agent", version="0.2.0", lifespan=lifespan)
 
 if DEMO_MODE:
     origins = ["*"]
@@ -205,28 +205,44 @@ async def validation_error_handler(request: Request, _exc: RequestValidationErro
     })
 
 
-PRIVACY_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>FamilyOS privacy</title>
-<style>body{font:16px/1.6 system-ui,sans-serif;max-width:42rem;margin:2rem auto;padding:0 1rem;color:#1f1b16}</style>
-</head><body><h1>FamilyOS privacy</h1>
-<p>FamilyOS keeps a family's calendar, chores, rewards, lists, meals, and photos so they can see them on their TV and
-phones. This page covers the FamilyOS app, its Fire TV app, and its Alexa skill.</p>
-<h2>What we store</h2><p>What your family adds: names, events, chores, stars, lists, meals, photos, and an approximate
-home location (about 1 km) for the weather. Calendar links you connect are encrypted. Photos have location and camera
-details removed.</p>
-<h2>How it's used</h2><p>Only to run FamilyOS for your household. Some features send the minimum needed to Amazon Bedrock
-to read a flyer, check a chore photo, write a briefing, or answer a voice request. We don't sell data, show ads, or share
-it with anyone else.</p>
-<h2>Alexa</h2><p>When you link the FamilyOS skill, Alexa gets access to your household so it can answer questions and show
-screens on your TV. Voice can suggest changes, but a parent confirms them. Unlink the skill in the Alexa app at any time.</p>
-<h2>Your choices</h2><p>Parents can delete items, photos, connected calendars, and voice connections in the app, and sign
-out everywhere. To delete a household, contact the FamilyOS team through the project's GitHub repository.</p>
-</body></html>"""
+# Public policy pages (linked from the app stores) ------------------------------------------------------
+PAGES_DIR = Path(__file__).with_name("pages")
+POLICY_UPDATED = "October 1, 2026"
+
+
+def _public_page(name: str) -> HTMLResponse:
+    """Render a policy page. The operator name and privacy email come from Railway variables."""
+    import html as _html
+
+    operator = _html.escape(os.getenv("FAMILYOS_OPERATOR_NAME", "").strip())
+    email = _html.escape(os.getenv("FAMILYOS_PRIVACY_EMAIL", "").strip())
+    mail = f'<a href="mailto:{email}">{email}</a>' if email else ""
+    values = {
+        "{{UPDATED}}": POLICY_UPDATED,
+        "{{OPERATOR_SENTENCE}}": f"Hometide is provided by {operator}." if operator else "",
+        "{{CONTACT_SENTENCE}}": (f"Questions, requests, or concerns about privacy or your children's data: email {mail}."
+                                 if email else "Use the tools in the app, or the account-deletion page, for privacy requests."),
+        "{{CONTACT_SENTENCE_DELETE}}": (
+            "Reset your password from the sign-in screen (<em>Forgot password?</em>), then delete the account as above."
+            + (f" Or email {mail} from the email address on the account and ask us to delete it. We confirm and "
+               "delete it within 30 days." if email else "")),
+    }
+    page = (PAGES_DIR / name).read_text(encoding="utf-8")
+    for key, value in values.items():
+        page = page.replace(key, value)
+    return HTMLResponse(page, headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff",
+                                       "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; "
+                                       "img-src 'self'; frame-ancestors 'none'"})
 
 
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 async def privacy_page():
-    return HTMLResponse(PRIVACY_PAGE, headers={"Cache-Control": "public, max-age=3600"})
+    return _public_page("privacy.html")
+
+
+@app.get("/delete-account", response_class=HTMLResponse, include_in_schema=False)
+async def delete_account_page():
+    return _public_page("delete-account.html")
 
 
 @app.get("/health", response_model=APIEnvelope)
@@ -502,14 +518,14 @@ async def get_weather(request: Request, response: Response):
     response.headers["Cache-Control"] = "no-store"
     place = snapshot.location
     if place is None and not weather_provider.configured:
-        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set your household's location in the FamilyOS app to show weather.")
+        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set your household's location in the Hometide app to show weather.")
     try:
         if place is not None:
             forecast = await weather_provider.forecast_for(place.latitude, place.longitude, place.label)
         else:
             forecast = await weather_provider.get_forecast()
     except WeatherNotConfigured as error:
-        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set your household's location in the FamilyOS app to show weather.") from error
+        raise DomainError(503, "WEATHER_NOT_CONFIGURED", "Set your household's location in the Hometide app to show weather.") from error
     except WeatherUnsupportedLocation as error:
         raise DomainError(503, "WEATHER_UNSUPPORTED_LOCATION", "Weather forecasts are available for US locations only.") from error
     except WeatherUnavailable as error:
@@ -679,7 +695,7 @@ async def lock_tv_parent_mode(_body: EmptyBody, request: Request):
 
 @app.post("/alexa", include_in_schema=False)
 async def alexa_skill(request: Request):
-    """Alexa Skills Kit endpoint. The skill reaches FamilyOS through the MCP server, with the linked account's token."""
+    """Alexa Skills Kit endpoint. The skill reaches Hometide through the MCP server, with the linked account's token."""
     if not ALEXA_SKILL_ID:
         raise DomainError(404, "NOT_FOUND", "That resource could not be found.")
     body = await request.body()
@@ -749,6 +765,27 @@ async def reset_parent_access_code(body: ResetAccessCodeBody, request: Request):
         auth_store.verify_password(actor.owner, body.password or "")
     service().accounts.reset_parent_access_code(actor.owner, body.newCode)
     return success(request, {"reset": True})
+
+
+@app.post("/v1/account/delete", response_model=APIEnvelope)
+async def delete_account(body: DeleteAccountBody, request: Request, response: Response):
+    """Permanently delete the signed-in parent's household and everything in it.
+
+    Needs a fresh password sign-in. Sessions, paired TVs, child views, the parent code, voice connections,
+    photos and calendar links go with it. The phone or web app then deletes the Cognito sign-in itself.
+    """
+    actor = require_parent(request)
+    if IS_PRODUCTION:
+        production_auth.verify_recent_sign_in(body.idToken, actor.owner,
+                                              message="Enter your password again to delete your account.")
+        production_store.delete_household(actor.owner)
+    else:
+        auth_store.verify_password(actor.owner, body.password or "")
+        auth_store.delete_account(actor.owner)
+    response.delete_cookie(AUTH_COOKIE, path="/")
+    response.headers["Cache-Control"] = "no-store"
+    logger.info("Account deleted on request")
+    return success(request, {"deleted": True})
 
 
 @app.get("/v1/rewards", response_model=APIEnvelope)
@@ -1219,6 +1256,54 @@ async def reset_demo(request: Request):
 
 
 app.router.routes.append(Route("/mcp", endpoint=voice_server, methods=["GET", "POST", "DELETE"]))
+
+# Web app (the phone companion built for browsers) ----------------------------------------------------
+# Built from apps/companion with `yarn build:web-app` into app/webapp and served here, on the API's own
+# origin, so it needs no CORS setup and its sessions never leave this origin.
+WEB_APP_DIR = Path(__file__).with_name("webapp")
+_cognito_region = cognito_issuer.split("cognito-idp.", 1)[1].split(".", 1)[0] if "cognito-idp." in cognito_issuer else "us-west-2"
+WEB_APP_CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self'",
+    # react-native-web adds its styles at runtime.
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    # Passwords go straight to Cognito; everything else goes to this API.
+    f"connect-src 'self' https://cognito-idp.{_cognito_region}.amazonaws.com",
+    "manifest-src 'self'",
+    "worker-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+
+
+@app.middleware("http")
+async def web_app_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/app" or path.startswith("/app/"):
+        response.headers["Content-Security-Policy"] = WEB_APP_CSP
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = "camera=(self), geolocation=(self), microphone=()"
+        if IS_PRODUCTION:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000"
+        # Bundles have content hashes in their names; the page itself must always be fresh.
+        immutable = "/_expo/static/" in path or "/assets/" in path
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+    return response
+
+
+if WEB_APP_DIR.is_dir():
+    app.mount("/app", StaticFiles(directory=WEB_APP_DIR, html=True), name="web-app")
+
+    @app.get("/", include_in_schema=False)
+    async def web_app_home():
+        return RedirectResponse("/app/", status_code=307)
+
 
 if not IS_PRODUCTION:
     app.mount(

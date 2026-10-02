@@ -1,10 +1,11 @@
 import { useFonts } from 'expo-font';
 import Constants from 'expo-constants';
-import { SecureStore } from './src/storage';
+import { rememberThisDevice, SecureStore, setRememberThisDevice } from './src/storage';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -17,10 +18,12 @@ import {
   TextInputProps,
   View,
   useColorScheme,
+  Image,
 } from 'react-native';
 import {
   DEFAULT_API_URL,
   FamilyOSAPI,
+  HOSTED_WEB,
   readSavedAPIURL,
   saveAPIURL,
 } from './src/auth-api';
@@ -101,6 +104,8 @@ function AccountApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [serverDraft, setServerDraft] = useState(DEFAULT_API_URL);
   const [settingsError, setSettingsError] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(rememberThisDevice());
+  const [guardianConfirmed, setGuardianConfirmed] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
@@ -155,8 +160,9 @@ function AccountApp() {
   };
 
   const createAccount = () => perform(async () => {
-    if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (!api) throw new Error('Set a valid Hometide server address in Settings first.');
     if (!parentName.trim() || !householdName.trim()) throw new Error('Enter your name and household name.');
+    if (!guardianConfirmed) throw new Error('Confirm that you’re an adult and the parent or guardian of the children you’ll add.');
     if (password.length < 12) throw new Error('Use a password with at least 12 characters.');
     if (api.usesCognito) {
       const result = await cognito.signUp(email, password);
@@ -182,7 +188,7 @@ function AccountApp() {
   });
 
   const verifyEmail = () => perform(async () => {
-    if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (!api) throw new Error('Set a valid Hometide server address in Settings first.');
     if (api.usesCognito) {
       await cognito.confirm(email, code);
       setCode(''); setPassword(''); setLocalCode(null); setScreen('sign-in');
@@ -197,7 +203,7 @@ function AccountApp() {
   });
 
   const resendCode = () => perform(async () => {
-    if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (!api) throw new Error('Set a valid Hometide server address in Settings first.');
     if (api.usesCognito) {
       const result = await cognito.resend(email);
       tell(`A new verification code was sent to ${result.CodeDeliveryDetails?.Destination || email.trim()}.`);
@@ -212,7 +218,7 @@ function AccountApp() {
   });
 
   const signIn = () => perform(async () => {
-    if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (!api) throw new Error('Set a valid Hometide server address in Settings first.');
     if (api.usesCognito) {
       const idToken = await cognito.signIn(email, password);
       setPassword('');
@@ -232,7 +238,7 @@ function AccountApp() {
   });
 
   const sendResetCode = () => perform(async () => {
-    if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (!api) throw new Error('Set a valid Hometide server address in Settings first.');
     if (api.usesCognito) {
       await cognito.forgotPassword(email);
       setCode(''); setNewPassword(''); setPassword(''); setLocalCode(null); setScreen('reset');
@@ -251,7 +257,7 @@ function AccountApp() {
   });
 
   const resetPassword = () => perform(async () => {
-    if (!api) throw new Error('Set a valid FamilyOS server address in Settings first.');
+    if (!api) throw new Error('Set a valid Hometide server address in Settings first.');
     if (newPassword.length < 12) throw new Error('Use a password with at least 12 characters.');
     if (api.usesCognito) await cognito.resetPassword(email, code, newPassword);
     else await api.resetPassword(email.trim(), code, newPassword);
@@ -261,6 +267,28 @@ function AccountApp() {
     setScreen('sign-in');
     tell('Password updated. Sign in with your new password.');
   });
+
+  /** Permanently delete the account: household data on the Hometide server, then the Cognito sign-in. */
+  const deleteAccount = async (accountPassword: string) => {
+    if (!api || !account) throw new Error('Sign in again, then try deleting your account.');
+    let deleteSignIn: (() => Promise<void>) | null = null;
+    if (api.usesCognito) {
+      const tokens = await cognito.signInTokens(account.email, accountPassword);
+      await api.deleteAccount(accountPassword, tokens.idToken);
+      if (tokens.accessToken) deleteSignIn = () => cognito.deleteUser(tokens.accessToken!);
+    } else {
+      await api.deleteAccount(accountPassword);
+    }
+    setAccount(null);
+    setPassword('');
+    setScreen('sign-in');
+    try {
+      if (deleteSignIn) await deleteSignIn();
+      tell('Your Hometide account and all household data were deleted.');
+    } catch {
+      tell('Your household data was deleted, but your sign-in could not be removed. Visit /delete-account to finish.', true);
+    }
+  };
 
   const signOut = () => perform(async () => {
     setAccount(null);
@@ -287,7 +315,7 @@ function AccountApp() {
         setAccount(null);
         setScreen('sign-in');
         setSettingsOpen(false);
-        tell('Settings saved. Sign in to this FamilyOS server.');
+        tell('Settings saved. Sign in to this Hometide server.');
       } catch (error) {
         setSettingsError(error instanceof Error ? error.message : 'Could not save settings.');
       } finally {
@@ -306,7 +334,7 @@ function AccountApp() {
   };
   const screenCopy: Record<Screen, string> = {
     'sign-in': 'Sign in to keep your household connected across devices.',
-    'sign-up': 'Create a parent account to start your FamilyOS household.',
+    'sign-up': 'Create a parent account to start your Hometide household.',
     verify: 'Enter the six-digit code sent to your email address.',
     forgot: 'We’ll send a reset code to the verified email on your account.',
     reset: 'Enter your reset code, then choose a new password.',
@@ -322,12 +350,13 @@ function AccountApp() {
       <HouseholdApp key={`${apiURL}:${account.accountId}`} api={api} account={account} dark={dark} appearance={appearance}
         onAppearance={async value => { await SecureStore.setItemAsync(APPEARANCE_KEY, value); setAppearance(value); }}
         onSignOut={signOut} onServerSettings={() => { setServerDraft(apiURL); setSettingsOpen(true); }}
-        onReauthenticate={async password => (api.usesCognito ? cognito.signIn(account.email, password) : undefined)} />
+        onReauthenticate={async password => (api.usesCognito ? cognito.signIn(account.email, password) : undefined)}
+        onDeleteAccount={deleteAccount} />
       <Modal visible={settingsOpen} transparent animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBackdrop}>
           <View style={styles.settingsSheet}>
             <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>Server settings</Text><Pressable accessibilityRole="button" onPress={() => setSettingsOpen(false)}><Text style={styles.close}>Cancel</Text></Pressable></View>
-            <Field label="FamilyOS server" placeholder="https://…" value={serverDraft} onChangeText={setServerDraft} keyboardType="url" autoCapitalize="none" styles={styles} colors={colors}/>
+            <Field label="Hometide server" placeholder="https://…" value={serverDraft} onChangeText={setServerDraft} keyboardType="url" autoCapitalize="none" styles={styles} colors={colors}/>
             <Text style={styles.help}>Changing servers signs you out on this phone.</Text>
             {!!settingsError && <Text style={styles.settingsError}>{settingsError}</Text>}
             <ActionButton title="Save server" busy={busy} onPress={saveSettings} styles={styles} colors={colors}/>
@@ -345,8 +374,8 @@ function AccountApp() {
           <View style={styles.page}>
             <View style={styles.header}>
               <View style={styles.brand}>
-                <Text style={styles.brandMark}>F</Text>
-                <Text style={styles.brandName}>FamilyOS</Text>
+                <Image source={require('./assets/brand-mark.png')} style={styles.brandMark} accessibilityIgnoresInvertColors />
+                <Text style={styles.brandName}>Hometide</Text>
               </View>
               <Pressable onPress={() => { setServerDraft(apiURL); setSettingsError(''); setSettingsOpen(true); }} accessibilityRole="button" accessibilityLabel="Settings" style={styles.settingsButton}>
                 <Text style={styles.settingsGlyph}>⚙</Text>
@@ -375,6 +404,18 @@ function AccountApp() {
               {screen === 'sign-in' && <View style={styles.form}>
                 <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} colors={colors} />
                 <Field label="Password" placeholder="Your password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" styles={styles} colors={colors} />
+                {Platform.OS === 'web' && (
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: rememberDevice }}
+                    onPress={() => { setRememberThisDevice(!rememberDevice); setRememberDevice(!rememberDevice); }}
+                    style={styles.rememberRow}>
+                    <View style={[styles.rememberBox, rememberDevice && { backgroundColor: colors.ink, borderColor: colors.ink }]}>
+                      {rememberDevice && <Text style={[styles.rememberTick, { color: colors.canvas }]}>✓</Text>}
+                    </View>
+                    <Text style={styles.label}>Keep me signed in on this device</Text>
+                  </Pressable>
+                )}
                 <ActionButton title="Sign in" busy={busy} onPress={signIn} styles={styles} colors={colors} />
                 {hostedAuth && <TextButton title="Verify my email" onPress={() => { setScreen('verify'); setCode(''); setPassword(''); setMessage(''); }} styles={styles} />}
                 <TextButton title="Forgot password?" onPress={() => { setScreen('forgot'); setMessage(''); }} styles={styles} />
@@ -386,6 +427,19 @@ function AccountApp() {
                 <Field label="Email address" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" autoCapitalize="none" styles={styles} colors={colors} />
                 <Field label="Create password" placeholder="At least 12 characters" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" styles={styles} colors={colors} />
                 <Text style={styles.help}>{hostedAuth ? 'Use at least 12 characters with uppercase and lowercase letters, a number, and a symbol. We’ll email you a verification code.' : 'Use at least 12 characters. Children can be added as family profiles later; they won’t need email accounts.'}</Text>
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: guardianConfirmed }}
+                  onPress={() => setGuardianConfirmed(!guardianConfirmed)}
+                  style={styles.rememberRow}>
+                  <View style={[styles.rememberBox, guardianConfirmed && { backgroundColor: colors.ink, borderColor: colors.ink }]}>
+                    {guardianConfirmed && <Text style={[styles.rememberTick, { color: colors.canvas }]}>✓</Text>}
+                  </View>
+                  <Text style={[styles.help, { flex: 1 }]}>
+                    I’m 18 or older and the parent or legal guardian of any children I add. I agree to the{' '}
+                    <Text accessibilityRole="link" style={styles.footerLink} onPress={() => void Linking.openURL(`${apiURL}/privacy`)}>privacy policy</Text>.
+                  </Text>
+                </Pressable>
                 <ActionButton title="Create parent account" busy={busy} onPress={createAccount} styles={styles} colors={colors} />
               </View>}
 
@@ -424,6 +478,11 @@ function AccountApp() {
             </View>
 
             <Text style={styles.footer}>{hostedAuth ? 'Your account is secured by Amazon Cognito.' : 'Local preview · account and email flows use the development API'}</Text>
+            <Text style={styles.footer}>
+              <Text accessibilityRole="link" style={styles.footerLink} onPress={() => void Linking.openURL(`${apiURL}/privacy`)}>Privacy</Text>
+              {'  ·  '}
+              <Text accessibilityRole="link" style={styles.footerLink} onPress={() => void Linking.openURL(`${apiURL}/delete-account`)}>Delete an account</Text>
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -443,12 +502,18 @@ function AccountApp() {
                 </Pressable>
               ))}
             </View>
-            <Field label="FamilyOS server" placeholder="https://… or local address" value={serverDraft} onChangeText={setServerDraft} keyboardType="url" autoCapitalize="none" styles={styles} colors={colors} />
-            <Text style={styles.help}>{Platform.OS === 'web'
-              ? 'This browser preview uses temporary tab storage and connects only to a local development API.'
-              : 'Use HTTPS for a hosted service. For local testing, use your computer’s private Wi-Fi address and port 8787. The API must be reachable from this phone.'}</Text>
-            {!!settingsError && <Text style={styles.settingsError}>{settingsError}</Text>}
-            <ActionButton title="Save settings" busy={busy} onPress={saveSettings} styles={styles} colors={colors} />
+            {HOSTED_WEB ? (
+              <Text style={styles.help}>{`This web app uses the Hometide server it was opened from (${apiURL}). ${rememberDevice ? 'You stay signed in on this browser until you sign out.' : 'You are signed out when you close this tab or app.'}`}</Text>
+            ) : (
+              <>
+                <Field label="Hometide server" placeholder="https://… or local address" value={serverDraft} onChangeText={setServerDraft} keyboardType="url" autoCapitalize="none" styles={styles} colors={colors} />
+                <Text style={styles.help}>{Platform.OS === 'web'
+                  ? 'This browser preview connects only to a local development API.'
+                  : 'Use HTTPS for a hosted service. For local testing, use your computer’s private Wi-Fi address and port 8787. The API must be reachable from this phone.'}</Text>
+                {!!settingsError && <Text style={styles.settingsError}>{settingsError}</Text>}
+                <ActionButton title="Save settings" busy={busy} onPress={saveSettings} styles={styles} colors={colors} />
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -518,7 +583,7 @@ function makeStyles(theme: ReturnType<typeof palette>, dark: boolean) {
       page: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 18 },
       header: { height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
       brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-      brandMark: { width: 30, height: 30, overflow: 'hidden', borderRadius: 7, backgroundColor: theme.amber, color: '#FFFFFF', textAlign: 'center', textAlignVertical: 'center', fontFamily: 'Figtree-700', fontSize: 17 },
+      brandMark: { width: 32, height: 32 },
       brandName: { color: theme.ink, fontFamily: 'Figtree-700', fontSize: 18 },
       settingsButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.line, borderRadius: 22, backgroundColor: theme.surface },
       settingsGlyph: { color: theme.ink, fontSize: 20 },
@@ -532,6 +597,9 @@ function makeStyles(theme: ReturnType<typeof palette>, dark: boolean) {
       tabLine: { width: '100%', height: 2, backgroundColor: 'transparent' },
       tabLineSelected: { backgroundColor: theme.amber },
       form: { gap: 13 },
+      rememberRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
+      rememberBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: theme.secondary, alignItems: 'center', justifyContent: 'center' },
+      rememberTick: { fontFamily: 'Figtree-700', fontSize: 14, lineHeight: 16 },
       fieldWrap: { gap: 6 },
       label: { color: theme.ink, fontFamily: 'Figtree-600', fontSize: 14 },
       input: { minHeight: 48, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: theme.line, borderRadius: 8, backgroundColor: theme.field, color: theme.ink, fontFamily: 'Figtree-400', fontSize: 16 },
@@ -558,6 +626,7 @@ function makeStyles(theme: ReturnType<typeof palette>, dark: boolean) {
       household: { color: theme.ink, fontFamily: 'Figtree-700', fontSize: 20 },
       divider: { height: 1, backgroundColor: theme.line, marginVertical: 3 },
       footer: { paddingTop: 16, color: theme.secondary, fontFamily: 'Figtree-400', fontSize: 12, lineHeight: 17, textAlign: 'center' },
+      footerLink: { color: theme.secondary, textDecorationLine: 'underline' },
       modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
       settingsSheet: { gap: 13, paddingHorizontal: 22, paddingTop: 18, paddingBottom: Platform.OS === 'ios' ? 34 : 24, borderTopLeftRadius: 14, borderTopRightRadius: 14, backgroundColor: theme.surface },
       sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },

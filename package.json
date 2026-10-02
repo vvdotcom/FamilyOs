@@ -23,6 +23,7 @@
     "dev:companion:lan": "yarn workspace @familyos/companion-expo start:lan",
     "dev:companion:tunnel": "yarn workspace @familyos/companion-expo start:tunnel",
     "typecheck:companion": "yarn workspace @familyos/companion-expo typecheck",
+    "build:web-app": "yarn workspace @familyos/companion-expo build:web",
     "dev:vega": "yarn workspace @familyos/vega start",
     "build:all": "yarn workspaces foreach -Apt run build",
     "build:vega": "yarn workspace @familyos/vega run build",
@@ -35,7 +36,9 @@
     "clean:all": "yarn workspaces foreach -A run clean && rm -rf node_modules",
     "bootstrap": "yarn install && yarn build:all",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "version:tv": "node setup/bump-tv-version.cjs",
+    "build:firetv": "cd apps/expo-multi-tv && npx eas-cli build --platform android --profile firetv"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.12.2",

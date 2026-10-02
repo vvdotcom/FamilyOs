@@ -455,7 +455,7 @@ class CognitoExchangeBody(StrictModel):
 
 
 class PairingChallengeBody(StrictModel):
-    deviceName: str = Field(default="FamilyOS TV", min_length=1, max_length=60)
+    deviceName: str = Field(default="Hometide TV", min_length=1, max_length=60)
 
 
 class PairingApproveBody(StrictModel):
@@ -482,6 +482,12 @@ class RedemptionRequestBody(StrictModel):
 
 class RedemptionDecisionBody(ParentAccessCodeBody):
     action: Literal["approve", "reject"]
+
+
+class DeleteAccountBody(StrictModel):
+    confirm: Literal["DELETE"]
+    password: str | None = Field(default=None, min_length=1, max_length=128)
+    idToken: str | None = Field(default=None, min_length=20, max_length=16_384)
 
 
 class ResetAccessCodeBody(StrictModel):

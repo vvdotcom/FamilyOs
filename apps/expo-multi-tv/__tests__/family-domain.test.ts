@@ -43,7 +43,7 @@ function event(
   };
 }
 
-describe('FamilyOS deterministic household domain', () => {
+describe('Hometide deterministic household domain', () => {
   it('recreates the same synthetic household and identifiers on reset', () => {
     const first = createDemoHousehold();
     const repository = createDemoHouseholdRepository();
@@ -141,7 +141,7 @@ describe('FamilyOS deterministic household domain', () => {
   });
 });
 
-describe('FamilyOS remote navigation transitions', () => {
+describe('Hometide remote navigation transitions', () => {
   it('moves focus across the navigation/content boundary only in the inward direction', () => {
     expect(focusRegionAfterDirection('navigation', 'right')).toBe('navigation');
     expect(focusRegionAfterDirection('navigation', 'down')).toBe('content');

@@ -104,6 +104,8 @@ type Props = {
   onServerSettings: () => void;
   /** Re-checks the account password; returns a fresh Cognito ID token on hosted servers. */
   onReauthenticate?: (password: string) => Promise<string | undefined>;
+  /** Permanently deletes the account and household after checking the password. */
+  onDeleteAccount?: (password: string) => Promise<void>;
   preview?: boolean;
 };
 export default function HouseholdApp(props: Props) {
@@ -125,9 +127,11 @@ function HouseholdScreens({
   onSignOut,
   onServerSettings,
   onReauthenticate,
+  onDeleteAccount,
   preview = false,
 }: Props) {
   const t = useTheme();
+  const [deletePassword, setDeletePassword] = useState('');
   const insets = useSafeAreaInsets();
   const [page, setPage] = useState<Page>('today');
   const [accessMode, setAccessMode] = useState<'parent' | 'child'>('parent');
@@ -543,7 +547,7 @@ function HouseholdScreens({
       <View style={s.spread}>
         <View style={s.grow}>
           <Label>SWITCH FROM A WALL CALENDAR</Label>
-          <Copy size={17} weight={800}>Set up FamilyOS in 5 minutes</Copy>
+          <Copy size={17} weight={800}>Set up Hometide in 5 minutes</Copy>
         </View>
         <Copy size={13} weight={700} color={t.muted}>{setupDone} of {setupSteps.length}</Copy>
       </View>
@@ -1826,6 +1830,34 @@ function HouseholdScreens({
                 Sign out everywhere
               </Button>
             ) : null}
+            {onDeleteAccount && !preview ? (
+              <>
+                <Label>DELETE ACCOUNT</Label>
+                <Card style={{ padding: 16, gap: 10 }}>
+                  <Copy size={13} color={t.muted}>
+                    Permanently deletes your account and everything in this household: family members, children’s profiles,
+                    events, chores, rewards, lists, meals, photos and connected calendars. Phones, child views, TVs and voice
+                    assistants are disconnected. This can’t be undone.
+                  </Copy>
+                  <Input label="Account password" value={deletePassword} onChangeText={setDeletePassword} secureTextEntry autoCapitalize="none" />
+                  <Button
+                    disabled={busy || !deletePassword}
+                    onPress={() =>
+                      setConfirm({
+                        title: 'Delete your Hometide account and all household data?',
+                        detail: 'Everyone in the household loses access, and paired TVs show the pairing screen again. This can’t be undone.',
+                        actionLabel: 'Delete account',
+                        action: async () => {
+                          await run(async () => { await onDeleteAccount(deletePassword); return true; });
+                        },
+                      })
+                    }
+                  >
+                    Delete account
+                  </Button>
+                </Card>
+              </>
+            ) : null}
           </>
         );
     }
@@ -2134,7 +2166,7 @@ function HouseholdScreens({
             <Card style={{ padding: 20, gap: 14 }}>
               <Heading small>Connect your TV</Heading>
               <Copy size={14} color={t.muted}>
-                Enter the six digit code shown in FamilyOS TV Settings. The code expires after 10 minutes.
+                Enter the six digit code shown in Hometide TV Settings. The code expires after 10 minutes.
               </Copy>
               <Input
                 label="TV pairing code"

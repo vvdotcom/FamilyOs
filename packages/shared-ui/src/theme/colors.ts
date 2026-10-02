@@ -113,6 +113,6 @@ export const themePalettes: Record<ThemeMode, ColorPalette> = {
   dark: darkColors,
 };
 
-// Keep the original export for older screens while current FamilyOS screens
+// Keep the original export for older screens while current Hometide screens
 // consume their palette through FamilyThemeProvider.
 export const colors = darkColors;

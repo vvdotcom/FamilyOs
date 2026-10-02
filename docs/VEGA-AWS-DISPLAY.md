@@ -3,7 +3,7 @@
 Verified on 2026-09-23 with Ubuntu 24.04, Vega SDK 0.24.12112,
 Xvfb/Openbox/noVNC, and a c8i.2xlarge EC2 instance with nested virtualization.
 
-The virtual device booted and `com.familyos.tv.main` was running, but the
+The virtual device booted and `com.hometide.tv.main` was running, but the
 screen was black when started with `--no-gl-accel`. Its process arguments
 included `-gpu off`, and `virtual_device.err` repeatedly reported
 `sPrepareTexImage2D ... failed validation`.
@@ -16,7 +16,7 @@ source ~/.bashrc
 vega virtual-device stop
 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
   vega virtual-device start --timeout 120
-vega device launch-app --appName com.familyos.tv.main --device VirtualDevice
+vega device launch-app --appName com.hometide.tv.main --device VirtualDevice
 ```
 
 Use these commands inside the Ubuntu desktop terminal, where `DISPLAY` points
@@ -26,7 +26,7 @@ If the package has not been installed yet:
 
 ```bash
 vega run-app ~/familyos/familyos-0.1.0-x86_64-release.vpkg \
-  com.familyos.tv.main -d VirtualDevice
+  com.hometide.tv.main -d VirtualDevice
 ```
 
 The installed 0.1.0 package currently shows the starter media interface with

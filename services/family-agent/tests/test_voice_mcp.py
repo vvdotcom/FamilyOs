@@ -47,7 +47,7 @@ def test_mcp_negotiates_protocol_and_requires_authorization(api):
                                           "clientInfo": {"name": "test", "version": "1"}})
     assert init.status_code == 200, init.text
     assert init.json()["result"]["protocolVersion"] == "2025-11-25"
-    assert init.json()["result"]["serverInfo"]["name"] == "FamilyOS"
+    assert init.json()["result"]["serverInfo"]["name"] == "Hometide"
     tools = {tool["name"] for tool in rpc(api, token, "tools/list", **{"MCP-Protocol-Version": "2025-11-25"}).json()["result"]["tools"]}
     assert tools == {"get_today", "get_week", "list_conflicts", "get_member_schedule", "get_chores", "get_reward_balance",
                      "propose_pickup_swap", "propose_event", "propose_reschedule", "mark_chore_done_request",

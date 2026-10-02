@@ -36,15 +36,30 @@ type SignUpReply = { verificationRequired: boolean; email: string; householdName
 type DevCodeReply = { purpose: string; code: string; expiresAt: string } | null;
 type APIError = { error?: { message?: string; code?: string } };
 
-export const DEFAULT_API_URL = __DEV__ && Platform.OS === 'web'
-  ? process.env.EXPO_PUBLIC_FAMILYOS_API_URL || 'http://127.0.0.1:8787'
-  : 'https://familyos-api-production.up.railway.app';
+/**
+ * The hosted web app is served by the Hometide API itself (at /app), so it always talks to the
+ * origin it was opened from. That keeps sessions on one origin and needs no CORS setup.
+ */
+export const HOSTED_WEB = Platform.OS === 'web' && !__DEV__;
+
+function pageOrigin(): string | null {
+  const location = typeof window === 'undefined' ? undefined : window.location;
+  return location && /^https?:$/.test(location.protocol) ? location.origin : null;
+}
+
+export const DEFAULT_API_URL = HOSTED_WEB
+  ? pageOrigin() || 'https://hometide.up.railway.app'
+  : __DEV__ && Platform.OS === 'web'
+    ? process.env.EXPO_PUBLIC_FAMILYOS_API_URL || 'http://127.0.0.1:8787'
+    : 'https://hometide.up.railway.app';
 
 export async function readSavedAPIURL(): Promise<string> {
+  if (HOSTED_WEB) return DEFAULT_API_URL;
   return (await SecureStore.getItemAsync(API_URL_KEY)) || DEFAULT_API_URL;
 }
 
 export async function saveAPIURL(value: string): Promise<string> {
+  if (HOSTED_WEB) throw new Error('The web app always uses the Hometide server it was opened from.');
   const normalized = normalizeAPIURL(value);
   await SecureStore.setItemAsync(API_URL_KEY, normalized);
   // A session issued by one server must never be forwarded to another server.
@@ -69,7 +84,7 @@ export function normalizeAPIURL(value: string): string {
   })();
   const isLocalHost = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(host) || host.endsWith('.local');
   if (__DEV__ && Platform.OS === 'web' && !isLocalHost && !isPrivateIPv4) {
-    throw new Error('The browser preview is for local testing only. Use Expo Go for a hosted FamilyOS account.');
+    throw new Error('The browser preview is for local testing only. Use Expo Go for a hosted Hometide account.');
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
     throw new Error('Enter only the server address, without credentials or query text.');
@@ -299,6 +314,12 @@ export class FamilyOSAPI {
     await SecureStore.setItemAsync(SESSION_KEY, result.sessionToken);
   }
 
+  async deleteAccount(password: string, idToken?: string): Promise<void> {
+    await this.post('v1/account/delete', idToken ? { confirm: 'DELETE', idToken } : { confirm: 'DELETE', password }, false, true);
+    await SecureStore.deleteItemAsync(SESSION_KEY);
+    await SecureStore.deleteItemAsync(CHILD_SESSION_KEY);
+  }
+
   async forgotPassword(email: string): Promise<void> {
     await this.post('v1/auth/forgot-password', { email });
   }
@@ -350,7 +371,7 @@ export class FamilyOSAPI {
     const payload = (await response.json().catch(() => ({}))) as Envelope<T> & APIError;
     if (!response.ok) {
       throw new APIRequestError(
-        payload.error?.message || 'FamilyOS could not complete that request. Check the server and try again.',
+        payload.error?.message || 'Hometide could not complete that request. Check the server and try again.',
         response.status,
         payload.error?.code,
       );
@@ -358,7 +379,7 @@ export class FamilyOSAPI {
 
     if (createsSession) {
       // Native clients use an explicit bearer token because iOS fetch may hide Set-Cookie.
-      // Keep the cookie fallback for older FamilyOS development servers.
+      // Keep the cookie fallback for older Hometide development servers.
       const setCookie = response.headers.get('set-cookie');
       const token = (payload.data as SessionReply)?.sessionToken
         || setCookie?.match(/(?:^|,\s*)familyos_session=([^;,\s]+)/)?.[1];

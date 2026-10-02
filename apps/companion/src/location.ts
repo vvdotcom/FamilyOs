@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
+import { permissionSettingsName } from './storage';
 
 export type WeatherPlace = {
   latitude: number;
@@ -29,7 +30,11 @@ async function placeName(latitude: number, longitude: number, fallback: string):
 export async function detectPlace(): Promise<WeatherPlace> {
   const permission = await Location.requestForegroundPermissionsAsync();
   if (!permission.granted) {
-    throw new Error('Location access is off. Search for your city or ZIP code instead, or turn it on in iPhone Settings.');
+    throw new Error(
+      Platform.OS === 'web'
+        ? `Location access is off. Turn it on for this site in ${permissionSettingsName()} and try again.`
+        : `Location access is off. Search for your city or ZIP code instead, or turn it on in ${permissionSettingsName()}.`,
+    );
   }
   // Low accuracy is enough for weather and works with iOS "Approximate location".
   const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
@@ -42,7 +47,7 @@ export async function detectPlace(): Promise<WeatherPlace> {
 export async function searchPlace(query: string): Promise<WeatherPlace> {
   const text = query.trim();
   if (!text) throw new Error('Enter a city or ZIP code.');
-  if (Platform.OS === 'web') throw new Error('City search needs the FamilyOS phone app.');
+  if (Platform.OS === 'web') throw new Error('City search isn’t available in the web app yet. Use “Use my location” instead.');
   let results: Location.LocationGeocodedLocation[] = [];
   try {
     results = await Location.geocodeAsync(text);

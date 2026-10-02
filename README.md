@@ -1,4 +1,4 @@
-# FamilyOS
+# Hometide
 
 **The family wall calendar, on the Fire TV you already own.**
 
@@ -6,10 +6,10 @@
 
 Smart family calendars like Skylight cost $150–$570 for the screen, plus $79.99 a year for meal planning,
 rewards, and Magic Import, and $14.99 a month for the AI assistant. Most families already have a large screen
-in the living room: Amazon has sold [more than 250 million Fire TV devices](https://www.tvtechnology.com/news/amazon-passes-250-million-fire-devices-sold-expands-fire-tv-lineup). FamilyOS turns that screen into the
+in the living room: Amazon has sold [more than 250 million Fire TV devices](https://www.tvtechnology.com/news/amazon-passes-250-million-fire-devices-sold-expands-fire-tv-lineup). Hometide turns that screen into the
 family's shared calendar and command center, with a phone app for parents and kids and Alexa+ for voice.
 
-| | Skylight Calendar | FamilyOS |
+| | Skylight Calendar | Hometide |
 |---|---|---|
 | Screen | 10" $149.99 · 15" $299.99 · 27" $569.99 | The Fire TV you already own |
 | Import, meals, rewards, photo screensaver | Calendar Plus, $79.99/year | Included |
@@ -35,7 +35,7 @@ measured: [docs/MEASUREMENTS.md](./docs/MEASUREMENTS.md).
 **On the phone** (iOS through Expo)
 - **Set up in 5 minutes:** connect calendars, add kids, set a parent code, pair the TV, set the weather location.
 - **Connected calendars:** paste the private iCal link from Google Calendar, iCloud, or Outlook (or a school or
-  league `.ics` link). FamilyOS re-reads it about every 15 minutes and never writes back.
+  league `.ics` link). Hometide re-reads it about every 15 minutes and never writes back.
 - **Import:** photograph a flyer or pick a PDF, email, or `.ics` file. Amazon Bedrock drafts the event, and you
   review it before saving.
 - Chores with photo verification, rewards, lists, meals and recipes, groceries, sports teams and carpool
@@ -81,7 +81,6 @@ Display & Sounds → Ambient Experience. See the [friction log](./docs/FRICTION_
 | [`packages/domain`](./packages/domain) | Shared types, conflict detection, and demo data |
 | [`apps/companion`](./apps/companion) | The phone app (Expo; iOS first) |
 | [`services/family-agent`](./services/family-agent) | FastAPI service: household API, calendar sync, MCP voice server, Bedrock features |
-| [`apps/ios-companion`](./apps/ios-companion) | An early native SwiftUI companion; not yet built or tested on a Mac |
 
 Built on Amazon's React Native multi-TV sample.
 

@@ -441,6 +441,11 @@ class LocalAuthStore:
             connection.execute("UPDATE sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL", (stamp, account_id))
             connection.execute("UPDATE child_sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL", (stamp, account_id))
 
+    def delete_account(self, account_id: str) -> None:
+        """Delete the parent account; sessions, codes, child sessions, voice tokens and the household cascade."""
+        with self._connection() as connection:
+            connection.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+
     def verify_password(self, account_id: str, password: str) -> None:
         with self._connection() as connection:
             row = connection.execute("SELECT password_hash FROM accounts WHERE id = ?", (account_id,)).fetchone()

@@ -156,5 +156,5 @@ request("/v1/auth/session")
   .then((result) => result.authenticated ? showAccount(result.account) : showPanel("sign-in"))
   .catch(() => {
     showPanel("sign-in");
-    showMessage("The account service is unavailable. Start the local FamilyOS API and reload.", "error");
+    showMessage("The account service is unavailable. Start the local Hometide API and reload.", "error");
   });

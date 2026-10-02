@@ -35,7 +35,7 @@ OPERATION_KINDS = frozenset({
 })
 
 MAX_CALENDARS = 10
-SYNCED_READ_ONLY = ("This event comes from a connected calendar. Change it there and FamilyOS "
+SYNCED_READ_ONLY = ("This event comes from a connected calendar. Change it there and Hometide "
                     "shows the update within 15 minutes.")
 
 

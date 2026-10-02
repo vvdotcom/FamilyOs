@@ -28,7 +28,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-HOSTED_API = "https://familyos-api-production.up.railway.app"
+HOSTED_API = "https://hometide.up.railway.app"
 LOCAL_API = "http://127.0.0.1:8787"
 COGNITO_REGION = "us-west-2"
 COGNITO_CLIENT_ID = "2imsmu2e7rdnfo79jd38mj08m"  # The public phone-app client (no secret).

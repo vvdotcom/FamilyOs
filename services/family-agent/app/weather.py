@@ -33,14 +33,14 @@ class NWSWeatherProvider:
         latitude: float | None,
         longitude: float | None,
         location: str,
-        user_agent: str = "FamilyOS/0.1",
+        user_agent: str = "Hometide/0.1",
         timeout_seconds: float = 5,
         cache_seconds: int = 900,
     ) -> None:
         self.latitude = latitude
         self.longitude = longitude
         self.location = location.strip()[:100]
-        self.user_agent = user_agent.strip()[:200] or "FamilyOS/0.1"
+        self.user_agent = user_agent.strip()[:200] or "Hometide/0.1"
         self.timeout_seconds = timeout_seconds
         self.cache_seconds = cache_seconds
         self._cache: dict[str, tuple[float, dict[str, object]]] = {}
@@ -55,7 +55,7 @@ class NWSWeatherProvider:
             latitude,
             longitude,
             os.getenv("FAMILYOS_WEATHER_LOCATION", ""),
-            os.getenv("FAMILYOS_WEATHER_USER_AGENT", "FamilyOS/0.1"),
+            os.getenv("FAMILYOS_WEATHER_USER_AGENT", "Hometide/0.1"),
         )
 
     @property

@@ -615,7 +615,7 @@ export function FamilyPhotosScreen({ household, focusActive, tvPairing }: Family
             No photos yet
           </DText>
           <DText size={24} color={p.muted}>
-            {paired ? 'Add family photos from the FamilyOS phone app. They appear here as a slideshow.' : 'Pair this TV with the phone app to show your family photos.'}
+            {paired ? 'Add family photos from the Hometide phone app. They appear here as a slideshow.' : 'Pair this TV with the phone app to show your family photos.'}
           </DText>
         </View>
       </View>

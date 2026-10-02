@@ -14,17 +14,17 @@ jest.mock('../src/navigation/VegaAppNavigator', () => {
     return ReactModule.createElement(
       ReactNative.View,
       { testID: 'familyos-root' },
-      ReactModule.createElement(ReactNative.Text, null, 'FamilyOS'),
+      ReactModule.createElement(ReactNative.Text, null, 'Hometide'),
     );
   };
 });
 
 import {App} from '../src/App';
 
-describe('FamilyOS Vega shell', () => {
-  it('mounts the FamilyOS root', () => {
+describe('Hometide Vega shell', () => {
+  it('mounts the Hometide root', () => {
     const screen = render(<App />);
     expect(screen.getByTestId('familyos-root')).toBeTruthy();
-    expect(screen.getByText('FamilyOS')).toBeTruthy();
+    expect(screen.getByText('Hometide')).toBeTruthy();
   });
 });

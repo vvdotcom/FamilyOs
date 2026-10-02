@@ -634,7 +634,7 @@ export function VoiceScreen(ctx: ScreenContext) {
           <Copy size={13} color={t.muted}>Paste this into the voice assistant’s account-linking step. It is shown only once; disconnect to revoke it.</Copy>
           <Copy size={12}>{secret}</Copy>
           <View style={s.row}>
-            <Button icon="share" onPress={() => void Share.share({ message: `FamilyOS MCP server: ${mcpUrl}\nBearer token: ${secret}` })}>Share securely</Button>
+            <Button icon="share" onPress={() => void Share.share({ message: `Hometide MCP server: ${mcpUrl}\nBearer token: ${secret}` })}>Share securely</Button>
             <Button onPress={() => setSecret(null)}>Done</Button>
           </View>
         </Card>
@@ -655,7 +655,7 @@ export function VoiceScreen(ctx: ScreenContext) {
       ))}
       <Label>TRY IT · SIMULATED ALEXA+</Label>
       <Card style={{ padding: 16, gap: 10 }}>
-        <Copy size={12} color={t.muted}>This is a simulated Alexa+ experience for testing. It uses the same FamilyOS MCP tools a live Alexa+ connection would.</Copy>
+        <Copy size={12} color={t.muted}>This is a simulated Alexa+ experience for testing. It uses the same Hometide MCP tools a live Alexa+ connection would.</Copy>
         <Input label="Say something" value={utterance} onChangeText={setUtterance} maxLength={400} />
         <View style={[s.row, { flexWrap: 'wrap', gap: 6 }]}>
           {['What’s on today?', 'Swap Emma pickup to Alex', 'How many stars does Leo have?'].map((sample) => (
@@ -765,7 +765,7 @@ export function ImportsScreen(ctx: ScreenContext) {
       {ctx.back}
       <Label>REVIEW BEFORE ADDING</Label>
       <Heading>From a flyer or email</Heading>
-      <Copy size={14} color={t.muted}>Snap a flyer, choose a PDF, email (.eml), or team calendar (.ics), or paste text. FamilyOS makes an editable draft; nothing is added until you confirm. The original file is not kept.</Copy>
+      <Copy size={14} color={t.muted}>Snap a flyer, choose a PDF, email (.eml), or team calendar (.ics), or paste text. Hometide makes an editable draft; nothing is added until you confirm. The original file is not kept.</Copy>
       <View style={[s.row, { flexWrap: 'wrap', gap: 6 }]}>
         <Button primary icon="photos" disabled={busy} onPress={() => void photo('camera')}>Photograph a flyer</Button>
         <Button disabled={busy} onPress={() => void photo('library')}>Choose photo</Button>

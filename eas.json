@@ -41,9 +41,19 @@
     },
     "production": {},
     "production_tv": {
-      "extends": "production", 
+      "extends": "production",
       "env": {
         "EXPO_TV": "1"
+      }
+    },
+    "firetv": {
+      "extends": "production",
+      "env": {
+        "EXPO_TV": "1",
+        "EXPO_PUBLIC_FAMILYOS_API_URL": "https://hometide.up.railway.app"
+      },
+      "android": {
+        "buildType": "apk"
       }
     }
   },

@@ -208,9 +208,9 @@ class VoiceServer:
         self.allowed_origins = set(allowed_origins)
         self.manager: StreamableHTTPSessionManager | None = None
         self.mcp = FastMCP(
-            name="FamilyOS",
+            name="Hometide",
             instructions=(
-                "FamilyOS is a family's shared calendar, chores, and rewards on their TV. Use the read tools to "
+                "Hometide is a family's shared calendar, chores, and rewards on their TV. Use the read tools to "
                 "answer schedule questions briefly. Use show_on_tv when someone asks to open or show something on "
                 "the TV, and get_weather for the weather at home. To change anything, use a propose_ tool: it "
                 "creates a request that a family member confirms on the TV or phone. Nothing changes until they "
@@ -232,7 +232,7 @@ class VoiceServer:
     def protected_resource_metadata(self) -> dict[str, Any]:
         return {"resource": f"{self.public_url}/mcp", "authorization_servers": [self.authorization_server],
                 "scopes_supported": [SCOPE], "bearer_methods_supported": ["header"],
-                "resource_name": "FamilyOS household"}
+                "resource_name": "Hometide household"}
 
     @asynccontextmanager
     async def lifespan(self) -> AsyncIterator[None]:
@@ -264,7 +264,7 @@ class VoiceServer:
             token = get_access_token()
             identity = self.gateway.identity(token.token) if token else None
         if identity is None:
-            raise ToolError("This voice connection is no longer authorized. Reconnect it in FamilyOS Settings.")
+            raise ToolError("This voice connection is no longer authorized. Reconnect it in Hometide Settings.")
         if not self.gateway.allow(identity):
             raise ToolError("That's a lot of requests at once. Please wait a minute and try again.")
         return identity
@@ -293,7 +293,7 @@ class VoiceServer:
         proposal = next(item for item in snapshot.proposals if item.id == proposal_id)
         self.log(identity, kind, "proposed")
         return {
-            "speech": f"Okay. I've asked the family to confirm: {proposal.summary} Confirm it on the TV or the FamilyOS app.",
+            "speech": f"Okay. I've asked the family to confirm: {proposal.summary} Confirm it on the TV or the Hometide app.",
             "proposalId": proposal.id, "status": proposal.status, "summary": proposal.summary,
             "expiresAt": proposal.expiresAt,
         }
@@ -325,7 +325,7 @@ class VoiceServer:
             snapshot = self.snapshot(identity)
             place = snapshot.location
             if place is None or self.weather is None:
-                raise ToolError("Set your home location in the FamilyOS app first, under Settings, Weather on the TV.")
+                raise ToolError("Set your home location in the Hometide app first, under Settings, Weather on the TV.")
             try:
                 forecast = await self.weather(place.latitude, place.longitude, place.label)
             except Exception as error:  # Unsupported places and outages get the same short answer.
@@ -511,7 +511,7 @@ class VoiceServer:
             if target is None:
                 raise ToolError(f"I couldn't find an unfinished chore called {chore}.")
             if target.verifyWithPhoto:
-                raise ToolError(f"{target.title} needs a photo. Take one in the FamilyOS app so a parent can approve it.")
+                raise ToolError(f"{target.title} needs a photo. Take one in the Hometide app so a parent can approve it.")
             who = member_name(snapshot, target.assignedToMemberId) if target.assignedToMemberId else "Someone"
             return self.propose(identity, "chore_done", {"choreId": target.id, "memberId": target.assignedToMemberId},
                                 f"{who} finished {target.title}.")
@@ -633,7 +633,7 @@ class VoiceServer:
         client = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_REGION") or "us-west-2",
                               config=Config(connect_timeout=4, read_timeout=20, retries={"max_attempts": 0}))
         system = [{"text": (
-            "You are a simulated Alexa+ assistant for one family, connected to the FamilyOS MCP tools. "
+            "You are a simulated Alexa+ assistant for one family, connected to the Hometide MCP tools. "
             "Answer in one or two short spoken sentences. Always use tools for facts; never invent events. "
             "To change anything, call a propose_ tool right away, passing the user's own words "
             "(for example event='Emma pickup', to_member='Alex'); the tools find the matching item and return an "
@@ -669,7 +669,7 @@ class VoiceServer:
 
 
 class ToolAccess:
-    """How a voice turn reaches the FamilyOS tools: in-process (the simulator) or over MCP (the Alexa skill)."""
+    """How a voice turn reaches the Hometide tools: in-process (the simulator) or over MCP (the Alexa skill)."""
 
     async def list_tools(self) -> list[dict[str, Any]]:
         raise NotImplementedError

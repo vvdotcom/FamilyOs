@@ -6,14 +6,14 @@
 #   burst:KEY:N   N quick presses of KEY in a single device command (rapid D-pad test)
 #   wN            sleep N seconds
 #   cap           capture the TV area of the VVD window (960x540)
-#   relaunch      terminate and relaunch com.familyos.tv.main
+#   relaunch      terminate and relaunch com.hometide.tv.main
 # Writes /tmp/NAME.jpg (2 columns). Requires DISPLAY with the VVD window, xwininfo and ImageMagick.
 # X keyboard events and the on-screen remote do not reach the app, and on-device `screenshooter`
 # hung during testing; see docs/FRICTION_LOG.md entry 12.
 set -uo pipefail
 name=$1; shift
 export DISPLAY=${DISPLAY:-:0}
-app=com.familyos.tv.main
+app=com.hometide.tv.main
 W=$(xwininfo -name 'Vega Virtual Device' -int 2>/dev/null | awk '/Window id/{print $4}')
 [ -n "$W" ] || { echo "no VVD window on $DISPLAY"; exit 1; }
 tmp=$(mktemp -d); n=0

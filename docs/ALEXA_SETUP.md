@@ -55,7 +55,7 @@ The skill's definition is in this repo, under [`alexa-skill/`](../alexa-skill/).
    then **Save** and **Build**.
 3. **Build → Endpoint:**
    - Choose **HTTPS**.
-   - Default region: `https://familyos-api-production.up.railway.app/alexa`.
+   - Default region: `https://hometide.up.railway.app/alexa`.
    - Certificate: *"My development endpoint is a sub-domain of a domain that has a wildcard certificate from a
      certificate authority"*.
    - **Save.**
@@ -125,7 +125,7 @@ Claude sets two Railway settings (both are IDs, not secrets) and redeploys:
 - Voice can read the schedule, chores, stars, and weather, and it can switch TV screens. Changes are only suggested;
   a parent confirms them on the TV or phone.
 - To cut Alexa off, disable the skill in the Alexa app, or remove the `Alexa` app client in Cognito.
-- Privacy page: <https://familyos-api-production.up.railway.app/privacy>.
+- Privacy page: <https://hometide.up.railway.app/privacy>.
 
 ## If Amazon opens the Alexa+ MCP Toolkit later
 

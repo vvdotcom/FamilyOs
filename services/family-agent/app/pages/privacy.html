@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hometide privacy policy</title>
+<link rel="icon" href="/app/icons/icon-192.png">
+<style>
+:root { color-scheme: light dark; --ink: #1F1B16; --muted: #5F574B; --bg: #F7F5F0; --card: #FFFFFF; --line: #ECE6DB; --amber: #B5650F; }
+@media (prefers-color-scheme: dark) { :root { --ink: #F4EEE4; --muted: #B8AE9F; --bg: #1A1714; --card: #221E19; --line: #332C25; --amber: #F2B25C; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 46rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+.brand { display: flex; align-items: center; gap: .6rem; font-weight: 700; margin-bottom: 1.5rem; text-decoration: none; color: var(--ink); }
+.mark { width: 2rem; height: 2rem; border-radius: .5rem; background: #2F7F7A; display: grid; place-items: center; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .25rem; }
+h2 { font-size: 1.2rem; margin: 2rem 0 .5rem; }
+p, li { color: var(--ink); }
+.muted { color: var(--muted); }
+a { color: var(--amber); }
+table { width: 100%; border-collapse: collapse; margin: .5rem 0; font-size: .95rem; }
+th, td { text-align: left; vertical-align: top; padding: .5rem; border-bottom: 1px solid var(--line); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1rem 1.25rem; }
+</style>
+</head>
+<body>
+<main>
+<a class="brand" href="/app/"><span class="mark"><svg viewBox="0 0 200 200" width="22" height="22" aria-hidden="true"><defs><clipPath id="htm"><path d="M36 182 V92 a64 64 0 0 1 128 0 V182 Z"/></clipPath></defs><path d="M36 182 V92 a64 64 0 0 1 128 0 V182 Z" fill="#F3EFE6"/><g clip-path="url(#htm)"><circle cx="100" cy="128" r="34" fill="#F2A65A"/><path d="M30 138 q17.5 -12 35 0 t35 0 t35 0 t35 0 t35 0 V190 H30 Z" fill="#1D2B36"/></g></svg></span>Hometide</a>
+<h1>Privacy policy</h1>
+<p class="muted">Last updated {{UPDATED}}. This policy covers the Hometide phone and web app, the Hometide app for Fire TV, and the Hometide Alexa skill. {{OPERATOR_SENTENCE}}</p>
+
+<div class="card">
+<p><strong>In short:</strong> Hometide keeps your family's calendar, chores, rewards, lists, meals and photos so your family can see them on your TV and phones. A parent creates the account and decides what goes in it. We use the data only to run Hometide for your household. We don't sell it, show ads, or use tracking or advertising tools. You can delete your account and all household data at any time at <a href="/delete-account">/delete-account</a>.</p>
+</div>
+
+<h2>Who uses Hometide</h2>
+<p>Only an adult parent or guardian can create a Hometide account. Children don't create accounts and don't need an email address. A parent can add children as profiles in the household and can let a child use a limited "child view" on the parent's phone or browser, or see the family screen on the TV. The parent controls and can delete everything about their children at any time.</p>
+
+<h2>What we collect</h2>
+<table>
+<tr><th>Data</th><th>Why</th></tr>
+<tr><td>Parent account: email address, password (held by Amazon Cognito, never by Hometide), parent name, household name</td><td>To sign you in and keep your household private to you</td></tr>
+<tr><td>Household content a parent adds: family members' first names, roles (adult or child), colors and initials; calendar events and who they involve; chores, stars and rewards; lists, meals and recipes; family-night plans; sports teams and carpools; movement-break history</td><td>To show your family's plans on the TV and phones</td></tr>
+<tr><td>Family photos a parent uploads for the TV slideshow</td><td>To show them on your TV. Location and camera details are removed on the phone and again on our server</td></tr>
+<tr><td>Chore photos taken in child view</td><td>So a parent can approve a finished chore. They are deleted as soon as the parent approves or declines</td></tr>
+<tr><td>Calendar links you connect (for example a Google, iCloud or Outlook calendar address)</td><td>To show those events. The links are encrypted when stored</td></tr>
+<tr><td>Approximate home area (rounded to about 1 km) and time zone</td><td>For the weather forecast and correct times. We never store your address</td></tr>
+<tr><td>Files you choose to import (flyers, emails, calendar files)</td><td>To suggest events for you to review. We keep only the events you confirm, not the file</td></tr>
+<tr><td>Paired TVs, signed-in sessions, the four-digit parent code (stored only as a salted verifier), and linked voice assistants</td><td>To keep devices connected and approvals safe</td></tr>
+<tr><td>Basic service logs: request times, error codes and request IDs</td><td>To keep the service running and secure. Logs don't contain household content</td></tr>
+</table>
+<p>We don't collect precise location, contacts, advertising identifiers, or browsing history, and Hometide contains no advertising or analytics software.</p>
+
+<h2>Service providers we use</h2>
+<ul>
+<li><strong>Amazon Web Services</strong>: Amazon Cognito holds parent sign-in details. Amazon Bedrock reads a flyer or photo you choose to import, checks a chore photo, writes the daily family briefing, and answers voice requests. Only the information needed for that task is sent. AWS states that Bedrock does not use your inputs or outputs to train AI models.</li>
+<li><strong>Railway</strong>: hosts the Hometide service and its database.</li>
+<li><strong>U.S. National Weather Service</strong>: receives your rounded home area to return a forecast.</li>
+<li><strong>Calendar providers</strong> you connect, when we fetch your calendar link.</li>
+<li><strong>Amazon Alexa</strong>, only if you link the Hometide skill.</li>
+</ul>
+<p>They process data on our behalf to provide Hometide. We don't sell or rent personal information, and we don't share it with anyone else unless the law requires it.</p>
+
+<h2>Children's privacy</h2>
+<p>Hometide is designed to be set up and controlled by parents. We collect information about a child only when their parent adds it: a first name, the chores, rewards and events the parent assigns, and photos the parent or child takes of finished chores while the parent has turned on child view. Children cannot create accounts, change settings, connect calendars, or approve anything without the parent's four-digit code. We don't use children's information for advertising, profiling, or anything other than running Hometide for that family. A parent can review, change or delete any child's information in the app at any time, or delete the whole account. If you believe we hold information about a child without a parent's permission, contact us and we will delete it.</p>
+
+<h2>AI features</h2>
+<p>Briefings, flyer imports, chore-photo checks and voice answers are generated by AI and can be wrong. They are suggestions: a parent always confirms changes, and chore photos are approved by a parent, not by the AI.</p>
+
+<h2>How long we keep data</h2>
+<ul>
+<li>Household content stays until a parent deletes it or deletes the account.</li>
+<li>Chore photos are deleted when a parent decides on them.</li>
+<li>Phone and web sessions expire after 14 days; paired TVs after 90 days unless renewed.</li>
+<li>When you delete your account, your household and everything in it are deleted from our database immediately. Copies in our hosting provider's backups expire on that provider's backup schedule.</li>
+</ul>
+
+<h2>Security</h2>
+<p>All connections use HTTPS. Passwords are handled by Amazon Cognito. Calendar links are encrypted, the parent code is stored only as a salted verifier, and each household's data is kept separate and checked on every request.</p>
+
+<h2>Your choices and rights</h2>
+<ul>
+<li>See and change everything in your household in the Hometide app or web app.</li>
+<li>Delete items, photos, connected calendars, paired TVs and voice connections at any time.</li>
+<li>Sign out everywhere from Settings.</li>
+<li><strong>Delete your account and all household data</strong>: see <a href="/delete-account">how to delete your account</a>.</li>
+</ul>
+<p>Depending on where you live, you may have rights to access, correct, delete or export your data. Contact us to use them.</p>
+
+<h2>Contact</h2>
+<p>{{CONTACT_SENTENCE}}</p>
+
+<h2>Changes</h2>
+<p>If we change this policy, we'll update the date above. If a change affects how we use information already collected, we'll tell parents in the app before it applies.</p>
+</main>
+</body>
+</html>

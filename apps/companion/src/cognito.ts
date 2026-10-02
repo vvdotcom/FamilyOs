@@ -8,7 +8,7 @@ export class CognitoError extends Error {
 }
 
 type AuthReply = {
-  AuthenticationResult?: { IdToken?: string };
+  AuthenticationResult?: { IdToken?: string; AccessToken?: string };
   ChallengeName?: string;
   Session?: string;
 };
@@ -33,7 +33,7 @@ export class CognitoAccounts {
 
   constructor(private readonly clientId: string, region: string) {
     if (!clientId || !/^[a-z]{2}-[a-z]+-\d$/.test(region)) {
-      throw new Error('FamilyOS account sign-in is not configured.');
+      throw new Error('Hometide account sign-in is not configured.');
     }
     this.endpoint = `https://cognito-idp.${region}.amazonaws.com/`;
   }
@@ -48,14 +48,15 @@ export class CognitoAccounts {
           'Content-Type': 'application/x-amz-json-1.1',
           'X-Amz-Target': `AWSCognitoIdentityProviderService.${operation}`,
         },
-        body: JSON.stringify({ ClientId: this.clientId, ...body }),
+        // Token-only calls (DeleteUser) take no client ID.
+        body: JSON.stringify(operation === 'DeleteUser' ? body : { ClientId: this.clientId, ...body }),
       });
       const payload = await response.json();
       if (!response.ok) {
         const code = String(payload.__type || 'CognitoRequestFailed').split('#').pop()!;
         const message = code === 'NotAuthorizedException' && /sign.?up.*not permitted/i.test(payload.message || '')
-          ? 'New account registration is not enabled yet. Please contact the FamilyOS administrator.'
-          : messages[code] || 'Account setup could not be completed. Please try again or contact the FamilyOS administrator.';
+          ? 'New account registration is not enabled yet. Please contact the Hometide administrator.'
+          : messages[code] || 'Account setup could not be completed. Please try again or contact the Hometide administrator.';
         throw new CognitoError(code, message);
       }
       return payload as T;
@@ -83,6 +84,11 @@ export class CognitoAccounts {
   }
 
   async signIn(email: string, password: string): Promise<string> {
+    return (await this.signInTokens(email, password)).idToken;
+  }
+
+  /** Sign in and keep both tokens: the ID token for Hometide, the access token for Cognito's own account calls. */
+  async signInTokens(email: string, password: string): Promise<{ idToken: string; accessToken?: string }> {
     const username = email.trim();
     let result = await this.request<AuthReply>('InitiateAuth', {
       AuthFlow: 'USER_AUTH',
@@ -95,12 +101,17 @@ export class CognitoAccounts {
       });
     }
     if (result.ChallengeName) {
-      throw new CognitoError('AdditionalChallengeRequired', 'This account requires additional verification that is not supported in this preview yet. Contact the FamilyOS administrator.');
+      throw new CognitoError('AdditionalChallengeRequired', 'This account requires additional verification that is not supported in this preview yet. Contact the Hometide administrator.');
     }
     if (!result.AuthenticationResult?.IdToken) {
       throw new Error('Account services did not return a sign-in token. Please try again.');
     }
-    return result.AuthenticationResult.IdToken;
+    return { idToken: result.AuthenticationResult.IdToken, accessToken: result.AuthenticationResult.AccessToken };
+  }
+
+  /** Delete this person's own Cognito sign-in (needs an access token from a fresh password sign-in). */
+  async deleteUser(accessToken: string): Promise<void> {
+    await this.request('DeleteUser', { AccessToken: accessToken });
   }
 
   forgotPassword(email: string): Promise<Delivery> {

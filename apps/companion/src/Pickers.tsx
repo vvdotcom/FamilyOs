@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Modal, Platform, Pressable, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Copy, Input, useTheme } from './ui';
+import { Copy, useTheme } from './ui';
 
 const pad = (value: number) => String(value).padStart(2, '0');
 const dateKey = (value: Date) => `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
@@ -12,6 +12,41 @@ const toDate = (day: string, time = '12:00') => {
   return new Date(y, (m || 1) - 1, d || 1, h || 0, min || 0);
 };
 const dark = (bg: string) => bg === '#1A1714';
+
+/**
+ * Web only: a real browser date or time input. Phone browsers open their own date and time wheels
+ * for these, so the web app gets the same pickers people know from their phone.
+ */
+export function WebDateTimeInput({ label, mode, value, onChange }: {
+  label: string;
+  mode: 'date' | 'time';
+  value: Date;
+  onChange: (value: Date) => void;
+}) {
+  const t = useTheme();
+  return React.createElement('input', {
+    type: mode,
+    value: mode === 'date' ? dateKey(value) : clock(value),
+    step: mode === 'time' ? 300 : undefined,
+    'aria-label': label,
+    onChange: (event: { target: { value: string } }) => {
+      const text = event.target.value;
+      if (mode === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(text)) onChange(toDate(text, clock(value)));
+      if (mode === 'time' && /^([01]\d|2[0-3]):[0-5]\d/.test(text)) onChange(toDate(dateKey(value), text.slice(0, 5)));
+    },
+    style: {
+      minHeight: 44,
+      padding: '0 12px',
+      borderRadius: 12,
+      border: `1px solid ${t.line}`,
+      background: t.soft,
+      color: t.ink,
+      // 16px keeps iPhone Safari from zooming in when the field gets focus.
+      font: '600 16px Figtree-600, system-ui, sans-serif',
+      colorScheme: dark(t.bg) ? 'dark' : 'light',
+    },
+  });
+}
 
 /** One labelled row with the platform's own date or time control. Values stay as YYYY-MM-DD / HH:MM strings. */
 function PickerRow({ label, mode, value, onChange, display }: {
@@ -24,16 +59,11 @@ function PickerRow({ label, mode, value, onChange, display }: {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   if (Platform.OS === 'web') {
-    // The browser preview has no native picker; keep a typed fallback there only.
     return (
-      <Input
-        label={`${label} (${mode === 'date' ? 'YYYY-MM-DD' : 'HH:MM'})`}
-        defaultValue={mode === 'date' ? dateKey(value) : clock(value)}
-        onChangeText={(text: string) => {
-          if (mode === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(text)) onChange(toDate(text, clock(value)));
-          if (mode === 'time' && /^([01]\d|2[0-3]):[0-5]\d$/.test(text)) onChange(toDate(dateKey(value), text));
-        }}
-      />
+      <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <Copy size={15} weight={700} color={t.muted}>{label}</Copy>
+        <WebDateTimeInput label={label} mode={mode} value={value} onChange={onChange} />
+      </View>
     );
   }
   return (

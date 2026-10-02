@@ -1,6 +1,7 @@
 {
   "expo": {
     "plugins": [
+      "./plugins/withFireTV",
       "./plugins/withKotlinJvmTarget",
       "./plugins/withKeyEvent",
       "./plugins/withTvosDeploymentTarget",
@@ -50,15 +51,21 @@
       ],
       "./plugins/withFmtXcode26Fix"
     ],
-    "name": "FamilyOS",
-    "slug": "familyos",
-    "scheme": "com.familyos.tv",
+    "name": "Hometide",
+    "icon": "./assets/images/icon.png",
+    "slug": "hometide-tv",
+    "scheme": "com.hometide.tv",
     "android": {
-      "package": "com.familyos.tv"
+      "package": "com.hometide.tv",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET"
+      ]
     },
     "ios": {
-      "bundleIdentifier": "com.familyos.tv"
+      "bundleIdentifier": "com.hometide.tv"
     },
-    "newArchEnabled": false
+    "newArchEnabled": false,
+    "version": "1.0.0"
   }
 }

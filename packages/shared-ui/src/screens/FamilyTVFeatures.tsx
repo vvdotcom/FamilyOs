@@ -335,7 +335,7 @@ export function FamilyApprovalsScreen({ household, focusActive, onRefreshData, t
     return (
       <View style={{ flex: 1, gap: 28 }}>
         {header}
-        <BriefingCard label="PAIR THIS TV" headline="Approve chores and rewards here" summary="Pair this TV with the FamilyOS phone app in Settings. Chore photos and reward requests will wait here for you." />
+        <BriefingCard label="PAIR THIS TV" headline="Approve chores and rewards here" summary="Pair this TV with the Hometide phone app in Settings. Chore photos and reward requests will wait here for you." />
       </View>
     );
   }
@@ -596,7 +596,7 @@ export function FamilyNightTVScreen({ household, now }: FamilyScreenProps) {
       <View style={{ flex: 1, gap: 28 }}>
         <PageHeader label="EVERY WEEK, TOGETHER" title="Family night" />
         <BriefingCard icon="sparkle" label="SET IT UP ON THE PHONE" headline="Pick a night. Everyone votes."
-          summary="A parent chooses the weekly night in the FamilyOS app. Everyone suggests and votes from their phone, and the vote shows here live." />
+          summary="A parent chooses the weekly night in the Hometide app. Everyone suggests and votes from their phone, and the vote shows here live." />
       </View>
     );
   }
@@ -614,7 +614,7 @@ export function FamilyNightTVScreen({ household, now }: FamilyScreenProps) {
     ? poll?.decidedBy === 'picker' ? `${name(household, poll.pickerMemberId)} picked it from the tie.` : 'Chosen by the family vote.'
     : poll?.status === 'tie' ? `${name(household, poll.pickerMemberId)} picks from the tied ideas on the phone.`
       : poll?.suggestions.length ? `${voted} of ${household.members.length} voted. On a tie, ${name(household, picker)} picks.`
-        : `Suggest a ${settings.activityType} from the FamilyOS phone app to start this week’s vote.`;
+        : `Suggest a ${settings.activityType} from the Hometide phone app to start this week’s vote.`;
   return (
     <View style={{ flex: 1, gap: 26 }}>
       <BriefingCard icon="sparkle" label={`FAMILY NIGHT · ${weekday.toUpperCase()} ${settings.time}`} headline={headline} summary={summary} />

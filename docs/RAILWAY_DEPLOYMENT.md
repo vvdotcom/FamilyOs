@@ -13,7 +13,7 @@ The `FamilyOS` project now exists in the `Husky's Projects` workspace with a ded
 `Postgres` service and `familyos-api` service. The API was deployed from
 `/services/family-agent` using its Dockerfile and production Cognito/Postgres variables.
 Both services report `RUNNING`, and the API startup log reports application startup
-complete. The API is live at `https://familyos-api-production.up.railway.app`.
+complete. The API is live at `https://hometide.up.railway.app`.
 The `/health` endpoint reports production Cognito mode and database readiness. Anonymous
 household, event, chore, and routine requests return 401; development-email tools return
 404. Cognito self-registration is enabled, with email verification required. The Expo Go account

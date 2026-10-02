@@ -132,7 +132,7 @@ export default function FamilyWallScreen({ household, now, weatherState, paired,
     return (
       <Pressable
         testID="wall-calendar-night"
-        accessibilityLabel="Wall calendar, night mode. Press any button to use FamilyOS."
+        accessibilityLabel="Wall calendar, night mode. Press any button to use Hometide."
         onPress={onExit}
         style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
         <View style={{ alignItems: 'center', gap: 18, transform: [{ translateX: dx }, { translateY: dy }] }}>
@@ -212,7 +212,7 @@ export default function FamilyWallScreen({ household, now, weatherState, paired,
   return (
     <Pressable
       testID="wall-calendar"
-      accessibilityLabel="Wall calendar. Press any button to use FamilyOS."
+      accessibilityLabel="Wall calendar. Press any button to use Hometide."
       onPress={onExit}
       style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, backgroundColor: p.background }}>
       <View style={{ flex: 1, flexDirection: 'row', gap: 48, paddingHorizontal: 96, paddingTop: 64, paddingBottom: 56, transform: [{ translateX: dx }, { translateY: dy }] }}>
@@ -328,7 +328,7 @@ export default function FamilyWallScreen({ household, now, weatherState, paired,
             </View>
           )}
           <DText size={20} color={p.muted}>
-            Press any button on the remote to use FamilyOS
+            Press any button on the remote to use Hometide
           </DText>
         </View>
 

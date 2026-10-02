@@ -1,4 +1,4 @@
-// Local visual/interaction regression checks for the supplied FamilyOS TV design.
+// Local visual/interaction regression checks for the supplied Hometide TV design.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -24,7 +24,7 @@ const executablePath = process.env.FAMILYOS_CHROMIUM || 'C:/Users/Kurst/AppData/
     await page.screenshot({ path: path.join(output, `${name}.png`) });
   };
   const menu = async route => {
-    await page.getByRole('button', { name: 'Open FamilyOS menu', exact: true }).click();
+    await page.getByRole('button', { name: 'Open Hometide menu', exact: true }).click();
     await page.getByRole('button', { name: route, exact: true }).last().click();
   };
   const font = text => page.getByText(text, { exact: true }).first().evaluate(element => {
@@ -97,7 +97,7 @@ const executablePath = process.env.FAMILYOS_CHROMIUM || 'C:/Users/Kurst/AppData/
     check('Meal entry saves and Back returns to the weekly planner', await page.getByRole('button', { name: 'SAT Breakfast: French toast', exact: true }).count() === 1);
     await page.getByRole('button', { name: 'Photos', exact: true }).click();
     await snap('photos-light-1920');
-    check('Photos shows an honest empty state without ambient cards', await page.getByText('No photos yet', { exact: true }).count() === 1 && await page.getByText('UP NEXT TODAY', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Wake FamilyOS' }).count() === 0);
+    check('Photos shows an honest empty state without ambient cards', await page.getByText('No photos yet', { exact: true }).count() === 1 && await page.getByText('UP NEXT TODAY', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Wake Hometide' }).count() === 0);
     await page.keyboard.press('ArrowRight'); await page.keyboard.press('Enter');
     check('Photos remote navigation reaches Settings', await page.getByRole('switch', { name: 'Dark mode', exact: true }).count() === 1);
     for (const route of ['Home', 'Calendar', 'Chores', 'Meals', 'Lists', 'Photos', 'Settings']) {

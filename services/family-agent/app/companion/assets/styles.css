@@ -84,10 +84,7 @@ button, input { font: inherit; }
   display: grid;
   place-items: center;
   border-radius: 7px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 700;
+  background: #2F7F7A;
 }
 
 .topbar-note { color: var(--subtle); font-size: 14px; }

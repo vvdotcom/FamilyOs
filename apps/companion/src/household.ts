@@ -30,7 +30,7 @@ export type Event = {
   arrivalMinutes?: number | null;
   uniform?: string | null;
   moveRoutineId?: string | null;
-  /** Set on events mirrored from a connected calendar. They are read-only in FamilyOS. */
+  /** Set on events mirrored from a connected calendar. They are read-only in Hometide. */
   calendarId?: string | null;
 };
 export type CalendarProvider = 'google' | 'icloud' | 'outlook' | 'ics';
@@ -235,6 +235,8 @@ export interface HouseholdAPI {
   returnToParentMode?(code: string): Promise<void>;
   lockParentMode?(): Promise<boolean>;
   revokeAllSessions?(): Promise<void>;
+  /** Permanently delete the parent account and the household (local servers check the password, hosted ones a fresh ID token). */
+  deleteAccount?(password: string, idToken?: string): Promise<void>;
   decideProposal?(id: string, action: 'confirm' | 'reject'): Promise<{ proposal: Proposal; household: Household }>;
   submitChorePhoto?(choreId: string, memberId: string, contentBase64: string): Promise<ChorePhotoResult>;
   decideChorePhoto?(id: string, action: 'approve' | 'reject' | 'retake', code: string): Promise<{ household: Household }>;

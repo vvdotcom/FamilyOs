@@ -1,1 +1,1 @@
-"""FamilyOS local family agent service."""
+"""Hometide local family agent service."""

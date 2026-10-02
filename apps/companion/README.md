@@ -1,4 +1,4 @@
-# FamilyOS Companion (iOS / Expo)
+# Hometide Companion (iOS / Expo)
 
 This is the phone companion app, built with standard React Native and Expo SDK 57. It is
 separate from `apps/expo-multi-tv`, which uses a TV-specific React Native runtime. The
@@ -32,7 +32,7 @@ needed. Photos are downscaled and re-encoded on the phone, which drops EXIF/loca
 
 ### iOS test checklist (Phases 7-14)
 
-0. Today → "Set up FamilyOS in 5 minutes": each step opens the right screen and is checked off when done. Family →
+0. Today → "Set up Hometide in 5 minutes": each step opens the right screen and is checked off when done. Family →
    Connected calendars: follow the Google steps to paste your "Secret address in iCal format" (or an iCloud public
    link or Outlook ICS link). The events appear in Calendar and on the TV. Tap one: it opens read-only. Try "Whose
    calendar", "Sync now", and "Disconnect".
@@ -60,9 +60,15 @@ On a physical iPhone, sign in to the same Expo account in Expo Go and the termin
 supported by the current App Store Expo Go. If the phone cannot reach the development
 server, stop it with Ctrl+C and run `npx.cmd -y corepack@0.34.0 yarn dev:companion:tunnel`.
 
+## Web app (iPhone, Android, desktop browsers)
+
+The same app also builds for the browser: `yarn build:web-app` writes it to
+`services/family-agent/app/webapp`, and the API serves it at `/app` on its own origin. See
+[docs/WEB_APP.md](../../docs/WEB_APP.md) for deployment, sessions, and what differs from the phone.
+
 ## Local API setup
 
-The app defaults to `https://familyos-api-production.up.railway.app`. Previously saved
+The app defaults to `https://hometide.up.railway.app`. Previously saved
 server settings are preserved. For Expo Go local testing, open Settings and enter
 `http://127.0.0.1:8787` only when the app and API share a device/network namespace
 (for example, an iOS simulator). On a physical phone, enter the computer's private Wi-Fi address, such
@@ -91,8 +97,8 @@ When the saved API address is HTTPS, the companion sends sign-up, email verifica
 sign-in, and password-reset requests directly to AWS Cognito over HTTPS. It uses the
 public app client's enabled `USER_AUTH` flow with the `PASSWORD` preferred challenge.
 No client secret or AWS credentials are included in the app. Passwords are not stored or
-sent to the FamilyOS API. The verified Cognito ID token is exchanged for a revocable
-FamilyOS session, which is saved in iOS SecureStore and sent as a bearer token.
+sent to the Hometide API. The verified Cognito ID token is exchanged for a revocable
+Hometide session, which is saved in iOS SecureStore and sent as a bearer token.
 
 This works in SDK 57 Expo Go without a custom callback, development build, or App Store
 release. Cognito self-registration is enabled in AWS account `237320501162`, pool
@@ -102,7 +108,7 @@ saved locally across the email-verification step; passwords are not.
 
 Additional MFA challenges currently fail closed with an explanatory error; an MFA entry
 screen is not implemented. Password reset changes Cognito credentials but does not yet
-revoke existing FamilyOS sessions on other devices. Those security workflows remain
+revoke existing Hometide sessions on other devices. Those security workflows remain
 Phase 5 follow-up work.
 
 ## Installable iPhone preview

@@ -13,7 +13,7 @@ PASSWORD = "family-secret-123"
 
 @pytest.fixture
 def api(tmp_path, monkeypatch):
-    """A local FamilyOS API (demo household) with its MCP lifespan running."""
+    """A local Hometide API (demo household) with its MCP lifespan running."""
     monkeypatch.setenv("FAMILYOS_AUTH_MODE", "local")
     monkeypatch.setenv("FAMILYOS_AUTH_DB_PATH", str(tmp_path / "familyos-auth.sqlite3"))
     monkeypatch.setenv("FAMILYOS_LOCAL_AUTH_SHOW_CODES", "true")

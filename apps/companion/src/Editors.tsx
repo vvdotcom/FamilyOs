@@ -3,7 +3,7 @@ import { Platform, Pressable, ScrollView, Switch, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { randomUUID } from 'expo-crypto';
 import { Button, Card, Copy, Input, Label, memberColors, memberTint, layout as s, useTheme } from './ui';
-import { DateField } from './Pickers';
+import { DateField, WebDateTimeInput } from './Pickers';
 import {
   dateKey,
   validateEvent,
@@ -331,24 +331,11 @@ export function EditorForm({
             {picker && (
               <Card style={{ padding: 12, gap: 8 }}>
                 {Platform.OS === 'web' ? (
-                  <Input
-                    label={`${picker.field} ${picker.mode} (${picker.mode === 'date' ? 'YYYY-MM-DD' : 'HH:MM'})`}
-                    defaultValue={
-                      picker.mode === 'date'
-                        ? dateKey(picker.field === 'start' ? start : end)
-                        : `${(picker.field === 'start' ? start : end).getHours().toString().padStart(2, '0')}:${(picker.field === 'start' ? start : end).getMinutes().toString().padStart(2, '0')}`
-                    }
-                    onChangeText={(v) => {
-                      const current = new Date(picker.field === 'start' ? start : end);
-                      if (picker.mode === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
-                        const [y, m, d] = v.split('-').map(Number);
-                        current.setFullYear(y, m - 1, d);
-                      } else if (picker.mode === 'time' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) {
-                        const [h, m] = v.split(':').map(Number);
-                        current.setHours(h, m);
-                      } else return;
-                      (picker.field === 'start' ? setStart : setEnd)(current);
-                    }}
+                  <WebDateTimeInput
+                    label={`${picker.field} ${picker.mode}`}
+                    mode={picker.mode}
+                    value={picker.field === 'start' ? start : end}
+                    onChange={(value) => (picker.field === 'start' ? setStart : setEnd)(value)}
                   />
                 ) : (
                   <DateTimePicker

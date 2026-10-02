@@ -220,7 +220,7 @@ describe('Wall calendar and TV settings', () => {
     expect(screen.getByText('TODAY')).toBeTruthy();
     expect(screen.getByTestId('wall-next-up')).toBeTruthy();
     expect(screen.getByText(/H 94° L 68°/)).toBeTruthy();
-    expect(screen.getByText('Press any button on the remote to use FamilyOS')).toBeTruthy();
+    expect(screen.getByText('Press any button on the remote to use Hometide')).toBeTruthy();
     fireEvent.press(screen.getByTestId('wall-calendar'));
     expect(onExit).toHaveBeenCalledTimes(1);
   });

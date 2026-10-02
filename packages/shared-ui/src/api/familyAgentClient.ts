@@ -85,18 +85,18 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 8000
     if (!response.ok) {
       throw new FamilyAgentError(
         body && 'error' in body
-          ? body.error?.message || 'FamilyOS could not complete that request.'
-          : 'FamilyOS could not complete that request.',
+          ? body.error?.message || 'Hometide could not complete that request.'
+          : 'Hometide could not complete that request.',
         response.status,
         body && 'error' in body ? body.error?.code : undefined,
       );
     }
     if (!body || !('data' in body) || !('meta' in body))
-      throw new FamilyAgentError('FamilyOS returned an invalid response.');
+      throw new FamilyAgentError('Hometide returned an invalid response.');
     return body;
   } catch (error) {
     if (error instanceof FamilyAgentError) throw error;
-    throw new FamilyAgentError('The FamilyOS service is unavailable.');
+    throw new FamilyAgentError('The Hometide service is unavailable.');
   } finally {
     clearTimeout(timeout);
   }
@@ -114,7 +114,7 @@ export const familyAgentClient = {
     }>('/health'),
   getWeather: () => request<WeatherForecast>('/v1/weather', {}, 12000),
   getHousehold: () => request<HouseholdSnapshot>('/v1/household'),
-  createPairingChallenge: (deviceName = 'FamilyOS TV') =>
+  createPairingChallenge: (deviceName = 'Hometide TV') =>
     request<{ challengeId: string; code: string; pollingToken: string; expiresAt: string }>(
       '/v1/pairing/challenges',
       { method: 'POST', body: JSON.stringify({ deviceName }) },

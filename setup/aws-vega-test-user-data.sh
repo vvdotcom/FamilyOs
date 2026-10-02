@@ -131,4 +131,4 @@ printf '  source ~/.bashrc\n'
 # Xvfb on this CPU-only EC2 host needs Mesa software OpenGL. --no-gl-accel
 # passes -gpu off to VVD and caused texture validation errors / a black screen.
 printf '  LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe vega virtual-device start --timeout 120\n'
-printf '  vega run-app ~/familyos/familyos-0.1.0-x86_64-release.vpkg com.familyos.tv.main -d VirtualDevice\n'
+printf '  vega run-app ~/familyos/familyos-0.1.0-x86_64-release.vpkg com.hometide.tv.main -d VirtualDevice\n'

@@ -1,37 +1,42 @@
 {
   "expo": {
-    "name": "FamilyOS Companion",
+    "name": "Hometide",
     "slug": "familyos-companion",
     "version": "0.1.0",
     "scheme": "com.familyos.companion",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.familyos.companion",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "FamilyOS connects to your development computer on your home Wi-Fi when you choose a local test server.",
+        "NSLocalNetworkUsageDescription": "Hometide connects to your development computer on your home Wi-Fi when you choose a local test server.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         }
       }
     },
     "android": {
-      "package": "com.familyos.companion"
+      "package": "com.familyos.companion",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2F7F7A"
+      }
     },
     "plugins": [
       "expo-secure-store",
       [
         "expo-image-picker",
         {
-          "photosPermission": "FamilyOS lets you choose family photos for the TV and photos of finished chores.",
-          "cameraPermission": "FamilyOS uses the camera when you photograph a finished chore or a flyer to import."
+          "photosPermission": "Hometide lets you choose family photos for the TV and photos of finished chores.",
+          "cameraPermission": "Hometide uses the camera when you photograph a finished chore or a flyer to import."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "FamilyOS uses your approximate location once to show local weather on your family TV."
+          "locationWhenInUsePermission": "Hometide uses your approximate location once to show local weather on your family TV."
         }
       ]
     ],
@@ -40,6 +45,18 @@
       "familyosCognitoClientId": "2imsmu2e7rdnfo79jd38mj08m",
       "familyosCognitoDomain": "https://us-west-28isguybvq.auth.us-west-2.amazoncognito.com",
       "familyosCognitoRedirectUri": "com.familyos.companion:/oauth2redirect"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Hometide",
+      "shortName": "Hometide",
+      "themeColor": "#F7F5F0",
+      "backgroundColor": "#F7F5F0",
+      "favicon": "./public/icons/icon-192.png"
+    },
+    "experiments": {
+      "baseUrl": "/app"
     }
   }
 }

@@ -2,7 +2,7 @@
 
 A parent pastes the calendar's private iCal link once. The server re-reads it on a schedule and
 mirrors the next few months of events into the household, where they show on the TV and phone and
-take part in conflict detection. FamilyOS never writes back.
+take part in conflict detection. Hometide never writes back.
 
 The link is a secret (anyone holding it can read that calendar), so it is encrypted at rest, kept out
 of the household snapshot, and never returned to any client. It is fetched only over HTTPS from a
@@ -195,7 +195,7 @@ def _clean(value: object, limit: int) -> str:
 
 def events_from_ics(content: bytes, meta: CalendarSubscriptionMeta, snapshot: HouseholdSnapshot,
                     now: datetime | None = None) -> list[CalendarEvent]:
-    """Expand the calendar (including repeating events) into FamilyOS events for the sync window."""
+    """Expand the calendar (including repeating events) into Hometide events for the sync window."""
     import icalendar
     import recurring_ical_events
 

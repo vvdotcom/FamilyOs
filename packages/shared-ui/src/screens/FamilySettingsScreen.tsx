@@ -97,7 +97,7 @@ export default function FamilySettingsScreen({
             </>
           ) : tvPairing.status === 'waiting' && tvPairing.code ? (
             <>
-              <DText size={24} color={p.muted}>Enter this code in the signed-in FamilyOS phone app. It expires in 10 minutes.</DText>
+              <DText size={24} color={p.muted}>Enter this code in the signed-in Hometide phone app. It expires in 10 minutes.</DText>
               <DText heading size={88} weight={800} style={{ letterSpacing: 8 }}>{tvPairing.code}</DText>
               <DText size={22} color={p.muted} accessibilityLiveRegion="polite">Waiting for phone approval…</DText>
             </>
@@ -208,7 +208,7 @@ export default function FamilySettingsScreen({
           ) : null}
           <DText size={24} color={p.muted}>
             {tvPairing.status === 'paired'
-              ? 'Household data comes from your FamilyOS account. Voice requests appear here for confirmation.'
+              ? 'Household data comes from your Hometide account. Voice requests appear here for confirmation.'
               : 'Fictional household data. No external accounts, phone sync, or cloud services are connected.'}
           </DText>
           <View style={{ height: 1, backgroundColor: p.border }} />
@@ -261,7 +261,7 @@ export default function FamilySettingsScreen({
                 Unpair this TV?
               </DText>
               <DText size={26} color={p.muted}>
-                Your family’s calendar, chores, and photos leave this TV. To bring them back, pair again with the FamilyOS phone app.
+                Your family’s calendar, chores, and photos leave this TV. To bring them back, pair again with the Hometide phone app.
               </DText>
               <DRow style={{ gap: 16 }}>
                 <DAction label="Keep this TV paired" primary defaultFocus onPress={() => setConfirmUnpair(false)} active={focusActive} />

@@ -153,7 +153,7 @@ class PostgresHouseholdStore:
                    (id, code_hash, polling_hash, device_name, requester_hash, status, expires_at)
                    VALUES (%s, %s, %s, %s, %s, 'pending', %s)""",
                 (challenge_id, self._pairing_digest(code), self._pairing_digest(polling_token),
-                 device_name.strip()[:60] or "FamilyOS TV", requester_hash, expires),
+                 device_name.strip()[:60] or "Hometide TV", requester_hash, expires),
             )
         return {"challengeId": challenge_id, "code": code, "pollingToken": polling_token,
                 "expiresAt": expires.isoformat()}
@@ -546,6 +546,12 @@ class PostgresHouseholdStore:
             ).fetchone()
         return bytes(row["content"]) if row else None
 
+    def delete_household(self, owner_sub: str) -> None:
+        """Delete a parent's household and, by ON DELETE CASCADE, its sessions, paired TVs, child sessions,
+        parent code, voice tokens, photos and calendar links."""
+        with self._connect() as connection:
+            connection.execute("DELETE FROM familyos_households WHERE owner_sub = %s", (owner_sub,))
+
     def delete_photo(self, owner_sub: str, photo_id: str) -> None:
         with self._connect() as connection:
             connection.execute("DELETE FROM familyos_photo_blobs WHERE owner_sub = %s AND photo_id = %s", (owner_sub, photo_id))
@@ -763,14 +769,15 @@ class CognitoSessionService:
     def sign_out(self, token: str | None) -> None:
         self.store.revoke_session(token)
 
-    def verify_recent_sign_in(self, id_token: str | None, owner_sub: str, max_age_seconds: int = 600) -> None:
-        """Parent-code recovery needs a fresh password sign-in by the same Cognito user."""
+    def verify_recent_sign_in(self, id_token: str | None, owner_sub: str, max_age_seconds: int = 600,
+                              message: str = "Sign in again with your password to reset the parent code.") -> None:
+        """Sensitive actions (parent-code recovery, account deletion) need a fresh password sign-in by the same user."""
         if not id_token:
-            raise DomainError(401, "REAUTH_REQUIRED", "Sign in again with your password to reset the parent code.")
+            raise DomainError(401, "REAUTH_REQUIRED", message)
         claims = self.verifier.verify_id_token(id_token)
         issued = int(claims.get("auth_time") or claims.get("iat") or 0)
         if claims.get("sub") != owner_sub or datetime.now(timezone.utc).timestamp() - issued > max_age_seconds:
-            raise DomainError(401, "REAUTH_REQUIRED", "Sign in again with your password to reset the parent code.")
+            raise DomainError(401, "REAUTH_REQUIRED", message)
 
 
 class CognitoAccessTokenVerifier:

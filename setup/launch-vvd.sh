@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_root="${1:-$HOME/projects/familyos}"
-component_id='com.familyos.tv.main'
+component_id='com.hometide.tv.main'
 
 if [[ -f "$HOME/vega/env" ]]; then
   # shellcheck disable=SC1091

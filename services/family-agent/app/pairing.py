@@ -78,7 +78,7 @@ class PairingRegistry:
                 id=challenge_id,
                 code_hash=_digest(code, self._key),
                 polling_hash=_digest(poll_token, self._key),
-                device_name=device_name.strip()[:60] or "FamilyOS TV",
+                device_name=device_name.strip()[:60] or "Hometide TV",
                 expires_at=expires,
                 created_by=requester,
             )

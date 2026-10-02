@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, View, useWindowDimensions } from 'react-native';
 import { SpatialNavigationNode, SpatialNavigationRoot } from 'react-tv-space-navigation';
 import {
   createDemoClock,
@@ -159,7 +159,7 @@ function FamilyOsShellContent() {
         setCalendarState({
           status: next.events.length ? 'available' : 'empty',
           data: next.events,
-          source: 'FamilyOS household service',
+          source: 'Hometide household service',
         });
         setRefreshVersion((value) => value + 1);
       } catch (error) {
@@ -319,7 +319,7 @@ function FamilyOsShellContent() {
     householdRef.current = next;
     setHousehold(next);
     planner.syncHousehold(next);
-    setCalendarState({ status: next.events.length ? 'available' : 'empty', data: next.events, source: 'FamilyOS household service' });
+    setCalendarState({ status: next.events.length ? 'available' : 'empty', data: next.events, source: 'Hometide household service' });
   };
   const serverEdit = async (kind: string, value: Record<string, unknown>) => {
     try {
@@ -513,7 +513,7 @@ function FamilyOsShellContent() {
   const startTVPairing = async () => {
     setTVPairing({ status: 'creating' });
     try {
-      const response = await familyAgentClient.createPairingChallenge('FamilyOS TV');
+      const response = await familyAgentClient.createPairingChallenge('Hometide TV');
       setTVPairing({
         status: 'waiting',
         code: response.data.code,
@@ -770,7 +770,7 @@ function FamilyOsShellContent() {
           <SpatialNavigationNode orientation="horizontal">
             <View testID="family-top-navigation" style={{ height: 80, marginBottom: 28 }}>
               <DButton
-                label="Open FamilyOS menu"
+                label="Open Hometide menu"
                 onPress={() => setMenuOpen(true)}
                 active={navActive}
                 radius={18}
@@ -780,13 +780,15 @@ function FamilyOsShellContent() {
                   left: 0,
                   width: 64,
                   height: 64,
-                  backgroundColor: '#F2B25C',
+                  backgroundColor: '#1D2B36',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <DText heading size={34} weight={800} color="#1A1714">
-                  f
-                </DText>
+                <Image
+                  source={require('../assets/images/hometide-mark.png')}
+                  style={{ width: 46, height: 46 }}
+                  accessibilityIgnoresInvertColors
+                />
               </DButton>
               <DRow
                 style={{

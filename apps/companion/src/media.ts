@@ -2,6 +2,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
+import { permissionSettingsName } from './storage';
 
 export type PickedImage = { uri: string; base64: string; width: number; height: number };
 export type PickedDocument = { base64: string; name: string; sourceType: 'ics' | 'email' | 'flyer' | 'photo' };
@@ -21,8 +23,8 @@ export async function pickPhoto(source: 'camera' | 'library', maxSide = 1600): P
   if (!permission.granted) {
     throw new PermissionDeniedError(
       source === 'camera'
-        ? 'Camera access is off. Turn it on for Expo Go (or FamilyOS) in iPhone Settings, or choose a photo instead.'
-        : 'Photo access is off. Turn it on for Expo Go (or FamilyOS) in iPhone Settings.',
+        ? `Camera access is off. Turn it on for Hometide in ${permissionSettingsName()}, or choose a photo instead.`
+        : `Photo access is off. Turn it on for Hometide in ${permissionSettingsName()}.`,
     );
   }
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, exif: false };
@@ -52,6 +54,18 @@ export async function pickDocument(): Promise<PickedDocument | null> {
   const name = asset.name || 'document';
   const lower = name.toLowerCase();
   const sourceType = lower.endsWith('.ics') ? 'ics' : lower.endsWith('.eml') ? 'email' : /\.(jpe?g|png|heic|webp)$/.test(lower) ? 'photo' : 'flyer';
-  const base64 = await new File(asset.uri).base64();
+  const base64 = Platform.OS === 'web' ? await browserFileBase64(asset.file, asset.uri) : await new File(asset.uri).base64();
   return { base64, name, sourceType };
+}
+
+/** Web only: read a chosen file as base64 (no data: prefix), like the phone's file system does. */
+async function browserFileBase64(file: Blob | undefined, uri: string): Promise<string> {
+  const blob = file ?? (await (await fetch(uri)).blob());
+  const dataURL = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('That file could not be read. Please try another one.'));
+    reader.readAsDataURL(blob);
+  });
+  return dataURL.slice(dataURL.indexOf(',') + 1);
 }

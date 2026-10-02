@@ -75,3 +75,15 @@ test('resend and password reset use separate Cognito operations', async () => {
     ['ResendConfirmationCode', 'ForgotPassword', 'ConfirmForgotPassword']);
   assert.equal(h.requests[2].body.ConfirmationCode, '654321');
 });
+
+test('account deletion re-signs in for both tokens and deletes the sign-in with the access token only', async () => {
+  const h = harness([
+    { data: { AuthenticationResult: { IdToken: 'id-token', AccessToken: 'access-token' } } },
+    { data: {} },
+  ]);
+  const tokens = await h.client.signInTokens('parent@example.test', 'example');
+  assert.deepEqual({ ...tokens }, { idToken: 'id-token', accessToken: 'access-token' });
+  await h.client.deleteUser(tokens.accessToken);
+  assert.equal(h.requests[1].options.headers['X-Amz-Target'], 'AWSCognitoIdentityProviderService.DeleteUser');
+  assert.deepEqual(h.requests[1].body, { AccessToken: 'access-token' });
+});
