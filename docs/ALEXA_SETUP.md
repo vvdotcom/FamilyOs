@@ -1,23 +1,23 @@
-# Alexa voice for FamilyOS
+# Alexa voice for Hometide
 
-Hold the Alexa button on the Fire TV remote and say "**Alexa, ask family o. s. to open the calendar**" or
-"**…what's the weather?**". The FamilyOS app on the TV switches screens, and Alexa answers. Each step below says
+Hold the Alexa button on the Fire TV remote and say "**Alexa, ask home tide to open the calendar**" or
+"**…what's the weather?**". The Hometide app on the TV switches screens, and Alexa answers. Each step below says
 who does it: **you** (it needs your accounts) or **Claude** (code and server changes).
 
 ## How it works, and why it's built this way
 
 ```
-Fire TV remote ─► Alexa (speech, voice) ─► FamilyOS skill endpoint (/alexa on Railway)
+Fire TV remote ─► Alexa (speech, voice) ─► Hometide skill endpoint (/alexa on Railway)
                                              │  checks Amazon's signature, finds your household
                                              ▼
                                     "Alexa+ brain" (Bedrock tool loop)
                                              │  MCP over HTTP, with your linked sign-in
                                              ▼
-                              FamilyOS MCP server (/mcp) ─► TV switches screens · answers come back
+                              Hometide MCP server (/mcp) ─► TV switches screens · answers come back
 ```
 
 Amazon's Alexa+ MCP Toolkit, the real way to publish an Alexa+ add-on, is open only to select partners, not to
-hackathon entrants. So FamilyOS does what the judges suggested:
+hackathon entrants. So Hometide does what the judges suggested:
 - **The add-on is built to Alexa+'s spec:** an MCP server (protocol 2025-11-25, Streamable HTTP) with OAuth sign-in
   through Amazon Cognito.
 - **An ordinary Alexa skill stands in for the add-on.** It reaches the MCP server over the MCP protocol with the
@@ -28,11 +28,11 @@ entrants."*
 
 ## Step 1: An Alexa sign-in client in Cognito (you, about 10 minutes)
 
-Families link Alexa with their normal FamilyOS email and password. In the AWS console, open **Cognito → user pool
+Families link Alexa with their normal Hometide email and password. In the AWS console, open **Cognito → user pool
 `us-west-2_8isgUyBvQ` (us-west-2)**:
 
 1. **Domain:** under *App integration → Domain*, create a Cognito domain if there isn't one yet (for example
-   `familyos-yourname`). Note the full address, like `https://familyos-yourname.auth.us-west-2.amazoncognito.com`.
+   `hometide-yourname`). Note the full address, like `https://hometide-yourname.auth.us-west-2.amazoncognito.com`.
 2. **New app client** named `Alexa`, as a **confidential client** (generate a client secret).
 3. **OAuth settings:**
    - **Authorization code grant** only.
@@ -48,7 +48,7 @@ Families link Alexa with their normal FamilyOS email and password. In the AWS co
 The skill's definition is in this repo, under [`alexa-skill/`](../alexa-skill/).
 
 **Option A: the Alexa developer console** (developer.amazon.com/alexa/console/ask)
-1. **Create skill:** name **FamilyOS**, English (US), a **Custom** model, and **Provision your own** backend. Start
+1. **Create skill:** name **Hometide**, English (US), a **Custom** model, and **Provision your own** backend. Start
    from scratch.
 2. **Build → Interaction Model → JSON Editor:** paste
    [`alexa-skill/skill-package/interactionModels/custom/en-US.json`](../alexa-skill/skill-package/interactionModels/custom/en-US.json),
@@ -92,32 +92,32 @@ Claude sets two Railway settings (both are IDs, not secrets) and redeploys:
 ## Step 5: Link and try it (you)
 
 1. In the console's **Test** tab, set testing to **Development**.
-2. In the **Alexa app** on your phone, go to *More → Skills & Games → Your Skills → Dev → FamilyOS → Enable*. Sign in
-   with your **FamilyOS** email and password.
-3. Try the console simulator first: type `ask family o. s. to open the calendar`.
-4. Then the Fire TV. The FamilyOS app should be open and paired with your household. Hold the Alexa button and say:
+2. In the **Alexa app** on your phone, go to *More → Skills & Games → Your Skills → Dev → Hometide → Enable*. Sign in
+   with your **Hometide** email and password.
+3. Try the console simulator first: type `ask home tide to open the calendar`.
+4. Then the Fire TV. The Hometide app should be open and paired with your household. Hold the Alexa button and say:
 
 | Say | What happens |
 |---|---|
-| "Alexa, ask family o. s. to open the calendar" | The TV opens the calendar (about 1–2 s) |
-| "Alexa, ask family o. s. to show the calendar for Friday" | Friday's day view |
-| "Alexa, ask family o. s. to show the wall calendar" | The big-clock wall view |
-| "Alexa, ask family o. s. what's the weather" | Alexa says today's weather at home |
-| "Alexa, ask family o. s. what's on today" | Alexa reads today's schedule |
-| "Alexa, ask family o. s. who's picking up Emma" | Alexa answers from the calendar |
-| "Alexa, ask family o. s. to swap Emma's pickup to Alex" | A request appears on the TV; a parent confirms it |
-| "Alexa, open family o. s." | Starts a conversation: keep asking without repeating the name |
+| "Alexa, ask home tide to open the calendar" | The TV opens the calendar (about 1–2 s) |
+| "Alexa, ask home tide to show the calendar for Friday" | Friday's day view |
+| "Alexa, ask home tide to show the wall calendar" | The big-clock wall view |
+| "Alexa, ask home tide what's the weather" | Alexa says today's weather at home |
+| "Alexa, ask home tide what's on today" | Alexa reads today's schedule |
+| "Alexa, ask home tide who's picking up Emma" | Alexa answers from the calendar |
+| "Alexa, ask home tide to swap Emma's pickup to Alex" | A request appears on the TV; a parent confirms it |
+| "Alexa, open home tide" | Starts a conversation: keep asking without repeating the name |
 
 ## If something goes wrong
 
 | What you see or hear | Likely cause | Fix |
 |---|---|---|
-| "Open the Alexa app and link your FamilyOS account" | Not linked yet, or the link expired | Step 5.2 |
+| "Open the Alexa app and link your Hometide account" | Not linked yet, or the link expired | Step 5.2 |
 | Linking fails with a redirect error | A redirect URL is missing in Cognito | Step 3: add all three |
-| Linked, but Alexa says FamilyOS isn't answering | The Alexa client ID isn't in `FAMILYOS_MCP_COGNITO_CLIENT_IDS` | Step 4 |
+| Linked, but Alexa says Hometide isn't answering | The Alexa client ID isn't in `FAMILYOS_MCP_COGNITO_CLIENT_IDS` | Step 4 |
 | "There was a problem with the requested skill's response" | The skill ID isn't set on Railway, or it doesn't match | Step 4 |
-| Alexa answers, but the TV doesn't change | The FamilyOS app isn't open, or it isn't paired with the same household | Open FamilyOS on the TV; check pairing in Settings |
-| Alexa opens something else | It heard a different skill name | Say "family o. s." clearly, or rename the skill to "family hub" |
+| Alexa answers, but the TV doesn't change | The Hometide app isn't open, or it isn't paired with the same household | Open Hometide on the TV; check pairing in Settings |
+| Alexa opens something else | It heard a different skill name | Say "home tide" clearly, or rename the skill to "family hub" in the interaction model |
 
 ## Privacy and control
 

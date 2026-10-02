@@ -3,13 +3,13 @@
     "publishingInformation": {
       "locales": {
         "en-US": {
-          "name": "FamilyOS",
+          "name": "Hometide",
           "summary": "Your family's calendar, chores, and pickups on the Fire TV you already own.",
-          "description": "Ask FamilyOS what's on today, who's picking up the kids, or the weather at home, and tell it to open the calendar, chores, meals, or the wall calendar on your Fire TV. Changes like swapping a pickup wait for a parent to confirm on the TV or phone. Requires a FamilyOS account.",
+          "description": "Ask Hometide what's on today, who's picking up the kids, or the weather at home, and tell it to open the calendar, chores, meals, or the wall calendar on your Fire TV. Changes like swapping a pickup wait for a parent to confirm on the TV or phone. Requires a Hometide account.",
           "examplePhrases": [
-            "Alexa, open family o. s.",
-            "Alexa, ask family o. s. to open the calendar",
-            "Alexa, ask family o. s. what's the weather"
+            "Alexa, open home tide",
+            "Alexa, ask home tide to open the calendar",
+            "Alexa, ask home tide what's the weather"
           ],
           "keywords": [
             "family",
@@ -23,7 +23,7 @@
       "distributionCountries": [
         "US"
       ],
-      "testingInstructions": "Link a FamilyOS account, pair a Fire TV running FamilyOS, then ask to open the calendar.",
+      "testingInstructions": "Link a Hometide account, pair a Fire TV running Hometide, then ask to open the calendar.",
       "category": "ORGANIZERS_AND_ASSISTANTS"
     },
     "apis": {

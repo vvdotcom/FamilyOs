@@ -3669,6 +3669,7 @@ __metadata:
     "@expo/metro-runtime": "npm:~4.0.0"
     "@expo/vector-icons": "npm:^14.0.0"
     "@familyos/shared-ui": "workspace:*"
+    "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-tvos/config-tv": "npm:^0.0.10"
     "@react-navigation/drawer": "npm:^7.0.0"
     "@react-navigation/native": "npm:^7.0.0"
@@ -4653,6 +4654,17 @@ __metadata:
   version: 0.2.9
   resolution: "@pkgr/core@npm:0.2.9"
   checksum: 10c0/ac8e4e8138b1a7a4ac6282873aef7389c352f1f8b577b4850778f5182e4a39a5241facbe48361fec817f56d02b51691b383010843fb08b34a8e8ea3614688fd5
+  languageName: node
+  linkType: hard
+
+"@react-native-async-storage/async-storage@npm:2.2.0":
+  version: 2.2.0
+  resolution: "@react-native-async-storage/async-storage@npm:2.2.0"
+  dependencies:
+    merge-options: "npm:^3.0.4"
+  peerDependencies:
+    react-native: ^0.0.0-0 || >=0.65 <1.0
+  checksum: 10c0/84900eba46a40225c4ac9bf5eb58885200dc1e789d873ecda46a2a213870cc7110536ed1fd7a74b873071f3603c093958fbd84c635d6f6d4f94bfbb616ffa0ef
   languageName: node
   linkType: hard
 

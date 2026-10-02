@@ -1,9 +1,9 @@
-"""FamilyOS as an Alexa skill: the stand-in for an Alexa+ add-on.
+"""Hometide as an Alexa skill: the stand-in for an Alexa+ add-on.
 
-Amazon's Alexa+ MCP Toolkit isn't open to hackathon entrants, so the FamilyOS MCP server (built to the add-on
+Amazon's Alexa+ MCP Toolkit isn't open to hackathon entrants, so the Hometide MCP server (built to the add-on
 spec) is reached through an ordinary Alexa Skills Kit skill instead:
 
-    Fire TV remote -> Alexa (speech) -> this endpoint -> Bedrock tool loop -> FamilyOS MCP server (over HTTP)
+    Fire TV remote -> Alexa (speech) -> this endpoint -> Bedrock tool loop -> Hometide MCP server (over HTTP)
 
 The skill uses standard account linking with Amazon Cognito (OAuth authorization code grant), the same sign-in an
 Alexa+ add-on uses. Each request carries the family's linked access token, which this endpoint passes to the MCP
@@ -57,7 +57,7 @@ INTENT_PREFIX = {
     "HowManyIntent": "how many", "IsIntent": "is", "AnyIntent": "any", "SwapIntent": "swap", "MoveIntent": "move",
     "AddIntent": "add", "DoneIntent": "I finished", "TellIntent": "tell me",
 }
-WELCOME = "FamilyOS here. You can say: open the calendar, what's on today, or what's the weather."
+WELCOME = "Hometide here. You can say: open the calendar, what's on today, or what's the weather."
 HELP = ("Try: open the calendar, show the wall calendar, what's on today, who's picking up Emma, "
         "what's the weather, or swap Emma's pickup to Alex. Changes wait for a parent to confirm on the TV.")
 
@@ -147,10 +147,10 @@ def verify_request(headers, body: bytes, skill_id: str, *, now: datetime | None 
     return envelope
 
 
-# Reaching FamilyOS over MCP ----------------------------------------------------------------------------
+# Reaching Hometide over MCP ----------------------------------------------------------------------------
 
 class McpHttpTools(ToolAccess):
-    """The FamilyOS tools through the MCP protocol, as an Alexa+ add-on host would call them."""
+    """The Hometide tools through the MCP protocol, as an Alexa+ add-on host would call them."""
 
     def __init__(self, session: ClientSession) -> None:
         self.session = session
@@ -190,7 +190,7 @@ def speech(text: str, *, end: bool = True, reprompt: str | None = None, link_acc
     response: dict[str, Any] = {"outputSpeech": {"type": "PlainText", "text": text}, "shouldEndSession": end}
     if reprompt:
         response["reprompt"] = {"outputSpeech": {"type": "PlainText", "text": reprompt}}
-    response["card"] = {"type": "LinkAccount"} if link_account else {"type": "Simple", "title": "FamilyOS", "content": text}
+    response["card"] = {"type": "LinkAccount"} if link_account else {"type": "Simple", "title": "Hometide", "content": text}
     return {"version": "1.0", "sessionAttributes": {}, "response": response}
 
 
@@ -212,7 +212,7 @@ async def respond(envelope: dict, *, identity_for: Callable[[str], Any], open_to
     token = user.get("accessToken")
     identity = await asyncio.to_thread(identity_for, token) if token else None
     if identity is None:
-        return speech("To use FamilyOS, open the Alexa app and link your FamilyOS account. I've sent a card to help.",
+        return speech("To use Hometide, open the Alexa app and link your Hometide account. I've sent a card to help.",
                       link_account=True)
     if kind == "LaunchRequest":
         return speech(WELCOME, end=False, reprompt="What would you like?")
@@ -239,5 +239,5 @@ async def respond(envelope: dict, *, identity_for: Callable[[str], Any], open_to
         return speech("That's taking too long. Please try again.")
     except Exception:  # Log the category only; never the token or household content.
         logger.warning("Alexa turn failed", exc_info=False)
-        return speech("Sorry, FamilyOS isn't answering right now.")
+        return speech("Sorry, Hometide isn't answering right now.")
     return speech(str(result.get("reply") or "Done."))
