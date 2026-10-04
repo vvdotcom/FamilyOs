@@ -63,19 +63,20 @@ Amazon's testers must be able to complete every sign-in path, including pairing 
    duplicating. Use the same command for the demo account.
 3. Paste this into **Testing Instructions** (fill in the account):
 
-   > Hometide shows a family's calendar, chores and meals on the TV. The TV pairs with a parent's phone; you don't
-   > need to install anything for that.
+   > Hometide shows a family's calendar, chores, meals and lists on the TV. A new TV starts empty and is linked to a
+   > family by a parent; you don't need to install anything for that.
    >
-   > 1. Open Hometide on the Fire TV. Use the remote: Up to reach the top bar, Left/Right to move, OK to open.
-   >    Without pairing it shows a sample family.
-   > 2. To see the reviewer household: on the TV open Settings → Show pairing code.
-   > 3. On any phone or computer, open https://hometide.up.railway.app/app/ and sign in with
-   >    Email: <reviewer email>  Password: <reviewer password>.
-   > 4. In the web app go to Family → Pair a TV, enter the six-digit code from the TV, and tap Approve TV.
-   >    The TV now shows the reviewer household.
-   > 5. Parent code for approvals on the TV (menu → Approvals) and for parent mode: 2468.
-   > 6. The Menu (≡) button opens the Hometide menu. After 2 idle minutes the TV shows a large wall calendar; any
+   > 1. Open Hometide on the Fire TV. Home says "Link this TV to your family". Use the remote: Up to reach the top
+   >    bar, Left/Right to move, OK to select.
+   > 2. Select **Pair this TV**. The TV shows a QR code and a pairing code.
+   > 3. On a phone, scan the QR code with the camera. Or, on any phone or computer, open
+   >    https://hometide.up.railway.app/app/ and choose Family → Pair a TV, then type the code.
+   >    Sign in with Email: <reviewer email>  Password: <reviewer password>, and tap **Approve TV**.
+   >    Within a few seconds the TV shows the reviewer household (the Rivera family).
+   > 4. Parent code for approvals on the TV (menu → Approvals) and for parent mode: 2468.
+   > 5. The Menu (≡) button opens the Hometide menu. After 2 idle minutes the TV shows a large wall calendar; any
    >    button returns.
+   > 6. Settings → Unpair this TV returns the TV to the empty, unpaired start.
    > 7. Account deletion: web app → Family → Settings → Delete account (please don't delete the reviewer account),
    >    or https://hometide.up.railway.app/delete-account.
 
@@ -89,8 +90,8 @@ Assets are in `store-listing/fire-tv/`:
 | Background | `background-1920x1080.png` | 1920×1080 |
 | Screenshots | `screenshots/01-home.png` … | 1920×1080, 3–10 |
 
-The screenshots are rendered from the TV app's shared UI (the same screens the Fire TV build runs) with the built-in
-sample family, so they contain no real people's data.
+The screenshots are rendered from the TV app's shared UI (the same screens the Fire TV build runs) with the
+fictional sample family, so they contain no real people's data.
 
 **Title:** Hometide
 
@@ -116,7 +117,7 @@ Meals and lists: this week's dinners, recipes and a shared grocery list.
 Wall calendar: after a couple of quiet minutes the TV shows a large, easy-to-read view of today.
 
 Made for families: parents create the account and decide what's shown. Children don't need accounts or emails.
-No ads and no tracking. Pair the TV in seconds with a six-digit code from the Hometide phone app or any web browser.
+No ads and no tracking. Pair the TV in seconds: scan the QR code on the TV with your phone and tap Approve.
 
 **Feature bullets:**
 - Today's family schedule, conflicts and weather at a glance

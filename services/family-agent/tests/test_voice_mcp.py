@@ -49,7 +49,7 @@ def test_mcp_negotiates_protocol_and_requires_authorization(api):
     assert init.json()["result"]["protocolVersion"] == "2025-11-25"
     assert init.json()["result"]["serverInfo"]["name"] == "Hometide"
     tools = {tool["name"] for tool in rpc(api, token, "tools/list", **{"MCP-Protocol-Version": "2025-11-25"}).json()["result"]["tools"]}
-    assert tools == {"get_today", "get_week", "list_conflicts", "get_member_schedule", "get_chores", "get_reward_balance",
+    assert tools == {"get_today", "get_week", "list_conflicts", "get_member_schedule", "get_chores", "get_reward_balance", "get_learned_routines",
                      "propose_pickup_swap", "propose_event", "propose_reschedule", "mark_chore_done_request",
                      "show_on_tv", "get_weather"}
 
@@ -190,7 +190,7 @@ def test_voice_server_isolates_households():
                          authorization_server="https://auth.test", allowed_origins=[])
     identity_b = VoiceIdentity(owner="owner-b", member_id=None, label="b", connection_id="b")
     today_b = asyncio.run(server.simulate(identity_b, "What's on today?"))
-    assert today_b["toolCalls"] == ["get_today"] and "0 things" in today_b["reply"]
+    assert today_b["toolCalls"] == ["get_today"] and "Nothing on the calendar today" in today_b["reply"]
     identity_a = VoiceIdentity(owner="owner-a", member_id=None, label="a", connection_id="a")
     asyncio.run(server.simulate(identity_a, "Swap Emma pickup to Alex"))
     assert len(homes["owner-a"].proposals) == 1 and homes["owner-b"].proposals == []
@@ -203,3 +203,18 @@ def test_model_reasoning_is_never_spoken():
     assert strip_model_reasoning(raw) == "Today Emma has school at 7:45 AM."
     assert strip_model_reasoning("<thinking>unfinished note") == ""
     assert strip_model_reasoning("Leo has 0 stars.") == "Leo has 0 stars."
+
+
+def test_schedule_tools_come_with_an_mcp_app_card(api):
+    """MCP Apps: get_today and get_week point at a ui:// resource a host can render as a Hometide card."""
+    token = voice_token(api, parent_token(api))
+    version = {"MCP-Protocol-Version": "2025-11-25"}
+    tools = {tool["name"]: tool for tool in rpc(api, token, "tools/list", **version).json()["result"]["tools"]}
+    for name in ("get_today", "get_week"):
+        assert tools[name]["_meta"]["ui"]["resourceUri"] == "ui://hometide/today.html"
+    listed = rpc(api, token, "resources/list", **version).json()["result"]["resources"]
+    card = next(item for item in listed if item["uri"] == "ui://hometide/today.html")
+    assert card["mimeType"] == "text/html;profile=mcp-app"
+    html = rpc(api, token, "resources/read", {"uri": "ui://hometide/today.html"}, **version).json()["result"]["contents"][0]
+    assert html["mimeType"] == "text/html;profile=mcp-app" and "ui/notifications/tool-result" in html["text"]
+    assert "innerHTML" not in html["text"]  # Tool results are rendered as text, never as markup.

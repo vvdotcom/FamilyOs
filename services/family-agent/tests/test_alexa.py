@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from cryptography.x509.verification import Store
 
-from conftest import bearer, edit, pair_tv, parent_token
+from conftest import bearer, edit, household, pair_tv, parent_token
 from app import alexa
 
 SKILL = "amzn1.ask.skill.00000000-test"
@@ -116,13 +116,16 @@ def skill(api, monkeypatch):
     return api
 
 
-def ask(api, kind: str = "IntentRequest", *, intent: str | None = None, request: str | None = None, token: str | None = None):
+def ask(api, kind: str = "IntentRequest", *, intent: str | None = None, request: str | None = None, token: str | None = None,
+        screen: bool = False, new: bool = True):
     payload = {"type": kind, "requestId": "r1", "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "locale": "en-US"}
     if intent:
         payload["intent"] = {"name": intent, "slots": {"request": {"name": "request", "value": request}} if request else {}}
     user = {"userId": "amzn1.ask.account.test", **({"accessToken": token} if token else {})}
-    envelope = {"version": "1.0", "session": {"new": True, "user": user, "application": {"applicationId": SKILL}},
-                "context": {"System": {"application": {"applicationId": SKILL}, "user": user}}, "request": payload}
+    envelope = {"version": "1.0", "session": {"new": new, "user": user, "application": {"applicationId": SKILL}},
+                "context": {"System": {"application": {"applicationId": SKILL}, "user": user,
+                                       **({"device": {"supportedInterfaces": {"Alexa.Presentation.APL": {}}}} if screen else {})}},
+                "request": payload}
     reply = api.client.post("/alexa", content=json.dumps(envelope), headers={"Content-Type": "application/json"})
     assert reply.status_code == 200, reply.text
     return reply.json()["response"]
@@ -177,6 +180,23 @@ def test_a_pickup_swap_waits_for_a_parent(skill):
     assert [item["status"] for item in proposals] == ["pending"]
 
 
+def test_after_open_home_tide_follow_ups_keep_the_conversation(skill):
+    """Ending the session after each answer hands the next question back to Alexa+, which may answer it from
+    Alexa's own calendar ("Nothing's on the calendar"). Inside an opened conversation Hometide keeps listening."""
+    parent, token = linked_token(skill)
+    edit(skill, parent, "event", {"id": "dropoff", "familyId": household(skill, parent)["family"]["id"],
+                                  "title": "School drop-off", "category": "dropoff",
+                                  "startAt": "2026-09-22T06:00:00-07:00", "endAt": "2026-09-22T06:20:00-07:00",
+                                  "ownerMemberId": "alex", "memberIds": ["leo"], "responsibleMemberId": "jordan",
+                                  "responsibilityType": "dropoff"})
+    follow_up = ask(skill, intent="WhatIntent", request="on today", token=token, new=False)
+    assert follow_up["shouldEndSession"] is False
+    assert follow_up["reprompt"]["outputSpeech"]["text"] == alexa.FOLLOW_UP
+    assert "Jordan dropping off" in follow_up["outputSpeech"]["text"]
+    one_shot = ask(skill, intent="WhatIntent", request="on today", token=token)
+    assert one_shot["shouldEndSession"] is True and "reprompt" not in one_shot
+
+
 def test_stop_and_session_end(skill):
     _, token = linked_token(skill)
     assert ask(skill, intent="AMAZON.StopIntent", token=token)["outputSpeech"]["text"] == "Okay."
@@ -198,3 +218,15 @@ def test_utterances_are_rebuilt_from_intents():
     assert alexa.utterance_for({"name": "HowManyIntent", "slots": {"request": {"value": "stars does Leo have"}}}) == "how many stars does Leo have"
     assert alexa.utterance_for({"name": "OpenIntent", "slots": {}}) is None
     assert alexa.utterance_for({"name": "SomethingElse", "slots": {"request": {"value": "x"}}}) is None
+
+
+def test_echo_show_gets_a_hometide_card_and_speakers_do_not(skill):
+    parent, token = linked_token(skill)
+    pair_tv(skill, parent)
+    with_screen = ask(skill, intent="OpenIntent", request="the calendar", token=token, screen=True)
+    [directive] = with_screen["directives"]
+    assert directive["type"] == "Alexa.Presentation.APL.RenderDocument"
+    assert directive["datasources"]["card"] == {"text": "Showing the calendar on the TV.", "tag": "ON YOUR TV NOW"}
+    assert directive["document"]["type"] == "APL"
+    speaker = ask(skill, intent="OpenIntent", request="the calendar", token=token)
+    assert "directives" not in speaker

@@ -28,8 +28,12 @@ import {
   saveAPIURL,
 } from './src/auth-api';
 import { CognitoAccounts, CognitoError } from './src/cognito';
+import { capturePairCode } from './src/pairLink';
 import HouseholdApp from './src/HouseholdApp';
 import DesignPreview from './src/DesignPreview';
+
+// The TV's pairing QR code opens /app/#pair=123456; keep the code until a parent is signed in.
+if (Platform.OS === 'web') capturePairCode();
 
 const appConfig = Constants.expoConfig?.extra ?? {};
 const COGNITO_CLIENT_ID = String(appConfig.familyosCognitoClientId ?? '');

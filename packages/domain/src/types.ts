@@ -169,10 +169,12 @@ export interface StarTransaction {
 /** A change requested by voice (or another indirect source). Nothing changes until someone confirms it. */
 export interface HouseholdProposal {
   id: string;
-  source: 'voice' | 'companion' | 'tv';
-  kind: 'pickup_swap' | 'event' | 'reschedule' | 'chore_done';
+  source: 'voice' | 'companion' | 'tv' | 'hometide';
+  kind: 'pickup_swap' | 'event' | 'reschedule' | 'chore_done' | 'routine';
   status: 'pending' | 'confirmed' | 'rejected' | 'expired';
   summary: string;
+  /** Routine suggestions carry why Hometide thinks so and what it will remember. */
+  payload?: { detail?: string; learned?: string; evidence?: number; memory?: 'agentcore' | 'local'; [key: string]: unknown };
   requestedBy: string;
   createdAt: string;
   expiresAt: string;

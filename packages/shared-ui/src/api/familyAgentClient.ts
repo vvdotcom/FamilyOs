@@ -115,7 +115,7 @@ export const familyAgentClient = {
   getWeather: () => request<WeatherForecast>('/v1/weather', {}, 12000),
   getHousehold: () => request<HouseholdSnapshot>('/v1/household'),
   createPairingChallenge: (deviceName = 'Hometide TV') =>
-    request<{ challengeId: string; code: string; pollingToken: string; expiresAt: string }>(
+    request<{ challengeId: string; code: string; pollingToken: string; expiresAt: string; pairUrl?: string }>(
       '/v1/pairing/challenges',
       { method: 'POST', body: JSON.stringify({ deviceName }) },
     ),

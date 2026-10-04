@@ -6,11 +6,11 @@ import { usePageBack } from '../hooks/usePageBack';
 import { SpatialNavigationNode } from 'react-tv-space-navigation';
 import { ModalFocusRoot } from '../components/ModalFocusRoot';
 import { CANVAS_COVER, NumberPad } from './FamilyTVFeatures';
+import { QRCode } from '../components/QRCode';
 import { FamilyScreenProps } from './familyTypes';
 
 export default function FamilySettingsScreen({
   household,
-  onResetDemo,
   focusActive,
   calendarState,
   weatherState,
@@ -53,7 +53,7 @@ export default function FamilySettingsScreen({
     <View style={{ flex: 1, gap: 28 }}>
       <View style={{ gap: 10 }}>
         <DText size={24} weight={700} color={p.muted} style={{ letterSpacing: 1.2 }}>
-          MAKE FAMILYOS FEEL LIKE HOME
+          MAKE HOMETIDE FEEL LIKE HOME
         </DText>
         <DText heading size={68} weight={800} style={{ letterSpacing: -1.36 }}>
           Settings
@@ -69,7 +69,7 @@ export default function FamilySettingsScreen({
             {household.family.name}
           </DText>
           <DText size={24} color={p.muted}>
-            {tvPairing.status === 'paired' ? 'This TV is linked to your family household.' : 'Your family data stays in this local demo for now.'}
+            {tvPairing.status === 'paired' ? 'This TV is linked to your family household.' : 'Pair this TV with your Hometide account to show your family here.'}
           </DText>
           <View style={{ height: 1, backgroundColor: p.border }} />
           <DText size={34} heading weight={700}>TV connection</DText>
@@ -96,11 +96,18 @@ export default function FamilySettingsScreen({
               </DText>
             </>
           ) : tvPairing.status === 'waiting' && tvPairing.code ? (
-            <>
-              <DText size={24} color={p.muted}>Enter this code in the signed-in Hometide phone app. It expires in 10 minutes.</DText>
-              <DText heading size={88} weight={800} style={{ letterSpacing: 8 }}>{tvPairing.code}</DText>
-              <DText size={22} color={p.muted} accessibilityLiveRegion="polite">Waiting for phone approval…</DText>
-            </>
+            <DRow style={{ gap: 28, alignItems: 'center' }}>
+              {tvPairing.pairUrl ? (
+                <QRCode value={tvPairing.pairUrl} size={216} accessibilityLabel="Scan to connect this TV with your phone" />
+              ) : null}
+              <View style={{ flex: 1, gap: 8 }}>
+                <DText size={24} color={p.muted}>
+                  {tvPairing.pairUrl ? 'Scan with your phone, then tap Approve TV. Or type this code:' : 'Enter this code in the signed-in Hometide phone app. It expires in 10 minutes.'}
+                </DText>
+                <DText heading size={tvPairing.pairUrl ? 56 : 88} weight={800} numberOfLines={1} style={{ letterSpacing: tvPairing.pairUrl ? 4 : 8 }}>{tvPairing.code}</DText>
+                <DText size={22} color={p.muted} accessibilityLiveRegion="polite">Waiting for approval… expires in 10 minutes.</DText>
+              </View>
+            </DRow>
           ) : (
             <>
               <DText size={24} color={p.muted}>{tvPairing.error || (tvPairing.status === 'checking' ? 'Checking this TV’s connection…' : 'Pair with the phone to show your household data on this TV.')}</DText>
@@ -193,7 +200,7 @@ export default function FamilySettingsScreen({
                 : agentStatus === 'unpaired'
                   ? 'Reachable · not paired'
                   : agentStatus === 'offline'
-                  ? 'Offline · local demo'
+                  ? 'Offline'
                   : 'Connecting'}
             </DText>
           </View>
@@ -209,7 +216,7 @@ export default function FamilySettingsScreen({
           <DText size={24} color={p.muted}>
             {tvPairing.status === 'paired'
               ? 'Household data comes from your Hometide account. Voice requests appear here for confirmation.'
-              : 'Fictional household data. No external accounts, phone sync, or cloud services are connected.'}
+              : 'No family is connected yet. Pair this TV to show your calendar, chores, meals, and lists.'}
           </DText>
           <View style={{ height: 1, backgroundColor: p.border }} />
           {[
@@ -220,7 +227,7 @@ export default function FamilySettingsScreen({
             const live = label === 'Weather' ? status.source === 'National Weather Service' : paired;
             const place = label === 'Weather' ? weatherState.data?.location : undefined;
             const text = status.status === 'available'
-              ? live ? `Live${place ? ` · ${place}` : ''}` : 'Demo'
+              ? live ? `Live${place ? ` · ${place}` : ''}` : 'Ready'
               : status.status === 'cached' ? 'Saved copy' : status.status === 'loading' ? 'Loading' : status.status === 'empty' ? 'Nothing yet' : 'Unavailable';
             return (
               <View key={String(label)} style={{ flexDirection: 'row', gap: 24 }}>
@@ -235,19 +242,18 @@ export default function FamilySettingsScreen({
           })}
           <DRow style={{ gap: 12, flexWrap: 'wrap' }}>
             <DAction
-              label={paired ? 'Refresh now' : 'Refresh demo data'}
+              label="Refresh now"
               onPress={onRefreshData}
               active={focusActive && !confirmUnpair}
             />
-            {paired ? null : <DAction label="Reset demo household" onPress={onResetDemo} active={focusActive} />}
           </DRow>
           <View style={{ flex: 1 }} />
           <DText size={22} color={p.muted}>
             {tvPairing.status === 'paired'
               ? 'Changes sync with your family account.'
               : Platform.OS === 'web'
-                ? 'Chores and theme are saved in this browser.'
-                : 'Chores, theme, and pairing are saved on this TV.'}
+                ? 'Theme is saved in this browser.'
+                : 'Theme and pairing are saved on this TV.'}
           </DText>
         </DPanel>
         </SpatialNavigationNode>

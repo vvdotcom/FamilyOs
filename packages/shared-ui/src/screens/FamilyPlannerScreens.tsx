@@ -25,6 +25,7 @@ import { FamilyScreenProps } from './familyTypes';
 import { mealTypes, Planner } from './plannerData';
 import { usePageBack } from '../hooks/usePageBack';
 import { familyAgentClient } from '../api/familyAgentClient';
+import { SAMPLE_BUILD } from './householdStorage';
 
 type PlannerProps = FamilyScreenProps & { planner: Planner };
 const ingredients = [
@@ -256,9 +257,6 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
                 <DText size={26} color={p.muted}>
                   No recipe has been saved for this meal yet.
                 </DText>
-                <DText size={22} color={p.muted}>
-                  The local preview includes a sample recipe for Taco night.
-                </DText>
               </View>
             )}
           </DPanel>
@@ -395,7 +393,7 @@ export function FamilyListsScreen({ planner, focusActive, tvPairing }: PlannerPr
           </DText>
         </View>
         <DText size={22} color={p.muted}>
-          {tvPairing?.status === 'paired' ? 'Check off together · Synced with your family' : 'Check off together · Demo lists'}
+          {tvPairing?.status === 'paired' || SAMPLE_BUILD ? 'Check off together · Synced with your family' : 'Pair this TV to see your family lists'}
         </DText>
       </DRow>
       <DRow style={{ flex: 1, gap: 24 }}>

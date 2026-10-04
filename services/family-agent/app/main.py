@@ -34,6 +34,7 @@ from .models import (
 )
 from .move import MOVE_ROUTINES, SAFETY_NOTE, routine_summary
 from .pairing import PairingRegistry
+from .rhythm import Rhythm, find_patterns, learned_routines
 from .permissions import MATRIX, Actor
 from .photos import HOUSEHOLD_PHOTO_QUOTA_BYTES, decode_upload, process_image
 from .production import CognitoAccessTokenVerifier, CognitoSessionService, CognitoTokenVerifier, PostgresHouseholdStore
@@ -113,8 +114,10 @@ class _ServiceProxy:
 
 voice_gateway = VoiceGateway(_ServiceProxy(), cognito_access_verifier)  # type: ignore[arg-type]
 tv_command_bus = TVCommandBus()
+# Routines Hometide learns from the calendar, remembered in Amazon Bedrock AgentCore Memory when configured.
+rhythm = Rhythm()
 voice_server = VoiceServer(
-    _ServiceProxy(), voice_gateway, public_url=PUBLIC_URL,  # type: ignore[arg-type]
+    _ServiceProxy(), voice_gateway, public_url=PUBLIC_URL, rhythm=rhythm,  # type: ignore[arg-type]
     authorization_server=cognito_issuer or PUBLIC_URL, tv_commands=tv_command_bus, weather=weather_provider.forecast_for,
     allowed_origins=[value.strip() for value in os.getenv("FAMILYOS_MCP_ALLOWED_ORIGINS", "").split(",") if value.strip()],
 )
@@ -501,7 +504,31 @@ async def get_local_dev_email(email: str, purpose: Purpose, request: Request):
 
 @app.get("/v1/household", response_model=APIEnvelope)
 async def get_household(request: Request):
-    return success(request, household_snapshot(request))
+    snapshot = household_snapshot(request)
+    actor = resolve_actor(request)
+    if actor is not None or not IS_PRODUCTION:
+        snapshot = learn_rhythm(actor.owner if actor else None, snapshot)
+    return success(request, snapshot)
+
+
+def learn_rhythm(owner, snapshot, *, force: bool = False):
+    """Offer at most one routine Hometide noticed. Never lets a pattern check break a household read."""
+    try:
+        return rhythm.check(service(), owner, snapshot, force=force)
+    except Exception:  # pragma: no cover - defensive: the read must still succeed.
+        logger.exception("rhythm check failed")
+        return snapshot
+
+
+@app.get("/v1/rhythm", response_model=APIEnvelope)
+async def get_rhythm(request: Request):
+    """What Hometide has noticed in the calendar and the routines the family confirmed."""
+    snapshot = household_snapshot(request)
+    actor = resolve_actor(request)
+    patterns = [{"id": item.id, "kind": item.kind, "summary": item.summary, "detail": item.detail,
+                 "evidence": item.evidence} for item in find_patterns(snapshot)]
+    return success(request, {"patterns": patterns, "learned": learned_routines(snapshot),
+                             "memory": rhythm.memory.provider, "owner": bool(actor)})
 
 
 @app.get("/v1/permissions", response_model=APIEnvelope)
@@ -616,7 +643,9 @@ async def create_pairing_challenge(body: PairingChallengeBody, request: Request)
         if IS_PRODUCTION
         else pairing_registry.create(body.deviceName, requester)
     )
-    return success(request, data)
+    # The TV shows this link as a QR code. The code rides in the URL fragment, which browsers never send to a
+    # server, so it stays out of access logs; a signed-in parent still has to tap "Approve TV".
+    return success(request, {**data, "pairUrl": f"{PUBLIC_URL}/app/#pair={data['code']}"})
 
 
 @app.post("/v1/pairing/challenges/{challenge_id}/claim", response_model=APIEnvelope)
@@ -942,6 +971,10 @@ async def decide_proposal(proposal_id: str, body: ProposalDecisionBody, request:
         actor = Actor("device_parent", actor.owner, device_id=actor.device_id)
     saved = service().edit(actor, "proposalDecide", {"id": proposal_id, "action": body.action})
     proposal = next(item for item in saved.proposals if item.id == proposal_id)
+    rhythm.decided(actor.owner, proposal)
+    if proposal.status == "confirmed" and proposal.kind != "routine":
+        # Learn from what the family just did: a one-off fix of a repeating clash becomes a routine suggestion.
+        saved = learn_rhythm(actor.owner, saved, force=True)
     return success(request, {"proposal": proposal, "household": saved})
 
 

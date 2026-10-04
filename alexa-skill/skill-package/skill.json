@@ -32,7 +32,37 @@
           "uri": "https://hometide.up.railway.app/alexa",
           "sslCertificateType": "Wildcard"
         },
-        "interfaces": []
+        "interfaces": [
+          {
+            "type": "ALEXA_PRESENTATION_APL",
+            "supportedViewports": [
+              {
+                "mode": "HUB",
+                "shape": "RECTANGLE",
+                "minWidth": 1024,
+                "maxWidth": 1279,
+                "minHeight": 600,
+                "maxHeight": 799
+              },
+              {
+                "mode": "HUB",
+                "shape": "RECTANGLE",
+                "minWidth": 1280,
+                "maxWidth": 1920,
+                "minHeight": 800,
+                "maxHeight": 1200
+              },
+              {
+                "mode": "TV",
+                "shape": "RECTANGLE",
+                "minWidth": 960,
+                "maxWidth": 960,
+                "minHeight": 540,
+                "maxHeight": 540
+              }
+            ]
+          }
+        ]
       }
     },
     "privacyAndCompliance": {

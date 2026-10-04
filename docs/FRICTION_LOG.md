@@ -2,12 +2,12 @@
 
 Record tool, SDK, API, simulator, and device friction while it happens.
 
-## Entry 1
+## Entry 1 — The multi-TV sample lags the current Vega SDK
 
 Date: 2026-09-22  
 Tool/API: Amazon React Native multi-TV sample  
 Task attempted: Establish the official FamilyOS starter baseline.  
-Steps: Compared `single.md` against the current default branch and current Vega 0.24 docs.  
+Steps: Compared our build specification (`docs/process/build-spec.md`) against the current default branch and current Vega 0.24 docs.  
 Expected: Starter commands and manifest would already align with current Vega naming and
 requirements.  
 Actual: The starter still uses `build-kepler` naming and did not declare the SDK 0.24
@@ -19,7 +19,7 @@ Suggested improvement: Update the sample manifest and README when the supported 
 Evidence/log: `apps/vega/package.json`, `apps/vega/manifest.toml`, and
 `docs/REFERENCES.md`.
 
-## Entry 2
+## Entry 2 — Builder Tools `init-context` ignores the output path in Other/Custom mode
 
 Date: 2026-09-22  
 Tool/API: Amazon Devices Builder Tools `init-context`  
@@ -38,7 +38,7 @@ Suggested improvement: Honor the context output path in Other/Custom mode and ma
 skill installation separately opt-in.  
 Evidence/log: `check-status` summary reported zero configured agents.
 
-## Entry 3
+## Entry 3 — The multi-TV sample's own checks don't pass
 
 Date: 2026-09-22  
 Tool/API: Official multi-TV starter dependency/tooling baseline  
@@ -251,6 +251,89 @@ Sounds → Ambient Experience). Pairing and household state survive the app bein
 Suggested improvement: See FR-2.  
 Evidence/log: [Vega OS: no API or device setting to keep the display awake](https://community.amazondeveloper.com/t/vega-os-no-api-or-device-setting-to-keep-the-display-awake-for-non-media-signage-kiosk-apps-screensaver-engages-despite-foreground-app/28610),
 [Vega ambient mode / idle behavior](https://community.amazondeveloper.com/t/vega-ambient-mode-idle-behavior/28788).
+
+## Entry 15 — Nova Lite can answer a tool call with only hidden reasoning
+
+Date: 2026-10-01  
+Tool/API: Amazon Bedrock Converse API, `us.amazon.nova-lite-v1:0`, tool use  
+Task attempted: Answer "what's on today?" through Alexa with a tool call, then a spoken reply.  
+Steps: Sent the utterance with the tool list; the model called `get_today`; we returned the tool result.  
+Expected: A short text reply after the tool result.  
+Actual: Some final messages contained only a `<thinking>…</thinking>` block. With it stripped, Alexa had nothing
+to say, and the skill answered "Hometide couldn't find an answer".  
+Severity: High (silent failure in a voice product)  
+Workaround: Strip reasoning; if nothing is left, speak the tool's own `speech` field, and fall back to the
+deterministic rules if that is empty too (`app/agent.py`, `tests/test_voice_routing.py`).  
+Suggested improvement: A request flag that guarantees a user-facing text block after tool use, or documentation of
+when Nova emits reasoning-only messages.  
+Evidence/log: the API logs "Bedrock gave no spoken answer, using rules" when this happens.
+
+## Entry 16 — Given every tool, the agent proposes changes nobody asked for
+
+Date: 2026-10-02  
+Tool/API: Strands Agents SDK 1.57 with `BedrockModel` (Nova Lite)  
+Task attempted: "Is anyone double booked this afternoon?" through the voice agent.  
+Steps: Gave the agent all 13 Hometide tools and a system prompt that says to propose changes only when asked.  
+Expected: The agent lists the conflict and offers to fix it.  
+Actual: It called `list_conflicts`, then `propose_pickup_swap` on its own. Proposals still need a person's yes, so
+nothing changed, but the family got a request it didn't ask for.  
+Severity: Medium  
+Workaround: Questions (no change verb) get only the read tools; `asks_for_change` in `app/agent.py`, tested in
+`tests/test_rhythm.py`.  
+Suggested improvement: A per-invocation allow-list of tools in `Agent.invoke_async`, and guidance on tool gating
+for agents that can change user data.  
+Evidence/log: `scripts/live_agent_check.py` output, tools `['list_conflicts', 'propose_pickup_swap']`.
+
+## Entry 17 — AgentCore Memory records are not searchable right after they are written
+
+Date: 2026-10-02  
+Tool/API: Amazon Bedrock AgentCore Memory, `CreateEvent` and `RetrieveMemoryRecords`  
+Task attempted: Confirm a routine, then immediately ask "what has Hometide learned?".  
+Steps: Wrote the decision as an event in the household's session; searched the routines namespace.  
+Expected: The new routine is found.  
+Actual: Long-term extraction runs asynchronously, so the search returns nothing for a while.  
+Severity: Low  
+Workaround: Read recent events as a fallback, and answer from the household's own confirmed routines first
+(`app/rhythm.py`).  
+Suggested improvement: An API to write a long-term record directly when the application already knows the fact,
+or a documented extraction delay.  
+Evidence/log: `RhythmMemory.recall` fallback path, `tests/test_rhythm.py::test_voice_recalls_what_hometide_learned`.
+
+## Entry 18 — The skill build waits on an easy-to-miss confirmation
+
+Date: 2026-09-30  
+Tool/API: Alexa Skills Kit developer console (Build tab, interaction model)  
+Task attempted: Change the invocation name to "home tide" and rebuild the skill.  
+Steps: Saved the interaction model, clicked Build skill, then tested in the simulator.  
+Expected: The build starts from the Build action.  
+Actual: The build only starts after a confirmation dialog; when it was missed, the simulator kept the old model and
+"home tide" wasn't recognized, with no error shown.  
+Severity: Low  
+Workaround: Confirm the dialog and wait for the "Build successful" status before testing.  
+Suggested improvement: Start the build from the first click, or show "model not built" in the simulator.  
+Evidence/log: `docs/ALEXA_SETUP.md`.
+
+## Entry 19 — Alexa+ answers "ask home tide what's on today" from its own empty calendar
+
+Date: 2026-10-02  
+Tool/API: Alexa+ (developer console simulator), Alexa Skills Kit custom skill invocation  
+Task attempted: Seed a household with a full week, then ask "Alexa, ask home tide what's on today".  
+Steps: Linked the account, seeded events for today, asked the same one-shot question that had reached the skill
+nine times earlier the same day.  
+Expected: The request goes to the Hometide skill, which reads today's four events.  
+Actual: Alexa+ said "Checking that. Nothing's on the calendar for the rest of today." Alexa history filed the
+request under **Calendar**, not **Conversation**, and Railway logged no `POST /alexa`: Alexa answered from its own
+calendar, which has nothing linked. The family heard a confident, wrong answer that sounded like Hometide's. Follow-up
+questions after an answer that ended the session went back to Alexa+ the same way ("Hometide doesn't share that
+info through Alexa yet").  
+Severity: High (the voice demo silently answered from the wrong source)  
+Workaround: Say "Alexa, open home tide" first. Alexa+ hands over ("Here's Hometide. Say 'Alexa exit'…"), and
+"what's on today" then reached Hometide and read the seeded day. Hometide now keeps the session open after answers
+inside that conversation, so follow-ups stay with Hometide (`app/alexa.py`, `tests/test_alexa.py`).  
+Suggested improvement: Honor an explicit "ask {invocation name}" before routing to a built-in domain, or say which
+service is answering ("From your Alexa calendar…") when Alexa+ answers instead of the named skill.  
+Evidence/log: Alexa history entries at 6:47 PM (Calendar) versus earlier Conversation entries; Railway logs with
+`POST /alexa` at 08:57–09:36 and 18:20–18:25 only, then 19:09–19:10 after "open home tide".
 
 ## Feature requests
 

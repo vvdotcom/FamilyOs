@@ -1,6 +1,6 @@
 # FamilyOS implementation phases
 
-`single.md` remains the product and engineering source of truth. These phase files turn
+`docs/process/build-spec.md` remains the product and engineering source of truth. These phase files turn
 that contract into fifteen sequential delivery checkpoints. Phases 1–6 deliver the original
 MVP; Phases 7–10 extend it with the features approved on 2026-09-23; Phase 11 consolidates
 documentation and is optional for now; Phases 12–14 add the Fire TV priority-category

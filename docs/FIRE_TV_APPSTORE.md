@@ -12,9 +12,10 @@ does not document are marked **unverified**.
 | --- | --- |
 | `.vpkg` release build | Ready: `yarn build:vega` produces `apps/vega/build/armv7-release/…_armv7.vpkg` (Fire TV Sticks are ARM; the x86_64 build is only for the Virtual Device) |
 | Manifest registers `com.amazon.category.main` (otherwise it cannot launch from Home and fails submission) | Done (`apps/vega/manifest.toml`) |
+| Manifest asks only for what Hometide uses (the sample's video, DRM, audio and Content Launcher declarations removed) | Done (`apps/vega/manifest.toml`); re-check launch and remote input on the Stick after the next build |
 | Increasing build number for every upload | Done: version 1.0.0; run `yarn version:tv` before each upload (see APPSTORE_SUBMISSION.md) |
 | Backend URL baked into the build | Fixed: `EXPO_PUBLIC_FAMILYOS_API_URL=https://… yarn build:vega` (see `docs/VEGA_VVD_TEST_REPORT.md`, fix 8) |
-| Tested on a real Fire TV Stick before submitting (Amazon requires this) | **Not done.** Only the Vega Virtual Device so far |
+| Tested on a real Fire TV Stick before submitting (Amazon requires this) | **In progress.** Installed and running on a Fire TV Stick 4K Select (sideloaded over Wi-Fi with `familyos.ps1 tv`); the scenario checks below are still to do |
 | Required scenarios on hardware: Back/Home exit and relaunch, app switching, HDMI hot-plug, TV power, reboot keeps the user signed in, screensaver, Alexa interruptions, Bluetooth audio | **Not done.** Pairing already survives an app restart on the VVD; reboot must be checked on hardware |
 | Performance targets (Vega App KPI Visualizer, release build): memory under 400 MiB foreground; cold launch to first frame under 1.5 s and fully drawn under 8 s; key latency under 100 ms | Likely fine for memory (levels off around 165 MB on the VVD). Launch and latency must be measured on a Stick |
 | D-pad: visible focus everywhere, Back never traps the user | Covered on the VVD (see test report) |

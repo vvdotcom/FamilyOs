@@ -18,10 +18,10 @@ reason to leave setup, security, or API instructions knowingly stale.
 
 ## Dependencies and scope
 
-- Covers `single.md`'s calendar provider abstraction and EPIC 12; implementation is optional.
+- Covers `docs/process/build-spec.md`'s calendar provider abstraction and EPIC 12; implementation is optional.
 - Follows product implementation through Phase 10 and the corresponding device/platform
   verification. Re-run any checks invalidated by changes made after their earlier phase.
-- Use the current `single.md` release definitions and phase checklists as the source of truth.
+- Use the current `docs/process/build-spec.md` release definitions and phase checklists as the source of truth.
 - Do not claim a platform, provider, security control, or production flow is complete without
   verifiable evidence. Distinguish local/demo behavior from deployed behavior.
 
@@ -44,7 +44,7 @@ reason to leave setup, security, or API instructions knowingly stale.
   offline mode or provider failure; do not depend on live OAuth or perfect Wi-Fi.
 - [ ] Capture the final demo and prepare release notes and evidence links.
 - [ ] Gate `v0.1-demo`, `v0.2-vega`, `v0.3-firetv`, and `v1.0-hackathon` tags against the
-  release definitions in `single.md`; create a tag only for a commit whose required checks
+  release definitions in `docs/process/build-spec.md`; create a tag only for a commit whose required checks
   have evidence.
 
 ## Verification checkpoints

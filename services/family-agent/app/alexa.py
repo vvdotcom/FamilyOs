@@ -58,6 +58,7 @@ INTENT_PREFIX = {
     "AddIntent": "add", "DoneIntent": "I finished", "TellIntent": "tell me",
 }
 WELCOME = "Hometide here. You can say: open the calendar, what's on today, or what's the weather."
+FOLLOW_UP = "Anything else for Hometide?"
 HELP = ("Try: open the calendar, show the wall calendar, what's on today, who's picking up Emma, "
         "what's the weather, or swap Emma's pickup to Alex. Changes wait for a parent to confirm on the TV.")
 
@@ -185,13 +186,64 @@ async def mcp_tools(url: str, token: str, client_factory=None) -> AsyncIterator[
 
 # Answering Alexa -----------------------------------------------------------------------------------------
 
-def speech(text: str, *, end: bool = True, reprompt: str | None = None, link_account: bool = False) -> dict:
+def speech(text: str, *, end: bool = True, reprompt: str | None = None, link_account: bool = False,
+           screen: str | None = None) -> dict:
+    """An Alexa response. ``screen`` (a short tag) adds a Hometide card on devices with a screen (APL)."""
     text = (text or "").strip()[:7000] or "Okay."
     response: dict[str, Any] = {"outputSpeech": {"type": "PlainText", "text": text}, "shouldEndSession": end}
     if reprompt:
         response["reprompt"] = {"outputSpeech": {"type": "PlainText", "text": reprompt}}
     response["card"] = {"type": "LinkAccount"} if link_account else {"type": "Simple", "title": "Hometide", "content": text}
+    if screen is not None and not link_account:
+        response["directives"] = [apl_card(text, screen)]
     return {"version": "1.0", "sessionAttributes": {}, "response": response}
+
+
+# Echo Show and Fire TV screens: a Hometide-branded card (Alexa Presentation Language).
+APL_DOCUMENT: dict[str, Any] = {
+    "type": "APL", "version": "2023.3",
+    "theme": "dark",
+    "mainTemplate": {
+        "parameters": ["payload"],
+        "items": [{
+            "type": "Container", "width": "100vw", "height": "100vh", "direction": "column",
+            "justifyContent": "center", "paddingLeft": "6vw", "paddingRight": "6vw",
+            "items": [
+                {"type": "Frame", "backgroundColor": "#1D2B36", "position": "absolute", "width": "100vw", "height": "100vh",
+                 "top": 0, "left": 0},
+                {"type": "Text", "text": "${payload.card.tag}", "color": "#F2A65A", "fontSize": "26dp",
+                 "fontWeight": "700", "letterSpacing": "2dp"},
+                {"type": "Text", "text": "${payload.card.text}", "color": "#F3EFE6", "fontSize": "40dp",
+                 "fontWeight": "600", "paddingTop": "16dp", "maxLines": 6},
+                {"type": "Text", "text": "Hometide", "color": "#2F7F7A", "fontSize": "24dp", "fontWeight": "800",
+                 "paddingTop": "32dp"},
+            ],
+        }],
+    },
+}
+
+
+def apl_card(text: str, tag: str) -> dict:
+    return {"type": "Alexa.Presentation.APL.RenderDocument", "token": "hometide-card", "document": APL_DOCUMENT,
+            "datasources": {"card": {"text": text[:600], "tag": tag.upper()[:60]}}}
+
+
+def supports_screen(envelope: dict) -> bool:
+    device = ((envelope.get("context") or {}).get("System") or {}).get("device") or {}
+    return "Alexa.Presentation.APL" in (device.get("supportedInterfaces") or {})
+
+
+def screen_tag(result: dict) -> str:
+    calls = result.get("toolCalls") or []
+    if result.get("proposalIds"):
+        return "Waiting for a yes on the TV or phone"
+    if "show_on_tv" in calls:
+        return "On your TV now"
+    if "get_learned_routines" in calls:
+        return "What Hometide has learned"
+    if "get_weather" in calls:
+        return "Weather at home"
+    return "Today at home"
 
 
 def utterance_for(intent: dict) -> str | None:
@@ -233,11 +285,17 @@ async def respond(envelope: dict, *, identity_for: Callable[[str], Any], open_to
         async with open_tools(token) as tools:
             return await converse(utterance, tools, lambda: budget(identity.owner), ai_timeout=ANSWER_SECONDS - 1)
 
+    # "Alexa, open home tide" starts a conversation; keep it open so follow-ups reach Hometide. If the session
+    # ended after each answer, Alexa+ would take the next question back and could answer it from Alexa's own
+    # calendar. One-shot requests ("Alexa, ask home tide ...") still end after the answer.
+    follow_up = not (envelope.get("session") or {}).get("new", True)
+    keep = {"end": not follow_up, "reprompt": FOLLOW_UP if follow_up else None}
     try:
         result = await asyncio.wait_for(turn(), timeout=ANSWER_SECONDS)
     except asyncio.TimeoutError:
-        return speech("That's taking too long. Please try again.")
+        return speech("That's taking too long. Please try again.", **keep)
     except Exception:  # Log the category only; never the token or household content.
         logger.warning("Alexa turn failed", exc_info=False)
-        return speech("Sorry, Hometide isn't answering right now.")
-    return speech(str(result.get("reply") or "Done."))
+        return speech("Sorry, Hometide isn't answering right now.", **keep)
+    return speech(str(result.get("reply") or "Done."), screen=screen_tag(result) if supports_screen(envelope) else None,
+                  **keep)

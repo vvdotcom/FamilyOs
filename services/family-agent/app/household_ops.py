@@ -363,6 +363,10 @@ def _validate_proposal_payload(snapshot: HouseholdSnapshot, kind: str, payload: 
             raise DomainError(404, "CHORE_NOT_FOUND", "That chore could not be found.")
         if chore.status == "completed":
             raise DomainError(409, "CHORE_ALREADY_COMPLETED", "That chore is already done.")
+    elif kind == "routine":
+        from .rhythm import validate_routine_payload
+
+        validate_routine_payload(snapshot, payload)
 
 
 def _op_proposalCreate(snapshot, value, _actor):
@@ -435,6 +439,13 @@ def _op_proposalDecide(snapshot, value, actor):
     elif proposal.kind == "chore_done":
         from .companion import complete_chore
         complete_chore(snapshot, str(payload["choreId"]))
+    elif proposal.kind == "routine":
+        from .rhythm import apply_routine
+        changed = apply_routine(snapshot, payload)
+        proposal.status = "confirmed"
+        proposal.resultMessage = (f"Done. Hometide will remember this routine. {changed} "
+                                  f"{'event' if changed == 1 else 'events'} updated.")
+        return
     proposal.status = "confirmed"
     proposal.resultMessage = "Done. Every screen will show the change."
 

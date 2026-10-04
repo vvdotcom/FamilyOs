@@ -4,35 +4,56 @@ import { nativeStore } from '../storage/nativeStore';
 
 const STORAGE_KEY = 'familyos.household.v1';
 
-export function loadHouseholdSnapshot(): HouseholdSnapshot {
-  const fallback = createDemoHousehold();
-  if (Platform.OS !== 'web') return fallback;
+/** The device's own time zone, so an unpaired TV shows the real local date and clock. */
+function deviceTimezone(): string {
   try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
-    if (!raw) return fallback;
-    const value: unknown = JSON.parse(raw);
-    if (isHouseholdSnapshot(value)) return value;
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Phoenix';
   } catch {
-    // Invalid, unavailable, or blocked browser storage falls back to seeded demo data.
+    return 'America/Phoenix';
   }
-  return fallback;
 }
 
 /**
- * Native targets cannot read storage synchronously, so the shell starts from the demo snapshot
- * and swaps in the stored one once this resolves. Returns null on web (already loaded) or when
- * nothing valid is stored.
+ * An unpaired TV has no family yet: no members, events, chores, meals, or lists. Everything appears
+ * once the TV is paired with a Hometide account and the household syncs from the server.
  */
+export function createEmptyHousehold(): HouseholdSnapshot {
+  return {
+    family: { id: 'family-home', name: 'Your family', timezone: deviceTimezone(), memberIds: [] },
+    members: [],
+    events: [],
+    chores: [],
+    routines: [],
+    revision: 0,
+    listItems: [],
+    meals: [],
+    rewards: [],
+    redemptions: [],
+    starTransactions: [],
+    proposals: [],
+    choreVerifications: [],
+    familyNight: null,
+    familyNightPolls: [],
+    photos: [],
+    teams: [],
+    location: null,
+    calendars: [],
+  };
+}
+
+/**
+ * Store screenshots only: a web build made with EXPO_PUBLIC_HOMETIDE_SAMPLE=1 shows the fictional sample family at
+ * its fixed demo time. Fire TV builds never set it, so a real TV stays empty until it is paired.
+ */
+export const SAMPLE_BUILD = process.env.EXPO_PUBLIC_HOMETIDE_SAMPLE === '1';
+
+export function loadHouseholdSnapshot(): HouseholdSnapshot {
+  return SAMPLE_BUILD ? createDemoHousehold() : createEmptyHousehold();
+}
+
+/** Unpaired TVs no longer keep a local household, so there is nothing to restore. */
 export async function hydrateHouseholdSnapshot(): Promise<HouseholdSnapshot | null> {
-  if (Platform.OS === 'web') return null;
-  try {
-    const raw = await nativeStore.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const value: unknown = JSON.parse(raw);
-    return isHouseholdSnapshot(value) ? value : null;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export function saveHouseholdSnapshot(household: HouseholdSnapshot): void {
@@ -48,19 +69,7 @@ export function saveHouseholdSnapshot(household: HouseholdSnapshot): void {
 }
 
 export function resetHouseholdSnapshot(): HouseholdSnapshot {
-  const household = createDemoHousehold();
+  const household = createEmptyHousehold();
   saveHouseholdSnapshot(household);
   return household;
-}
-
-function isHouseholdSnapshot(value: unknown): value is HouseholdSnapshot {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<HouseholdSnapshot>;
-  return (
-    candidate.family?.id === 'family-home' &&
-    Array.isArray(candidate.members) &&
-    Array.isArray(candidate.events) &&
-    Array.isArray(candidate.chores) &&
-    Array.isArray(candidate.routines)
-  );
 }

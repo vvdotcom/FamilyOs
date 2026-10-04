@@ -52,6 +52,25 @@ def banner(w, h):
             f'<div style="font:800 {fs}px/1 Brico;color:{CREAM};letter-spacing:-{fs*0.025}px">Hometide</div></div></body></html>'), w, h
 
 
+def tv_icon(size):
+    """Vega launcher card: the mark beside the wordmark, the pair centred (exactly 512x512 on Vega).
+
+    Kept to the middle band so the name still reads if the launcher crops the square to 16:9.
+    """
+    k = size / 512
+    mh, text_w, gap = 96 * k, 318 * k, 22 * k
+    mw = mh * 128 / 154
+    # The mark drawn from the arch's own ink box (x 36..164, y 28..182), so spacing is measured from what shows.
+    ink = DARK.replace('viewBox="0 0 200 200"', 'viewBox="36 28 128 154"')
+    return (HEAD + f'<div style="position:relative;width:{size}px;height:{size}px;background:{NAVY};overflow:hidden">'
+            f'<div id="row" style="position:absolute;display:flex;align-items:center;gap:{gap}px">'
+            f'<div style="width:{mw}px;height:{mh}px;flex-shrink:0">{ink}</div>'
+            f'<div id="w" style="font:800 100px/1 Brico;color:{CREAM};letter-spacing:-0.025em;white-space:nowrap">Hometide</div></div></div>'
+            '<script>document.fonts.ready.then(()=>{const w=document.getElementById("w"),row=document.getElementById("row");'
+            f'w.style.fontSize=(100*{text_w}/w.getBoundingClientRect().width)+"px";const r=row.getBoundingClientRect();'
+            f'row.style.left=(({size}-r.width)/2)+"px";row.style.top=(({size}-r.height)/2)+"px"}})</script></body></html>'), size, size
+
+
 def background(w, h):
     big = mark(TEAL, '#26404F', NAVY, 'd')
     return (HEAD + f'<div style="width:{w}px;height:{h}px;background:{NAVY};position:relative;overflow:hidden">'
@@ -72,6 +91,7 @@ JOBS = {
     'mark-light-256.png': square(256, None, LIGHT, 1),
     'mark-dark-256.png': square(256, None, DARK, 1),
     # TV launcher icons and banners
+    'tv-app-icon-512.png': tv_icon(512),  # Vega: apps/vega/assets/image/hometide_icon.png
     'tv-1280x768.png': banner(1280, 768),
     'tv-400x240.png': banner(400, 240),
     'tv-800x480.png': banner(800, 480),

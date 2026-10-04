@@ -22,7 +22,7 @@ Automated checks: backend `python -m pytest` (89 passing), companion `node --tes
 
 - Build on the household screens and providers from Phase 3 and the confirmed-action
   workflow from Phase 4, after the original Phase 6 MVP release.
-- Extend `single.md` through section 39. All work below is planned and not yet implemented.
+- Extend `docs/process/build-spec.md` through section 39. All work below is planned and not yet implemented.
 - Import user-selected files and email content. Continuous inbox access is outside this
   phase; an email service connection would need its own explicit scope and authorization.
 

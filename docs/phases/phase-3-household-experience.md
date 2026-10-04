@@ -7,7 +7,7 @@ status, and event detail flows.
 
 ## Specification coverage
 
-- `single.md` sections 2.1–2.3, 10–11, 15–16, and 20 / EPIC 3–5.
+- `docs/process/build-spec.md` sections 2.1–2.3, 10–11, 15–16, and 20 / EPIC 3–5.
 
 ## Work packages
 

@@ -1,7 +1,7 @@
 # Alexa voice for Hometide
 
-Hold the Alexa button on the Fire TV remote and say "**Alexa, ask home tide to open the calendar**" or
-"**…what's the weather?**". The Hometide app on the TV switches screens, and Alexa answers. Each step below says
+Hold the Alexa button on the Fire TV remote and say "**Alexa, open home tide**", then "**open the calendar**" or
+"**what's on today?**". The Hometide app on the TV switches screens, and Hometide answers. Each step below says
 who does it: **you** (it needs your accounts) or **Claude** (code and server changes).
 
 ## How it works, and why it's built this way
@@ -60,6 +60,10 @@ The skill's definition is in this repo, under [`alexa-skill/`](../alexa-skill/).
      certificate authority"*.
    - **Save.**
 
+4. **Build → Interfaces:** turn on **Alexa Presentation Language** (Echo Show, Fire TV viewports), then **Save**
+   and **Build** (confirm the build dialog). Echo Show then shows a Hometide card with each answer; speakers are
+   unchanged.
+
 **Option B: the ASK CLI**
 ```powershell
 npm install -g ask-cli
@@ -94,19 +98,28 @@ Claude sets two Railway settings (both are IDs, not secrets) and redeploys:
 1. In the console's **Test** tab, set testing to **Development**.
 2. In the **Alexa app** on your phone, go to *More → Skills & Games → Your Skills → Dev → Hometide → Enable*. Sign in
    with your **Hometide** email and password.
-3. Try the console simulator first: type `ask home tide to open the calendar`.
+3. Try the console simulator first: type `open home tide`, then `what's on today`.
 4. Then the Fire TV. The Hometide app should be open and paired with your household. Hold the Alexa button and say:
 
-| Say | What happens |
+**On accounts with Alexa+, open Hometide first.** Say "Alexa, open home tide". Alexa+ answers "Here's Hometide…",
+and everything you say after that goes to Hometide until you say "Alexa, exit". One-shot requests ("Alexa, ask home
+tide what's on today") can be answered by Alexa+ itself instead: calendar questions go to Alexa's own calendar,
+which says *"Nothing's on the calendar for the rest of today"* when no Google, Outlook or Apple calendar is linked
+to Alexa. Hometide never hears that request. See [friction Entry 19](FRICTION_LOG.md).
+
+| Say (after "Alexa, open home tide") | What happens |
 |---|---|
-| "Alexa, ask home tide to open the calendar" | The TV opens the calendar (about 1–2 s) |
-| "Alexa, ask home tide to show the calendar for Friday" | Friday's day view |
-| "Alexa, ask home tide to show the wall calendar" | The big-clock wall view |
-| "Alexa, ask home tide what's the weather" | Alexa says today's weather at home |
-| "Alexa, ask home tide what's on today" | Alexa reads today's schedule |
-| "Alexa, ask home tide who's picking up Emma" | Alexa answers from the calendar |
-| "Alexa, ask home tide to swap Emma's pickup to Alex" | A request appears on the TV; a parent confirms it |
-| "Alexa, open home tide" | Starts a conversation: keep asking without repeating the name |
+| "What's on today?" | Hometide reads today's schedule from the household |
+| "Open the calendar" | The TV opens the calendar (about 1–2 s) |
+| "Show the calendar for Friday" | Friday's day view |
+| "Show the wall calendar" | The big-clock wall view |
+| "What's the weather?" | Today's weather at home |
+| "Who's picking up Emma?" | Answered from the calendar |
+| "Swap Emma's pickup to Alex" | A request appears on the TV; a parent confirms it |
+| "What has Hometide learned about us?" | The routines Hometide noticed and the family confirmed |
+| "Alexa, exit" | Back to Alexa |
+
+Without Alexa+, the one-shot form also works: "Alexa, ask home tide to open the calendar".
 
 ## If something goes wrong
 
@@ -118,6 +131,8 @@ Claude sets two Railway settings (both are IDs, not secrets) and redeploys:
 | "There was a problem with the requested skill's response" | The skill ID isn't set on Railway, or it doesn't match | Step 4 |
 | Alexa answers, but the TV doesn't change | The Hometide app isn't open, or it isn't paired with the same household | Open Hometide on the TV; check pairing in Settings |
 | Alexa opens something else | It heard a different skill name | Say "home tide" clearly, or rename the skill to "family hub" in the interaction model |
+| "Checking that. Nothing's on the calendar for the rest of today", even though Hometide has events | Alexa+ answered from Alexa's own calendar; the request never reached Hometide | Say "Alexa, open home tide" first, then ask. To confirm, open [Alexa history](https://www.amazon.com/alexa-privacy/apd/rvh): the request shows under **Calendar** instead of **Conversation**, and Railway has no `POST /alexa` at that time |
+| A follow-up is answered by Alexa, not Hometide | The conversation ended after the last answer | Hometide keeps the conversation open after "open home tide"; if it timed out, say "Alexa, open home tide" again |
 
 ## Privacy and control
 

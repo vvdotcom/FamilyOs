@@ -2,12 +2,6 @@ import type { ComponentType, PropsWithChildren } from 'react';
 
 export const AppNavigator: ComponentType<{ fontsLoaded?: boolean; onReady?: () => void }>;
 export const FamilyOsShell: ComponentType;
-export const HomeScreen: ComponentType;
-export const ExploreScreen: ComponentType;
-export const TVScreen: ComponentType;
-export const SettingsScreen: ComponentType;
-export const DetailsScreen: ComponentType<Record<string, unknown>>;
-export const PlayerScreen: ComponentType<Record<string, unknown>>;
 export const TvCard: ComponentType<Record<string, unknown>>;
 export const TvButton: ComponentType<Record<string, unknown>>;
 export const MemberChip: ComponentType<Record<string, unknown>>;

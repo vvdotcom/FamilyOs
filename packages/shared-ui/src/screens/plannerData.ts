@@ -7,6 +7,11 @@ export type FamilyList = { id: string; name: string; color: string; items: ListI
 export type PlannerSnapshot = { version: 1; meals: Record<string, string>; lists: FamilyList[] };
 const storageKey = 'familyos.planner.v1';
 export const mealTypes = ['Breakfast', 'Lunch', 'Dinner'] as const;
+/** What an unpaired TV shows: no meals and no lists until the household syncs. */
+export function createEmptyPlanner(): PlannerSnapshot {
+  return { version: 1, meals: {}, lists: [] };
+}
+
 export function createPlannerDemo(): PlannerSnapshot {
   const rows = [
     ['Pancakes', 'Oatmeal & berries', 'Yogurt parfaits', 'Scrambled eggs', 'Oatmeal & berries', 'Bagels', ''],
@@ -98,9 +103,12 @@ export function loadPlanner(): PlannerSnapshot {
     }
   return createPlannerDemo();
 }
+function initialPlanner(sample: boolean): PlannerSnapshot {
+  return sample ? loadPlanner() : createEmptyPlanner();
+}
 let itemSequence = 0;
-export function usePlannerData(persist = true) {
-  const [data, setData] = useState(loadPlanner);
+export function usePlannerData(persist = true, sample = true) {
+  const [data, setData] = useState(() => initialPlanner(sample));
   useEffect(() => {
     if (persist && Platform.OS === 'web')
       try {
@@ -132,7 +140,7 @@ export function usePlannerData(persist = true) {
         lists: groups.size ? Array.from(groups.values()) : [],
       });
     },
-    reset: () => setData(createPlannerDemo()),
+    reset: () => setData(sample ? createPlannerDemo() : createEmptyPlanner()),
     setMeal: (key: string, title: string) =>
       setData((current) => ({ ...current, meals: { ...current.meals, [key]: title.trim() } })),
     toggleItem: (listId: string, itemId: string) =>

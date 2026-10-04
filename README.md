@@ -31,6 +31,10 @@ measured: [docs/MEASUREMENTS.md](./docs/MEASUREMENTS.md).
 - Chores with a star celebration, rewards, meals, lists, a photo slideshow, movement breaks, family night voting.
 - **Approvals:** photo-checked chores, reward requests, and voice requests, confirmed with a four-digit parent
   code on the remote.
+- **Learns the family's rhythm:** when a clash keeps coming back after the family fixed one by hand, the TV says
+  *Hometide noticed* and offers to make the fix the routine for every later week. It also spots the usual driver for
+  an activity and events added by hand every week. Answers are remembered in Amazon Bedrock AgentCore Memory.
+- **Pair by QR code:** the TV shows a QR code; scan it with the phone and tap Approve TV.
 
 **On the phone** (iOS through Expo)
 - **Set up in 5 minutes:** connect calendars, add kids, set a parent code, pair the TV, set the weather location.
@@ -42,8 +46,11 @@ measured: [docs/MEASUREMENTS.md](./docs/MEASUREMENTS.md).
   rotation, family night, photos for the TV, and a child mode kids can use on their own.
 
 **By voice**
-- An MCP server (protocol 2025-11-25) lets Alexa+ answer "what's on today?" and *suggest* changes.
-  Nothing changes until a parent confirms on the TV or phone.
+- "Alexa, open home tide", then just ask, from the Fire TV remote or any Echo: what's on today, open the calendar on
+  the TV, swap a pickup, what Hometide has learned. Echo Show gets a Hometide card (APL).
+- The voice agent is built with the Strands Agents SDK on Amazon Bedrock and uses the tools of our MCP server
+  (Streamable HTTP, protocol 2025-11-25), which Alexa+ and other MCP hosts can also use; hosts with MCP Apps get a
+  day card. Voice can only *suggest* changes: nothing changes until a person confirms on the TV or phone.
 
 ## Safety and privacy
 
@@ -61,7 +68,8 @@ measured: [docs/MEASUREMENTS.md](./docs/MEASUREMENTS.md).
 
 | Area | State |
 |---|---|
-| Family agent API (FastAPI, MCP, Bedrock) | 137 automated tests. Deployed on Railway in production mode (Cognito and Postgres) |
+| Family agent API (FastAPI, MCP, Strands, Bedrock, AgentCore Memory) | 200+ automated tests, plus MCP conformance checks that can run against the live service. Deployed on Railway in production mode (Cognito and Postgres) |
+| AWS pieces as code ([`infra`](./infra)) | CDK stacks with assertion tests: AgentCore Memory, the API's IAM identity, Cognito |
 | TV app on the Vega Virtual Device | Full remote-only regression on 2026-09-28 ([report](./docs/VEGA_VVD_TEST_REPORT.md)). Calendar sync, the wall calendar, and that report's four recommendations were added afterward and are not yet re-run on the VVD |
 | TV app on a physical Fire TV | Not yet validated (Phase 15) |
 | Phone app (Expo, iOS) | Typecheck and browser previews pass; the iPhone checklist is in [apps/companion](./apps/companion/README.md) |
@@ -80,7 +88,9 @@ Display & Sounds → Ambient Experience. See the [friction log](./docs/FRICTION_
 | [`packages/shared-ui`](./packages/shared-ui) | The TV screens, remote-control focus handling, and design system |
 | [`packages/domain`](./packages/domain) | Shared types, conflict detection, and demo data |
 | [`apps/companion`](./apps/companion) | The phone app (Expo; iOS first) |
-| [`services/family-agent`](./services/family-agent) | FastAPI service: household API, calendar sync, MCP voice server, Bedrock features |
+| [`services/family-agent`](./services/family-agent) | FastAPI service: household API, calendar sync, MCP voice server, Strands voice agent, rhythm engine, Bedrock features |
+| [`infra`](./infra) | AWS CDK: AgentCore Memory, IAM for the API, Cognito |
+| [`alexa-skill`](./alexa-skill) | The "home tide" Alexa skill package |
 
 Built on Amazon's React Native multi-TV sample.
 
@@ -106,17 +116,20 @@ remote-control plumbing, and the build configuration (see [friction log](./docs/
 Everything else was built for this project:
 - the TV screens and design system
 - the shared domain and conflict engine
-- the family agent API: accounts, permissions, audit, calendar sync, the MCP voice server, and the Bedrock features
+- the family agent API: accounts, permissions, audit, calendar sync, the MCP voice server, the Strands voice agent,
+  the rhythm engine with AgentCore Memory, and the Bedrock features
+- the Alexa skill, the CDK infrastructure, and the QR pairing encoder
 - the phone app
 - the Windows and EC2 Vega setup automation
 - the tests and measurement scripts
 
 ## Docs
 
+- [Architecture](./docs/ARCHITECTURE.md): the diagram, the learning loop, and the AWS services used
 - [Measurements](./docs/MEASUREMENTS.md): sync latency, Bedrock cost, and the Skylight comparison
 - [Permissions](./docs/PERMISSIONS.md) · [Friction log](./docs/FRICTION_LOG.md) · [Product feedback](./docs/PRODUCT_FEEDBACK.md)
 - [Railway deployment](./docs/RAILWAY_DEPLOYMENT.md) · [Vega VVD report](./docs/VEGA_VVD_TEST_REPORT.md)
-- [Implementation phases](./docs/phases/README.md) · product contract: [single.md](./single.md)
+- [Implementation phases](./docs/phases/README.md) · build specification: [docs/process/build-spec.md](./docs/process/build-spec.md)
 
 ## Developing on Windows (Vega SDK)
 
@@ -136,5 +149,7 @@ changes Hyper-V or Windows security settings. Regression checks for the bootstra
 
 ## License
 
-The imported Amazon starter is provided under MIT-0; see [LICENSE](./LICENSE). Bundled design fonts keep their SIL Open
-Font License notices in `packages/shared-ui/src/assets/fonts` and `apps/vega/assets/fonts`.
+Hometide is released under the MIT License, Copyright (c) 2026 Hometide; see [LICENSE](./LICENSE). The project
+started from Amazon's Fire TV / Vega sample app, whose files keep their MIT-0 notice; see [NOTICE](./NOTICE).
+Bundled design fonts keep their SIL Open Font License notices in `packages/shared-ui/src/assets/fonts` and
+`apps/vega/assets/fonts`.

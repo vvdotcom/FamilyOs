@@ -16,7 +16,7 @@ deferred to the optional Phase 11 work package.
 
 ## Specification coverage
 
-- `single.md` sections 2.7, 13, 15–18, 20 / EPIC 9–10 and 13, 21, and 30–31.
+- `docs/process/build-spec.md` sections 2.7, 13, 15–18, 20 / EPIC 9–10 and 13, 21, and 30–31.
 - Approved scope addition: introduce basic account ownership and access in Phase 5 before
   storing real household data in the cloud, rather than waiting until Phase 9.
 

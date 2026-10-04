@@ -51,8 +51,14 @@ COMMAND_TOOLS = frozenset({"propose_pickup_swap", "propose_reschedule", "propose
                            "show_on_tv"})
 
 
+def bedrock_credentials() -> bool:
+    """A Bedrock API key, or IAM credentials (for example the CDK-created Hometide IAM user)."""
+    return any(os.getenv(name) for name in ("AWS_BEARER_TOKEN_BEDROCK", "AWS_ACCESS_KEY_ID",
+                                            "AWS_CONTAINER_CREDENTIALS_FULL_URI", "AWS_PROFILE"))
+
+
 def bedrock_enabled() -> bool:
-    return os.getenv("FAMILYOS_AI_PROVIDER", "").lower() == "bedrock" and bool(os.getenv("AWS_BEARER_TOKEN_BEDROCK"))
+    return os.getenv("FAMILYOS_AI_PROVIDER", "").lower() == "bedrock" and bedrock_credentials()
 
 
 def strip_model_reasoning(text: str) -> str:
@@ -181,16 +187,33 @@ def describe_event(snapshot: HouseholdSnapshot, event) -> dict[str, Any]:
         "time": "all day" if event.allDay else clock_text(event.startAt, snapshot),
         "who": [member_name(snapshot, item) for item in event.memberIds],
         "responsible": member_name(snapshot, event.responsibleMemberId) if event.responsibleMemberId else None,
+        # What the responsible person does, so a drop-off is never read out as "picking up".
+        "responsibleFor": RESPONSIBILITY_VERB.get(event.responsibilityType or "pickup") if event.responsibleMemberId else None,
         "location": event.location,
     }
 
 
+RESPONSIBILITY_VERB = {"pickup": "picking up", "dropoff": "dropping off", "drive": "driving"}
+
+
 def event_sentence(snapshot: HouseholdSnapshot, event) -> str:
     who = ", ".join(member_name(snapshot, item) for item in event.memberIds[:3])
-    extra = f", {member_name(snapshot, event.responsibleMemberId)} driving" if event.responsibilityType == "drive" and event.responsibleMemberId else \
-        f", {member_name(snapshot, event.responsibleMemberId)} picking up" if event.responsibleMemberId else ""
+    extra = (f", {member_name(snapshot, event.responsibleMemberId)} "
+             f"{RESPONSIBILITY_VERB.get(event.responsibilityType or 'pickup')}") if event.responsibleMemberId else ""
     time_text = "all day" if event.allDay else f"at {clock_text(event.startAt, snapshot)}"
     return f"{event.title} {time_text} for {who}{extra}"
+
+
+# MCP Apps: hosts that support the UI extension show get_today / get_week results as a Hometide card.
+TODAY_CARD_URI = "ui://hometide/today.html"
+MCP_APP_MIME = "text/html;profile=mcp-app"
+CARD_META = {"ui": {"resourceUri": TODAY_CARD_URI}, "ui/resourceUri": TODAY_CARD_URI}
+
+
+def today_card_html() -> str:
+    from pathlib import Path
+
+    return (Path(__file__).parent / "mcp_apps" / "today.html").read_text(encoding="utf-8")
 
 
 # MCP server ---------------------------------------------------------------------------------------
@@ -198,8 +221,10 @@ def event_sentence(snapshot: HouseholdSnapshot, event) -> str:
 class VoiceServer:
     def __init__(self, service: HouseholdService, gateway: VoiceGateway, *, public_url: str,
                  authorization_server: str, allowed_origins: list[str], tv_commands: TVCommandBus | None = None,
-                 weather: Callable[[float, float, str], Awaitable[dict[str, Any]]] | None = None) -> None:
+                 weather: Callable[[float, float, str], Awaitable[dict[str, Any]]] | None = None,
+                 rhythm: Any = None) -> None:
         self.service = service
+        self.rhythm = rhythm
         self.tv_commands = tv_commands or TVCommandBus()
         self.weather = weather
         self.gateway = gateway
@@ -212,7 +237,8 @@ class VoiceServer:
             instructions=(
                 "Hometide is a family's shared calendar, chores, and rewards on their TV. Use the read tools to "
                 "answer schedule questions briefly. Use show_on_tv when someone asks to open or show something on "
-                "the TV, and get_weather for the weather at home. To change anything, use a propose_ tool: it "
+                "the TV, get_weather for the weather at home, and get_learned_routines for the family's usual routines "
+                "that Hometide has learned. To change anything, use a propose_ tool: it "
                 "creates a request that a family member confirms on the TV or phone. Nothing changes until they "
                 "confirm. Say that."
             ),
@@ -337,7 +363,13 @@ class VoiceServer:
                       f"{forecast.get('lowF')}.")
             return {"speech": speech, **{key: forecast.get(key) for key in ("location", "temperatureF", "highF", "lowF", "condition", "summary")}}
 
-        @mcp.tool(description="What's happening today (or on a given day): events, conflicts, sports reminders, and family night.")
+        @mcp.resource(TODAY_CARD_URI, name="hometide-today", title="Hometide today", mime_type=MCP_APP_MIME,
+                      description="A card that shows the day's (or week's) events from get_today and get_week.")
+        def today_card() -> str:
+            return today_card_html()
+
+        @mcp.tool(description="What's happening today (or on a given day): events, conflicts, sports reminders, and family night.",
+                  meta=CARD_META)
         def get_today(day: str | None = None) -> dict[str, Any]:
             identity = self.current()
             snapshot = self.snapshot(identity)
@@ -363,7 +395,8 @@ class VoiceServer:
                     "events": [describe_event(snapshot, event) for event in events],
                     "conflicts": [item.message for item in conflicts], "reminders": reminders}
 
-        @mcp.tool(description="The family's week: events per day for seven days starting today or a given day.")
+        @mcp.tool(description="The family's week: events per day for seven days starting today or a given day.",
+                  meta=CARD_META)
         def get_week(start: str | None = None) -> dict[str, Any]:
             identity = self.current()
             snapshot = self.snapshot(identity)
@@ -390,6 +423,24 @@ class VoiceServer:
                                    "eventIds": item.eventIds,
                                    "suggestedMember": member_name(snapshot, item.suggestedMemberId) if item.suggestedMemberId else None}
                                   for item in conflicts]}
+
+        @mcp.tool(description="Routines Hometide has learned about this family and the family confirmed, like who usually "
+                               "does a pickup, plus what it remembers from earlier sessions (Amazon Bedrock AgentCore "
+                               "Memory). `question` narrows the recall, for example 'who picks up Emma on Tuesdays'.")
+        def get_learned_routines(question: str | None = None) -> dict[str, Any]:
+            identity = self.current()
+            snapshot = self.snapshot(identity)
+            if self.rhythm is None:
+                from .rhythm import learned_routines
+
+                found = {"routines": [item["routine"] for item in learned_routines(snapshot)], "remembered": [], "memory": "local"}
+            else:
+                found = self.rhythm.recall(identity.owner, snapshot, question or "")
+            self.log(identity, "get_learned_routines", "ok")
+            facts = found["routines"] + found["remembered"]
+            speech = ("Here's what Hometide has learned: " + " ".join(facts[:3])) if facts else \
+                "Hometide hasn't learned any routines yet. When the same fix keeps coming up, it will suggest one on the TV."
+            return {"speech": speech, **found}
 
         @mcp.tool(description="One family member's schedule for a day.")
         def get_member_schedule(member: str, day: str | None = None) -> dict[str, Any]:
@@ -590,7 +641,12 @@ class VoiceServer:
             day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if re.search(rf"\b{word}\b", shown.group(1))), None)
             calls.append(("show_on_tv", {"screen": screen, **({"day": day} if day and screen == "calendar" else {})}))
         elif m := re.search(r"(?:swap|switch|change|have|let)\s+(?:the\s+)?(.+?)\s+(?:pickup|pick up|drive|driving)?\s*(?:to|so)\s+(\w+)", low):
-            calls.append(("propose_pickup_swap", {"event": m.group(1).replace("pickup", "").strip(), "to_member": m.group(2)}))
+            event = m.group(1).replace("pickup", "").strip()
+            day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if re.search(rf"\b{word}(?:'s)?\b", event)), None)
+            if day:  # "Swap Tuesday's Emma pickup to Alex"
+                event = re.sub(rf"\b(?:on\s+)?(?:next\s+)?{day}(?:'s)?\b", " ", event).strip() or event
+            calls.append(("propose_pickup_swap", {"event": " ".join(event.split()), "to_member": m.group(2),
+                                                  **({"day": day} if day else {})}))
         elif m := re.search(r"(?:move|reschedule)\s+(.+?)\s+to\s+(.+)", low):
             day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if word in m.group(2)), None)
             calls.append(("propose_reschedule", {"event": m.group(1), "start_time": m.group(2), **({"day": day} if day else {})}))
@@ -599,6 +655,8 @@ class VoiceServer:
         elif m := re.search(r"(?:i|we|(\w+))\s+(?:finished|did|completed|done with)\s+(?:the\s+|my\s+)?(.+)", low):
             member = m.group(1) if m.group(1) not in (None, "i", "we") else None
             calls.append(("mark_chore_done_request", {"chore": m.group(2).rstrip(".!"), **({"member": member} if member else {})}))
+        elif any(word in low for word in ("learned", "learnt", "usually", "routine", "remember")):
+            calls.append(("get_learned_routines", {"question": text}))
         elif "star" in low or "reward" in low:
             name = re.search(r"(?:does|has)\s+(\w+)", low)
             calls.append(("get_reward_balance", {"member": name.group(1)} if name and name.group(1) not in ("everyone",) else {}))
@@ -628,54 +686,22 @@ class VoiceServer:
                 "proposalIds": [o["proposalId"] for _, o in outputs if "proposalId" in o], "unresolved": unresolved}
 
     async def _simulate_bedrock(self, utterance: str, tools: "ToolAccess | None" = None) -> dict[str, Any]:
-        import boto3
-        from botocore.config import Config
+        """Answer with a Strands agent on Amazon Bedrock, using this MCP server's tools (see ``agent.py``)."""
+        from . import agent
 
         tools = tools or LocalTools(self)
-        listed = await tools.list_tools()
-        tool_config = {"tools": [{"toolSpec": {"name": tool["name"], "description": tool["description"] or tool["name"],
-                                               "inputSchema": {"json": tool["inputSchema"]}}} for tool in listed]}
-        client = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_REGION") or "us-west-2",
-                              config=Config(connect_timeout=4, read_timeout=20, retries={"max_attempts": 0}))
-        system = [{"text": (
-            "You are a simulated Alexa+ assistant for one family, connected to the Hometide MCP tools. "
-            "Answer in one or two short spoken sentences. Always use tools for facts; never invent events. "
-            "To change anything, call a propose_ tool right away, passing the user's own words "
-            "(for example event='Emma pickup', to_member='Alex'); the tools find the matching item and return an "
-            "error if they can't. Ask a follow-up question only after a tool returns an error. "
-            "Tell the user the change is waiting for confirmation on the TV or phone. Never say a change is done."
-        )}]
-        messages: list[dict] = [{"role": "user", "content": [{"text": utterance}]}]
-        calls: list[str] = []
-        proposals: list[str] = []
-        spoken: list[str] = []  # What the tools themselves said, in case the model replies with reasoning only.
-        model = os.getenv("FAMILYOS_BEDROCK_MODEL_ID") or "us.amazon.nova-lite-v1:0"
-        for _ in range(4):
-            response = await asyncio.to_thread(client.converse, modelId=model, system=system, messages=messages,
-                                               toolConfig=tool_config, inferenceConfig={"maxTokens": 400, "temperature": 0})
-            message = response["output"]["message"]
-            messages.append(message)
-            uses = [block["toolUse"] for block in message["content"] if "toolUse" in block]
-            if not uses:
-                reply = strip_model_reasoning(" ".join(block["text"] for block in message["content"] if "text" in block))
-                # Nova sometimes answers with only <thinking> notes; then speak the tools' own answer, or let the
-                # caller fall back to the rules (an empty reply).
-                return {"mode": "bedrock", "reply": reply or " ".join(spoken[-2:]), "toolCalls": calls, "proposalIds": proposals}
-            results = []
-            for use in uses:
-                calls.append(use["name"])
-                try:
-                    output = await tools.call(use["name"], use.get("input") or {})
-                    if "proposalId" in output:
-                        proposals.append(output["proposalId"])
-                    if isinstance(output.get("speech"), str) and output["speech"].strip():
-                        spoken.append(output["speech"].strip())
-                    results.append({"toolResult": {"toolUseId": use["toolUseId"], "content": [{"json": output}]}})
-                except ToolError as error:
-                    results.append({"toolResult": {"toolUseId": use["toolUseId"], "content": [{"text": str(error)}], "status": "error"}})
-            messages.append({"role": "user", "content": results})
-        return {"mode": "bedrock", "reply": "Sorry, I couldn't finish that. Try asking a simpler way.",
-                "toolCalls": calls, "proposalIds": proposals}
+        identity = _in_process_identity.get()
+
+        async def call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            # Strands may run tools in its own task; keep the caller's household identity attached.
+            token = _in_process_identity.set(identity) if identity is not None else None
+            try:
+                return await tools.call(name, arguments)
+            finally:
+                if token is not None:
+                    _in_process_identity.reset(token)
+
+        return await agent.answer(utterance, await tools.list_tools(), call)
 
 
 class ToolAccess:

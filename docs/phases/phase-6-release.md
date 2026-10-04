@@ -7,7 +7,7 @@ gaps before the final documentation and demo phase.
 
 ## Specification coverage
 
-- `single.md` sections 20 / EPIC 11, 21–27, 30–35, and 38.
+- `docs/process/build-spec.md` sections 20 / EPIC 11, 21–27, 30–35, and 38.
 
 ## Status
 

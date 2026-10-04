@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, View, useWindowDimensions } from 'react-native';
 import { SpatialNavigationNode, SpatialNavigationRoot } from 'react-tv-space-navigation';
 import {
-  createDemoClock,
   createDemoCalendarProvider,
   createDeterministicBriefing,
+  DEMO_NOW,
   confirmReassignment,
   detectConflicts,
   HouseholdSnapshot,
@@ -38,6 +38,7 @@ import {
   hydrateHouseholdSnapshot,
   loadHouseholdSnapshot,
   resetHouseholdSnapshot,
+  SAMPLE_BUILD,
   saveHouseholdSnapshot,
 } from './householdStorage';
 import { usePlannerData } from './plannerData';
@@ -87,18 +88,14 @@ function FamilyOsShellContent() {
   const weatherCacheRef = useRef<WeatherForecast | undefined>(undefined);
   if (weatherState.data) weatherCacheRef.current = weatherState.data;
   const [tvPairing, setTVPairing] = useState<TVPairingView & { challengeId?: string; pollingToken?: string }>({ status: 'checking' });
-  const clock = useMemo(() => createDemoClock(), [demoVersion]);
-  // Unpaired, the TV shows the seeded demo day at its fixed demo time. Once paired with a real
-  // household it follows the real clock, so today's events added on the phone appear on the TV.
-  const pairedForClock = tvPairing.status === 'paired';
-  const [liveNow, setLiveNow] = useState(() => new Date());
+  // The TV always follows the real clock. Unpaired it has an empty household; once paired, today's
+  // events from the phone appear here.
+  const [now, setNow] = useState(() => (SAMPLE_BUILD ? new Date(DEMO_NOW) : new Date()));
   useEffect(() => {
-    if (!pairedForClock) return;
-    setLiveNow(new Date());
-    const timer = setInterval(() => setLiveNow(new Date()), 30_000);
+    if (SAMPLE_BUILD) return;
+    const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
-  }, [pairedForClock]);
-  const now = useMemo(() => (pairedForClock ? liveNow : clock.now()), [pairedForClock, liveNow, clock]);
+  }, []);
   const conflicts = useMemo(() => detectConflicts(household.members, household.events, { now }), [household, now]);
   const [briefing, setBriefing] = useState<FamilyBriefing>(() =>
     createDeterministicBriefing(
@@ -112,7 +109,7 @@ function FamilyOsShellContent() {
   );
   const [agentStatus, setAgentStatus] = useState<'checking' | 'available' | 'unpaired' | 'offline'>('checking');
   const [actionHistory, setActionHistory] = useState<ProposedAction[]>([]);
-  const planner = usePlannerData(false);
+  const planner = usePlannerData(false, SAMPLE_BUILD);
   const [toast, setToast] = useState('');
   const [celebration, setCelebration] = useState<{ memberId: string; stars: number; detail: string } | null>(null);
   const [tvElevated, setTVElevated] = useState(false);
@@ -517,6 +514,7 @@ function FamilyOsShellContent() {
       setTVPairing({
         status: 'waiting',
         code: response.data.code,
+        pairUrl: response.data.pairUrl,
         expiresAt: response.data.expiresAt,
         challengeId: response.data.challengeId,
         pollingToken: response.data.pollingToken,

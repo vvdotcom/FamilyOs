@@ -68,9 +68,17 @@ repository and branch are connected.
 - `FAMILYOS_CORS_ORIGINS=` (leave empty for the native iOS companion unless a trusted web
   origin is added later; never use `*` in production)
 
-Do not add the previously shared Bedrock key or any AWS credential to Git or the iOS app.
-The service can use its deterministic briefing fallback until a properly managed server-side
-AI credential is configured.
+AI and memory (see [`infra/README.md`](../infra/README.md)):
+
+- `FAMILYOS_AI_PROVIDER=bedrock` and `AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key) for the Strands voice agent,
+  briefings, imports and chore photo checks. `FAMILYOS_BEDROCK_MODEL_ID` is optional
+  (default `us.amazon.nova-lite-v1:0`).
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` and `HOMETIDE_AGENTCORE_MEMORY_ID`, copied from the
+  `hometide/api-ai-credentials` secret that `cdk deploy HometideAi` creates. Without them, learned routines are
+  kept only in the household itself.
+
+Never add an AWS credential to Git or to an app build. Without Bedrock, every AI feature uses its deterministic
+fallback.
 
 ## Deployment and remaining checks
 

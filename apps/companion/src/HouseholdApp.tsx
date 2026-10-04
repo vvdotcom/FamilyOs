@@ -66,6 +66,7 @@ import {
   type IconName,
 } from './ui';
 import { StarCelebration } from './Pickers';
+import { takePairCode } from './pairLink';
 import { SecureStore } from './storage';
 import { detectPlace, searchPlace, type WeatherPlace } from './location';
 
@@ -196,6 +197,16 @@ function HouseholdScreens({
   const [pairError, setPairError] = useState('');
   const [pairBusy, setPairBusy] = useState(false);
   const [unpairPrompt, setUnpairPrompt] = useState<PairedTV | null>(null);
+  useEffect(() => {
+    // Arrived from the TV's QR code: open "Connect your TV" with the code filled in.
+    if (preview || accessMode !== 'parent' || !api.approveTV) return;
+    const code = takePairCode();
+    if (code) {
+      setPairCode(code);
+      setPairError('');
+      setPairPrompt(true);
+    }
+  }, [api, preview, accessMode]);
   const generation = useRef(0);
   const alive = useRef(true);
   useEffect(() => {

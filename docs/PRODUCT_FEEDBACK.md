@@ -1,11 +1,11 @@
 # Product feedback
 
-Feedback on each Amazon and AWS tool used to build FamilyOS. Details and evidence for each issue are in the
+Feedback on each Amazon and AWS tool used to build Hometide. Details and evidence for each issue are in the
 [friction log](./FRICTION_LOG.md) (entry numbers in brackets). Measurements are in [MEASUREMENTS.md](./MEASUREMENTS.md).
 
 ## Vega SDK, Vega OS, and the Vega Virtual Device
 
-**What was used and why?** The Vega SDK 0.24.12112 and CLI 1.4.2 (OS 1.2 target) to build the FamilyOS TV app in
+**What was used and why?** The Vega SDK 0.24.12112 and CLI 1.4.2 (OS 1.2 target) to build the Hometide TV app in
 React Native for Fire TV. We used `react-native-kepler` (`TVEventHandler` for remote keys), the Vega AsyncStorage
 port, and `react-tv-space-navigation` for D-pad focus. The Vega Virtual Device (VVD) was used for remote-only
 regression runs on an EC2 host.
@@ -43,17 +43,20 @@ would matter most.
 
 ## Alexa+ and the Model Context Protocol
 
-**What was used and why?** A FamilyOS MCP server using Streamable HTTP and protocol 2025-11-25. It is built with the
-official Python SDK, publishes RFC 9728 protected-resource metadata, and exposes 10 tools. Alexa+ can read the
+**What was used and why?** A Hometide MCP server using Streamable HTTP and protocol 2025-11-25. It is built with the
+official Python SDK, publishes RFC 9728 protected-resource metadata, and exposes 13 tools plus an MCP Apps card
+(`ui://hometide/today.html`). A custom Alexa skill ("home tide") with account linking through Cognito reaches the
+same tools as an MCP client, and adds an APL card on Echo Show. Alexa+ can read the
 family schedule and chores and *propose* changes; a person confirms each one on the TV or phone.
 
 **What worked well?** MCP maps cleanly onto a safe "propose, then confirm" design. The official MCP client negotiated
 `2025-11-25`, listed all tools, and ran read and propose calls end to end. The same tools also drive a labelled
 "Simulated Alexa+" through Bedrock tool use.
 
-**What needs work?** Live Alexa+ account linking needs a public HTTPS endpoint and an OAuth 2.1 authorization
-server whose metadata Alexa accepts. It isn't documented whether Cognito's OIDC discovery document is enough, or
-whether RFC 8414 metadata is required. There is also no static-token option for development. The SDK's Streamable
+**What needs work?** Alexa+ add-on access for MCP servers isn't open to us yet, so a custom skill stands in for it.
+For that skill, account linking works with a Cognito confidential client, the authorization-code grant, and the
+three regional redirect URLs the console lists. For MCP, it isn't documented whether Cognito's OIDC discovery document is enough or RFC 8414 metadata is required, and
+there is no static-token option for development. The SDK's Streamable
 HTTP app mounts at the root and its session manager can't restart, which needed a small wrapper [8].
 
 **How was onboarding?** The Alexa+ MCP QuickStart was clear about the protocol, but less clear about which
@@ -65,8 +68,8 @@ permission model stays on our server.
 ## Amazon Bedrock (Nova Lite)
 
 **What was used and why?** The Converse API with `us.amazon.nova-lite-v1:0` powers four features: the TV family
-briefing, flyer/PDF photo imports (image and document input), chore photo checks (image input), and the simulated
-Alexa+ (tool use).
+briefing, flyer/PDF photo imports (image and document input), chore photo checks (image input), and the voice
+agent (tool use, through the Strands Agents SDK).
 
 **What worked well?**
 - One API covered text, images, PDFs, and tool use.
@@ -84,21 +87,62 @@ profile).
 **Would we use it again, and why?** Yes. The cost is low enough to include AI in a free family product, and the
 Converse API kept all four features on one code path with deterministic fallbacks.
 
+## Strands Agents SDK
+
+**What was used and why?** The voice agent (`services/family-agent/app/agent.py`) is a Strands `Agent` with a
+`BedrockModel`. Its tools are wrapped from our MCP server's tool list, so the agent, the Alexa skill and any Alexa+
+client use the same tools and permission checks.
+
+**What worked well?** Replacing our hand-written Converse loop took one small module. `PythonAgentTool` let us
+wrap tools discovered at runtime (over MCP or in-process) instead of decorating Python functions, and Bedrock API
+keys (`AWS_BEARER_TOKEN_BEDROCK`) worked without extra configuration.
+
+**What needs work?** Given every tool, Nova Lite sometimes proposed a change when the user had only asked a
+question, despite the system prompt. We now pass only read tools for questions. A per-call option to restrict the
+tool set, and a documented maximum number of model-tool cycles, would help.
+
+**Would we use it again, and why?** Yes. It removed our own loop code and keeps the agent provider-neutral.
+
+## Amazon Bedrock AgentCore Memory
+
+**What was used and why?** One memory (`hometide_family_memory`) with a semantic strategy and the namespace
+`/households/{actorId}/routines`. When Hometide notices a routine, and when the family says yes or no, an event is
+written under a hashed household id. The voice tool `get_learned_routines` recalls from it with a search query.
+
+**What worked well?** The data-plane API (`CreateEvent`, `RetrieveMemoryRecords`) maps directly onto "remember what
+we noticed" and "what has Hometide learned?", and namespaces per actor keep each family separate.
+
+**What needs work?** Long-term records are extracted asynchronously, so a routine confirmed a moment ago is not
+searchable yet; we read recent events as a fallback and keep a local copy of confirmed routines. A synchronous
+"write a record" call for facts the app already knows would avoid that.
+
+**Would we use it again, and why?** Yes, as long-term memory that outlives a single voice session.
+
+## AWS CDK (CloudFormation)
+
+**What was used and why?** `infra/` defines the AgentCore Memory, the API's IAM user (Nova models and one memory
+only) with its key in Secrets Manager, and the Cognito user pool, domain and app clients, with Jest assertion tests.
+
+**What worked well?** The L1 `AWS::BedrockAgentCore::Memory` resource was available in aws-cdk-lib, and assertion
+tests caught a wrong auth-flow order before anything was deployed.
+
+**What needs work?** Adopting an existing Cognito pool needs `cdk import` with each physical id typed in by hand.
+
 ## Amazon Cognito
 
 **What was used and why?** A user pool (us-west-2) holds parent accounts for the hosted service. The Expo phone app
 signs up and signs in directly with Cognito (`USER_AUTH` with the `PASSWORD` challenge), then exchanges the ID token
-for a revocable FamilyOS session. The API verifies tokens against the pool's JWKS. The MCP server can also accept
+for a revocable Hometide session. The API verifies tokens against the pool's JWKS. The MCP server can also accept
 Cognito access tokens.
 
 **What worked well?** Standard JWTs verified with PyJWT, email verification without our own mail service, and
 choice-based sign-in that works in Expo Go without a custom native build or OAuth callback.
 
-**What needs work?** A Cognito password reset doesn't give us a hook to revoke FamilyOS sessions on other devices,
+**What needs work?** A Cognito password reset doesn't give us a hook to revoke Hometide sessions on other devices,
 so we track that as our own follow-up. Alexa+ compatibility of Cognito's metadata is unverified (see above).
 
-**How was onboarding?** A user pool and one public client (no secret) covered both the Expo app, which uses direct
-`USER_AUTH`, and the SwiftUI prototype, which uses the hosted UI with PKCE.
+**How was onboarding?** A user pool and one public client (no secret) covered the Expo app, which uses direct
+`USER_AUTH`. A second, confidential client handles Alexa account linking.
 
 **Would we use it again, and why?** Yes, for managed, verified accounts without storing passwords.
 
@@ -115,10 +159,15 @@ Virtual Device, because the development laptop couldn't expose KVM.
 
 ## How AWS services are used (AWS Builder mini-challenge)
 
-- **Amazon Bedrock:** family briefing, flyer and PDF import, chore photo checks, and simulated Alexa+ tool use.
-  Every AI result is a suggestion that a person confirms, and each feature has a deterministic fallback.
-- **Amazon Cognito:** parent accounts, email verification, and token verification for the hosted API. It can
-  also authorize voice connections.
+- **Amazon Bedrock (Nova Lite):** the voice agent's tool use, the family briefing, flyer and PDF import, and chore
+  photo checks. Every AI result is a suggestion that a person confirms, and each feature has a deterministic
+  fallback.
+- **Strands Agents SDK:** the voice agent's model-tool loop, over the same tools the MCP server exposes.
+- **Amazon Bedrock AgentCore Memory:** the routines Hometide notices and the family's decisions, recalled in later
+  sessions ("What has Hometide learned?").
+- **Amazon Cognito:** parent accounts, email verification, Alexa account linking, and bearer tokens for MCP.
+- **AWS IAM, Secrets Manager and CloudFormation (CDK):** a least-privilege identity for the API and all of the above
+  as tested code in `infra/`.
 - **Amazon EC2:** the Vega Virtual Device test host.
 
-The API itself is hosted on Railway (Docker and Postgres).
+The API itself is hosted on Railway (Docker and Postgres). The architecture diagram is in `docs/ARCHITECTURE.md`.

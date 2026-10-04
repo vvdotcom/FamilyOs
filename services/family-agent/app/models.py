@@ -258,8 +258,8 @@ class Proposal(StrictModel):
     """A pending change from voice or another indirect source. It changes nothing until decided."""
 
     id: str = Field(min_length=1, max_length=80)
-    source: Literal["voice", "companion", "tv"] = "voice"
-    kind: Literal["pickup_swap", "event", "reschedule", "chore_done"]
+    source: Literal["voice", "companion", "tv", "hometide"] = "voice"
+    kind: Literal["pickup_swap", "event", "reschedule", "chore_done", "routine"]
     status: Literal["pending", "confirmed", "rejected", "expired"] = "pending"
     summary: str = Field(min_length=1, max_length=240)
     payload: dict[str, object] = Field(default_factory=dict)

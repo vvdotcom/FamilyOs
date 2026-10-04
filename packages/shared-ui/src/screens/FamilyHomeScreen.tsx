@@ -19,6 +19,7 @@ import {
 } from '../design/DesignSystem';
 import { FamilyScreenProps } from './familyTypes';
 import { usePageBack } from '../hooks/usePageBack';
+import { SAMPLE_BUILD } from './householdStorage';
 import { ModalFocusRoot } from '../components/ModalFocusRoot';
 
 export default function FamilyHomeScreen({
@@ -35,6 +36,8 @@ export default function FamilyHomeScreen({
   onProposeAction,
   onConfirmAction,
   onCancelAction,
+  tvPairing,
+  onStartPairing,
 }: FamilyScreenProps) {
   const p = useDesignPalette(true);
   const timezone = household.family.timezone;
@@ -99,6 +102,12 @@ export default function FamilyHomeScreen({
     }
   };
   const open = (event: CalendarEvent) => (onOpenEvent ? onOpenEvent(event.id) : onNavigate('Calendar'));
+  // Not linked to a family yet: Home asks to pair instead of showing a briefing.
+  const needsPairing = !SAMPLE_BUILD && !!tvPairing && tvPairing.status !== 'paired' && tvPairing.status !== 'checking';
+  const pair = () => {
+    if (tvPairing?.status === 'unpaired') onStartPairing?.();
+    onNavigate('Settings');
+  };
 
   return (
     <View style={{ flex: 1, gap: 28 }}>
@@ -120,11 +129,13 @@ export default function FamilyHomeScreen({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <DIcon name="sparkle" size={24} color={p.briefingLabel} />
             <DText size={20} weight={800} color={p.briefingLabel} style={{ letterSpacing: 3.2 }}>
-              FAMILY BRIEFING
+              {needsPairing ? 'GET STARTED' : 'FAMILY BRIEFING'}
             </DText>
           </View>
           <DText heading size={56} weight={800} color={p.ink} style={{ letterSpacing: -1.12 }} numberOfLines={1}>
-            {briefing?.headline ?? (conflict ? 'One thing needs attention.' : 'A little more room to breathe.')}
+            {needsPairing
+              ? 'Link this TV to your family.'
+              : (briefing?.headline ?? (conflict ? 'One thing needs attention.' : 'A little more room to breathe.'))}
           </DText>
           <DText
             size={30}
@@ -132,16 +143,22 @@ export default function FamilyHomeScreen({
             color={p.dark ? p.muted : '#34384A'}
             style={{ lineHeight: 40.5 }}
             numberOfLines={2}>
-            {briefing?.summary ??
+            {needsPairing
+              ? 'Show a pairing code, scan it with the Hometide phone app, and your calendar, chores, and lists appear here.'
+              : briefing?.summary ??
               (conflict
                 ? `${conflict.message}${suggested ? ` ${suggested.name} is available to help.` : ''}`
                 : `${upcoming.length} plans ahead. Your family’s day, all in one place.`)}
           </DText>
         </View>
         <DButton
-          label={conflict ? 'Fix pickup' : 'Open calendar'}
+          label={needsPairing ? 'Pair this TV' : conflict ? 'Fix pickup' : 'Open calendar'}
           onPress={() => {
             setCompletedAction(null);
+            if (needsPairing) {
+              pair();
+              return;
+            }
             if (conflict && conflictEvent && suggested && onProposeAction) setResolution('review');
             else if (conflictEvent) open(conflictEvent);
             else onNavigate('Calendar');
@@ -157,7 +174,7 @@ export default function FamilyHomeScreen({
             backgroundColor: p.selected,
           }}>
           <DText size={28} weight={800} color={p.onSelected}>
-            {conflict ? 'Fix pickup' : 'Open calendar'}
+            {needsPairing ? 'Pair this TV' : conflict ? 'Fix pickup' : 'Open calendar'}
           </DText>
         </DButton>
       </View>

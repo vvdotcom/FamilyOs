@@ -63,10 +63,12 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 /** The Home briefing card style, reused for each new screen's lead card. */
-export function BriefingCard({ label, headline, summary, icon = 'sparkle', children }: {
+export function BriefingCard({ label, headline, summary, icon = 'sparkle', headlineLines = 2, summaryLines = 2, children }: {
   label: string;
   headline: string;
   summary?: string;
+  headlineLines?: number;
+  summaryLines?: number;
   icon?: IconName;
   children?: React.ReactNode;
 }) {
@@ -78,8 +80,8 @@ export function BriefingCard({ label, headline, summary, icon = 'sparkle', child
           <DIcon name={icon} size={24} color={p.briefingLabel} />
           <DText size={20} weight={800} color={p.briefingLabel} style={{ letterSpacing: 3.2 }}>{label}</DText>
         </View>
-        <DText heading size={56} weight={800} color={p.ink} style={{ letterSpacing: -1.12 }} numberOfLines={2}>{headline}</DText>
-        {summary ? <DText size={28} weight={500} color={p.dark ? p.muted : '#34384A'} style={{ lineHeight: 38 }} numberOfLines={2}>{summary}</DText> : null}
+        <DText heading size={56} weight={800} color={p.ink} style={{ letterSpacing: -1.12 }} numberOfLines={headlineLines}>{headline}</DText>
+        {summary ? <DText size={28} weight={500} color={p.dark ? p.muted : '#34384A'} style={{ lineHeight: 38 }} numberOfLines={summaryLines}>{summary}</DText> : null}
       </View>
       {children}
     </View>
@@ -214,6 +216,7 @@ export function ProposalOverlay({ proposal, onDone, onDismiss }: {
   const [stage, setStage] = useState<'card' | 'code'>('card');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const routine = proposal.kind === 'routine';
   usePageBack(onDismiss, true);
   const decide = async (action: 'confirm' | 'reject', code?: string) => {
     setBusy(true);
@@ -240,13 +243,17 @@ export function ProposalOverlay({ proposal, onDone, onDismiss }: {
           <View style={{ width: 1240 }}>
             <BriefingCard
               icon="sparkle"
-              label={`${proposal.source === 'voice' ? 'VOICE REQUEST' : 'REQUEST'} · NEEDS A YES`}
+              label={routine ? 'HOMETIDE NOTICED · NEEDS A YES' : `${proposal.source === 'voice' ? 'VOICE REQUEST' : 'REQUEST'} · NEEDS A YES`}
               headline={proposal.summary}
-              summary="Nothing changes until you confirm. Every screen updates right after.">
+              headlineLines={routine ? 3 : 2}
+              summaryLines={routine ? 4 : 2}
+              summary={routine
+                ? `${proposal.payload?.detail ? `${proposal.payload.detail} ` : ''}Hometide remembers your answer.`
+                : 'Nothing changes until you confirm. Every screen updates right after.'}>
               <View style={{ gap: 14 }}>
-                <DAction label={busy ? 'Saving…' : 'Confirm'} primary defaultFocus onPress={() => void decide('confirm')} style={{ minWidth: 260 }} />
-                <DAction label="Reject" onPress={() => void decide('reject')} style={{ minWidth: 260 }} />
-                <DAction label="Not now" onPress={onDismiss} style={{ minWidth: 260 }} />
+                <DAction label={busy ? 'Saving…' : routine ? 'Yes, make it the routine' : 'Confirm'} primary defaultFocus onPress={() => void decide('confirm')} style={{ minWidth: 300 }} />
+                <DAction label={routine ? 'No, don’t ask again' : 'Reject'} onPress={() => void decide('reject')} style={{ minWidth: 300 }} />
+                <DAction label="Not now" onPress={onDismiss} style={{ minWidth: 300 }} />
               </View>
             </BriefingCard>
             {error ? <DText size={26} weight={700} color="#FFD699" style={{ marginTop: 18, textAlign: 'center' }}>{error}</DText> : null}

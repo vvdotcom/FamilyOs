@@ -24,5 +24,6 @@ Rendered copies in the apps:
 
 - Phone/iOS and Android: `apps/companion/assets/icon.png`, `adaptive-icon.png` (on Tide), `brand-mark.png` (header).
 - Web app: `apps/companion/public/icons/` (192, 512, maskable 512, Apple touch icon).
+- TV app (Vega): `apps/vega/assets/image/hometide_icon.png` (launcher card icon: the mark beside the Hometide wordmark, centred, exactly 512x512, from `tv-app-icon-512.png`; set as `icon` in `apps/vega/manifest.toml`).
 - TV app (Vega and Fire OS): `packages/shared-ui/src/assets/images/hometide-mark.png` (top-bar menu button), `apps/expo-multi-tv/assets/tv_icons/` (launcher icons and banner).
-- Amazon Appstore listing: `store-listing/fire-tv/icon-1280x720.png` and `background-1920x1080.png`.
+- Amazon Appstore listing: `store-listing/fire-tv/icon-1280x720.png`, and `background-1920x1080.jpg`/`.png` (the wall calendar on a lit screen, from `make-store-background.py`, not the older navy background in `make-brand-assets.py`).

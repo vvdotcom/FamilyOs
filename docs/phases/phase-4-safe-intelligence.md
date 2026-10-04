@@ -7,7 +7,7 @@ action, require confirmation, update state, and recompute conflicts.
 
 ## Specification coverage
 
-- `single.md` sections 2.4–2.6, 12–14, 18.1, 19, 20 / EPIC 6–8, and 23.3–23.5.
+- `docs/process/build-spec.md` sections 2.4–2.6, 12–14, 18.1, 19, 20 / EPIC 6–8, and 23.3–23.5.
 
 ## Work packages
 

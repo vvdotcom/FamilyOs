@@ -149,17 +149,29 @@ export function ApprovalsScreen(ctx: ScreenContext) {
         </Card>
       ) : null}
       {checks.length || rewards.length ? <CodeInput value={code} onChange={setCode} label="Parent code" /> : null}
-      {proposals.length ? <Label>FROM VOICE</Label> : null}
-      {proposals.map((item) => (
-        <Card key={item.id} style={{ padding: 16, gap: 10 }}>
-          <Copy weight={800}>{item.summary}</Copy>
-          <Copy size={13} color={t.muted}>{item.requestedBy.startsWith('voice:child') ? 'Asked by a child · ' : ''}Nothing changes until you confirm.</Copy>
-          <View style={s.row}>
-            <Button primary disabled={busy} onPress={() => void decideProposal(item.id, 'confirm')} style={{ flex: 1 }}>Confirm</Button>
-            <Button disabled={busy} onPress={() => void decideProposal(item.id, 'reject')}>Reject</Button>
+      {proposals.map((item, index) => {
+        const routine = item.kind === 'routine';
+        const firstOfKind = proposals.findIndex((other) => (other.kind === 'routine') === routine) === index;
+        return (
+          <View key={item.id} style={{ gap: 8 }}>
+            {firstOfKind ? <Label>{routine ? 'HOMETIDE NOTICED' : 'FROM VOICE'}</Label> : null}
+            <Card style={{ padding: 16, gap: 10 }}>
+              <Copy weight={800}>{item.summary}</Copy>
+              {routine && item.payload?.detail ? <Copy size={14} color={t.muted}>{item.payload.detail}</Copy> : null}
+              <Copy size={13} color={t.muted}>
+                {item.requestedBy.startsWith('voice:child') ? 'Asked by a child · ' : ''}
+                {routine ? 'Nothing changes until you say yes. A no is final.' : 'Nothing changes until you confirm.'}
+              </Copy>
+              <View style={s.row}>
+                <Button primary disabled={busy} onPress={() => void decideProposal(item.id, 'confirm')} style={{ flex: 1 }}>
+                  {routine ? 'Yes, make it the routine' : 'Confirm'}
+                </Button>
+                <Button disabled={busy} onPress={() => void decideProposal(item.id, 'reject')}>{routine ? 'No' : 'Reject'}</Button>
+              </View>
+            </Card>
           </View>
-        </Card>
-      ))}
+        );
+      })}
       {checks.length ? <Label>CHORE PHOTOS</Label> : null}
       {checks.map((item) => {
         const chore = data.chores.find((c) => c.id === item.choreId);

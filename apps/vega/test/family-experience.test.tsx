@@ -124,6 +124,31 @@ describe('Phase 3 household experience', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('asks an unpaired TV to pair instead of showing a family', () => {
+    const {createEmptyHousehold} = require('../../../packages/shared-ui/src/screens/householdStorage');
+    const empty = createEmptyHousehold();
+    expect([empty.members, empty.events, empty.chores, empty.meals, empty.listItems].every((items) => items.length === 0)).toBe(true);
+    const onStartPairing = jest.fn();
+    const onNavigate = jest.fn();
+    const screen = themed(
+      <FamilyHomeScreen
+        {...makeProps({
+          household: empty,
+          conflicts: [],
+          calendarState: {status: 'empty', data: []},
+          tvPairing: {status: 'unpaired'},
+          onStartPairing,
+          onNavigate,
+        })}
+      />,
+    );
+    expect(screen.getByText('Link this TV to your family.')).toBeTruthy();
+    expect(screen.queryByText('Emma pickup')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Pair this TV'));
+    expect(onStartPairing).toHaveBeenCalledTimes(1);
+    expect(onNavigate).toHaveBeenCalledWith('Settings');
+  });
+
   it('opens event details with travel, weather, participants, and a working preparation toggle', () => {
     const props = makeProps();
     const screen = themed(<FamilyCalendarScreen {...props} />);
@@ -262,11 +287,11 @@ describe('Agent status and Back handling', () => {
       <FamilySettingsScreen {...makeProps({agentStatus: 'unpaired'})} onResetDemo={jest.fn()} />,
     );
     expect(unpaired.getByText('Reachable · not paired')).toBeTruthy();
-    expect(unpaired.queryByText('Offline · local demo')).toBeNull();
+    expect(unpaired.queryByText('Offline')).toBeNull();
     const offline = themed(
       <FamilySettingsScreen {...makeProps({agentStatus: 'offline'})} onResetDemo={jest.fn()} />,
     );
-    expect(offline.getByText('Offline · local demo')).toBeTruthy();
+    expect(offline.getByText('Offline')).toBeTruthy();
   });
 
   it('registers the Back listeners once, however often the shell re-renders', () => {

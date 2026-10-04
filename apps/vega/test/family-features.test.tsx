@@ -133,6 +133,25 @@ describe('Phase 12-14 TV features', () => {
     expect(familyAgentClient.decideProposal).toHaveBeenLastCalledWith('p1', 'confirm', '4826');
   });
 
+  it('offers a learned routine with its reason, and a no is final', async () => {
+    familyAgentClient.decideProposal.mockResolvedValueOnce({data: {proposal: {resultMessage: 'Nothing was changed.'}}});
+    const onDone = jest.fn();
+    const routine = {
+      id: 'r1', source: 'hometide' as const, kind: 'routine' as const, status: 'pending' as const,
+      summary: 'Make Alex the usual Emma pickup on Tuesdays and Thursdays?',
+      payload: {detail: "Jordan's Team meeting overlaps it every week. You swapped one by hand; it comes up 24 times.", memory: 'agentcore' as const},
+      requestedBy: 'hometide', createdAt: '2026-09-22T20:00:00Z', expiresAt: '2026-09-23T20:00:00Z',
+    };
+    const screen = themed(<ProposalOverlay proposal={routine} onDone={onDone} onDismiss={jest.fn()} />);
+    expect(screen.getByText('HOMETIDE NOTICED · NEEDS A YES')).toBeTruthy();
+    expect(screen.getByText(/You swapped one by hand/)).toBeTruthy();
+    expect(screen.getByText(/Hometide remembers your answer/)).toBeTruthy();
+    expect(screen.getByLabelText('Yes, make it the routine')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('No, don’t ask again'));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith('Nothing was changed.'));
+    expect(familyAgentClient.decideProposal).toHaveBeenLastCalledWith('r1', 'reject', undefined);
+  });
+
   it('runs a movement break session and saves stars once at the end', async () => {
     jest.useFakeTimers();
     try {

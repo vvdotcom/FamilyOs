@@ -14,6 +14,8 @@ export type { FamilyRoute } from '../navigation/familyNavigation';
 export type TVPairingView = {
   status: 'checking' | 'unpaired' | 'creating' | 'waiting' | 'paired';
   code?: string;
+  /** Link for the phone's camera: opens the Hometide web app with this code filled in. */
+  pairUrl?: string;
   expiresAt?: string;
   error?: string;
 };

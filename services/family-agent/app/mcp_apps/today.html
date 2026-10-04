@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hometide today</title>
+<style>
+  :root { --night: #1D2B36; --tide: #2F7F7A; --sun: #F2A65A; --shell: #F3EFE6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--night); color: var(--shell); }
+  main { padding: 18px 20px 20px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+  .tag { color: var(--sun); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  ol { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+  li { display: grid; grid-template-columns: 76px 1fr; gap: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(243, 239, 230, 0.07); }
+  .time { color: var(--sun); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .who { color: rgba(243, 239, 230, 0.7); font-size: 14px; }
+  .warn { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(242, 166, 90, 0.16); color: var(--shell); }
+  .empty { margin-top: 14px; color: rgba(243, 239, 230, 0.75); }
+  footer { margin-top: 14px; color: var(--tide); font-weight: 800; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1 id="title">Today at home</h1><span class="tag" id="tag">Hometide</span></header>
+  <ol id="events"></ol>
+  <p class="empty" id="empty">Ask what's on today, and the family's schedule shows here.</p>
+  <div class="warn" id="warn" hidden></div>
+  <footer>Hometide · the family calendar on your Fire TV</footer>
+</main>
+<script>
+  // MCP Apps (io.modelcontextprotocol/ui): the host sends the tool result; this card only displays it.
+  const text = (node, value) => { node.textContent = value == null ? '' : String(value); };
+  function render(data) {
+    const days = Array.isArray(data.days) ? data.days : [{ date: data.date, events: data.events || [] }];
+    const list = document.getElementById('events');
+    list.replaceChildren();
+    let count = 0;
+    days.forEach((day) => (day.events || []).slice(0, 8).forEach((event) => {
+      count += 1;
+      const item = document.createElement('li');
+      const time = document.createElement('span');
+      time.className = 'time';
+      text(time, event.time || '');
+      const body = document.createElement('div');
+      const title = document.createElement('div');
+      text(title, (days.length > 1 && day.weekday ? day.weekday + ' · ' : '') + (event.title || ''));
+      const who = document.createElement('div');
+      who.className = 'who';
+      text(who, [(event.who || []).join(', '), event.responsible ? event.responsible + ' responsible' : ''].filter(Boolean).join(' · '));
+      body.append(title, who);
+      item.append(time, body);
+      list.append(item);
+    }));
+    document.getElementById('empty').hidden = count > 0;
+    text(document.getElementById('title'), days.length > 1 ? 'This week at home' : 'Today at home');
+    const warn = document.getElementById('warn');
+    const conflicts = data.conflicts || [];
+    warn.hidden = !conflicts.length;
+    text(warn, conflicts.length ? 'Heads up: ' + conflicts[0] : '');
+  }
+  let nextId = 0;
+  const send = (method, params, notify) => window.parent.postMessage(
+    Object.assign({ jsonrpc: '2.0', method: method, params: params || {} }, notify ? {} : { id: ++nextId }), '*');
+  window.addEventListener('message', (event) => {
+    const message = event.data || {};
+    if (message.method === 'ui/notifications/tool-result' && message.params) {
+      render(message.params.structuredContent || {});
+    } else if (message.id === 1 && message.result) {
+      send('ui/notifications/initialized', {}, true);
+    }
+  });
+  send('ui/initialize', { appInfo: { name: 'Hometide', version: '1.0.0' }, appCapabilities: {}, protocolVersion: '2026-01-26' });
+</script>
+</body>
+</html>

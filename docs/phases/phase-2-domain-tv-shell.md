@@ -7,7 +7,7 @@ data, and a TV-native navigation/focus shell shared by Expo and Vega.
 
 ## Specification coverage
 
-- `single.md` sections 8–10, 19, 20 / EPIC 1–2, 21–22, and 24.
+- `docs/process/build-spec.md` sections 8–10, 19, 20 / EPIC 1–2, 21–22, and 24.
 
 ## Work packages
 

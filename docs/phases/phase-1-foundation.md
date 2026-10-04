@@ -8,7 +8,7 @@ fast iteration.
 
 ## Specification coverage
 
-- `single.md` sections 0, 4–7, 20 / EPIC 0, 27–29, 32–33, and 37.
+- `docs/process/build-spec.md` sections 0, 4–7, 20 / EPIC 0, 27–29, 32–33, and 37.
 - Stories 0.1 through 0.6.
 
 ## Work packages

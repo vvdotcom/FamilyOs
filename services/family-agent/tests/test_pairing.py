@@ -140,3 +140,9 @@ def test_local_pairing_routes_issue_read_only_tv_sessions(monkeypatch):
     monkeypatch.setattr(main, "production_store", ProductionStore())
     assert client.get("/v1/household", headers={"Authorization": f"Bearer {tv_token}"}).status_code == 401
 
+
+
+def test_a_pairing_challenge_carries_a_qr_link_with_the_code_in_the_fragment(api):
+    data = api.client.post("/v1/pairing/challenges", json={"deviceName": "Living room"}).json()["data"]
+    assert data["pairUrl"].endswith(f"/app/#pair={data['code']}")
+    assert "?" not in data["pairUrl"]  # Never a query string: the code must not reach server logs.
