@@ -1,9 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('setup','status','start','stop','sync','test','build','simulator','reset-simulator','tv')]
+    [ValidateSet('setup','status','start','stop','sync','test','build','simulator','reset-simulator','tv','package')]
     [string]$Command = 'status',
-    # tv: the API the TV app talks to (baked into the build).
+    # tv / package: the API the TV app talks to (baked into the build).
     [string]$ApiUrl = 'https://hometide.up.railway.app'
 )
 
@@ -178,6 +178,29 @@ echo 'Hometide is on the TV. Next: Settings > Show pairing code, and scan it wit
         # Written to a file and run with a terminal attached, so the Vega CLI can ask questions.
         & ssh @sshOptions -t familyos@127.0.0.1 "printf %s $encoded | base64 --decode > /tmp/hometide-tv.sh && TV_IP=$tvIp TV_CODE=$code bash /tmp/hometide-tv.sh"
         if ($LASTEXITCODE -ne 0) { throw 'Installing on the TV failed; the messages above say where.' }
+    }
+    'package' {
+        # Builds the Fire TV (Vega) store package and copies it to dist\ on this PC, ready for the Amazon Developer
+        # Console. No TV needed. Bump the version (yarn version:tv) before every upload after the first.
+        if ($ApiUrl -notmatch '^https://[A-Za-z0-9.-]+(:\d+)?/?$') { throw 'ApiUrl must be an https:// address.' }
+        if (-not (Test-FamilyVmReady)) { throw 'The build VM is not set up yet. Run .\familyos.ps1 setup first.' }
+        Start-FamilyVm
+        & (Join-Path $root 'setup\sync-repo.ps1')
+        Write-Host "Building the store package for $ApiUrl ..." -ForegroundColor Cyan
+        Invoke-Guest ("cd ~/projects/familyos && [ ! -f ~/vega/env ] || . ~/vega/env; yarn install --immutable && rm -rf apps/vega/build /tmp/metro-* /tmp/haste-map-* && EXPO_PUBLIC_FAMILYOS_API_URL=$ApiUrl yarn build:vega")
+        $found = & ssh @sshOptions familyos@127.0.0.1 "find -L ~/projects/familyos/apps/vega/build/armv7-release -maxdepth 1 -type f -name '*.vpkg' -print -quit"
+        $remote = $found | Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1
+        if (-not $remote) { throw 'No armv7 package was built.' }
+        $remote = $remote.Trim()
+        $dist = Join-Path $root 'dist'
+        New-Item -ItemType Directory -Force -Path $dist | Out-Null
+        # scp takes the port as -P (capital), unlike ssh.
+        $scpOptions = @('-i', $keyPath, '-P', "$sshPort", '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', ('UserKnownHostsFile="' + $knownHostsPath + '"'))
+        & scp @scpOptions "familyos@127.0.0.1:$remote" $dist
+        if ($LASTEXITCODE -ne 0) { throw 'Copying the package from the build VM failed.' }
+        $file = Join-Path $dist (Split-Path -Leaf $remote)
+        Write-Host "Store package ready: $file" -ForegroundColor Green
+        Write-Host 'Upload it in the Amazon Developer Console. Before any later upload, run yarn version:tv first.' -ForegroundColor Yellow
     }
     'setup' { Invoke-FamilySetup }
     'status' {

@@ -54,7 +54,7 @@ export async function searchPlace(query: string): Promise<WeatherPlace> {
   } catch {
     results = [];
   }
-  if (!results.length) throw new Error(`We couldn’t find “${text}”. Try a city and state, like “Tucson, AZ”, or a ZIP code.`);
+  if (!results.length) throw new Error(`We couldn’t find “${text}”. Try a city and state, like “Phoenix, AZ”, or a ZIP code.`);
   const latitude = round(results[0].latitude);
   const longitude = round(results[0].longitude);
   // Parents set this up at home, so the phone's time zone is the household's. Settings shows it.

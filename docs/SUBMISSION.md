@@ -65,11 +65,11 @@ phone app, and reached by voice through Alexa.
   weather, what's next and when to leave, dinner, chores left, and a family photo.
 - **It catches conflicts.** Double-booked drivers and tight travel times are flagged with who is free.
 - **It learns the family's rhythm.** When the family fixes a clash by hand and the same clash keeps coming back,
-  the TV says *Hometide noticed: make Alex the usual Emma pickup on Tuesdays and Thursdays?* One press of the remote
+  the TV says *Hometide noticed: make Lindsey the usual Emma pickup on Tuesdays and Thursdays?* One press of the remote
   updates every later week. Hometide also notices who usually drives to an activity, and events added by hand every
   week. Answers are remembered in Amazon Bedrock AgentCore Memory, so "what has Hometide learned about us?" works
   in any later session.
-- **Voice, remote, and phone in one flow.** "Alexa, open home tide… swap Emma's pickup to Alex": the TV shows a
+- **Voice, remote, and phone in one flow.** "Alexa, open home tide… swap Emma's pickup to Lindsey": the TV shows a
   confirm card with focus already on Confirm, the remote confirms, and the phone shows the change. Echo Show gets a
   Hometide card (APL); MCP hosts that support MCP Apps get a day card.
 - **Snap a flyer, get an event.** Photograph a school flyer or pick a PDF. Amazon Bedrock drafts the event, and a
@@ -270,10 +270,10 @@ Try this, in order:
    `EXPO_PUBLIC_FAMILYOS_API_URL=https://hometide.up.railway.app yarn dev:web`), go to Settings, choose
    **Show pairing code**, and scan the QR code with a phone signed in to the judge account. Tap **Approve TV**.
    If Hometide is live on the Amazon Appstore by then, install it on a Vega Fire TV by searching "Hometide".
-2. **Fix one clash by voice:** in the phone app, Family → Voice, say or type "Swap Tuesday's Emma pickup to Alex",
+2. **Fix one clash by voice:** in the phone app, Family → Voice, say or type "Swap Tuesday's Emma pickup to Lindsey",
    then confirm it on the TV (code 2468).
 3. **Watch Hometide learn:** the TV then shows *Hometide noticed*, with the reason. Confirm it, and every later
-   Tuesday and Thursday pickup moves to Alex.
+   Tuesday and Thursday pickup moves to Lindsey.
 4. **Ask what it learned:** "What has Hometide learned about us?" in the same voice panel.
 
 **Run it yourself:** `yarn install`, then `yarn dev:web` (the TV in a browser; arrow keys and Enter are the

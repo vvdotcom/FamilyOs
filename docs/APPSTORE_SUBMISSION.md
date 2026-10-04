@@ -55,12 +55,15 @@ Amazon's testers must be able to complete every sign-in path, including pairing 
    python setup/seed-reviewer-household.py --email review@your-domain.example --code 2468
    ```
 
-   It adds the Rivera family (Alex, Jordan, Emma, Leo) with weekly school runs, pickups, piano, soccer, movie
+   It adds the Rivera family (Lindsey, Jordan, Emma, Leo) with weekly school runs, pickups, piano, soccer, movie
    night and brunch for the next 12 weeks, so the account looks lived-in whenever Amazon opens it. Every Tuesday
    and Thursday has a pickup conflict to fix. It also adds daily chores (one with a photo check), rewards, stars,
    a reward request waiting for approval, a week of dinners, grocery and to-do lists, Phoenix weather and the
    parent code. Run it again any time (for example after a reviewer deletes things); it updates instead of
    duplicating. Use the same command for the demo account.
+   If the account already had a household from an earlier sign-in, add `--fresh` so the parent name (Lindsey)
+   and the household name are set from scratch. It asks you to type DELETE, wipes that account's old
+   household (including paired TVs), and keeps the sign-in.
 3. Paste this into **Testing Instructions** (fill in the account):
 
    > Hometide shows a family's calendar, chores, meals and lists on the TV. A new TV starts empty and is linked to a
@@ -140,12 +143,14 @@ npx.cmd -y corepack@0.34.0 yarn version:tv          # 1.0.0 -> 1.0.1 (or: yarn v
 It updates `apps/vega/manifest.toml` and `apps/vega/package.json` (Vega) and `apps/expo-multi-tv/app.json`
 (`version` and Android `versionCode`) together. The first store version is **1.0.0**.
 
-Vega release package for the store (ARM sticks):
+Vega release package for the store (ARM sticks), built in the build VM and copied to `dist\` on this PC:
 
 ```powershell
-$env:EXPO_PUBLIC_FAMILYOS_API_URL = "https://hometide.up.railway.app"
-npx.cmd -y corepack@0.34.0 yarn build:vega
+.\familyos.ps1 package          # prints the path of the .vpkg to upload
 ```
+
+It builds against `https://hometide.up.railway.app` (change it with `-ApiUrl`). The equivalent manual build inside
+the VM is `EXPO_PUBLIC_FAMILYOS_API_URL=https://hometide.up.railway.app yarn build:vega`.
 
 ## 6. Older Fire TVs (Fire OS)
 

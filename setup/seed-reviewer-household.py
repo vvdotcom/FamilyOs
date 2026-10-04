@@ -4,9 +4,11 @@ Run it yourself; the password is read from your terminal and never stored or pri
 
     python setup/seed-reviewer-household.py                       # asks for email, password and parent code
     python setup/seed-reviewer-household.py --email demo@x.com    # asks only for the password
+    python setup/seed-reviewer-household.py --fresh               # wipe this account's household first, then seed
 
 What it adds (repeating weekly for 12 weeks, so the account still looks lived-in whenever it is opened):
-  - Family: Jordan (adult), Emma (9) and Leo (6), next to the account's own parent.
+  - Family: the account's own parent (shown as Lindsey; change with --parent-name), Jordan (adult),
+    Emma (9) and Leo (6), in "The Rivera Family".
   - School drop-offs and pickups every weekday, piano, soccer practice and Saturday games, Friday movie night,
     Sunday brunch. Every Tuesday and Thursday Jordan's meeting overlaps Emma's pickup: a conflict to fix.
   - Daily chores (one needs a photo), rewards and some stars, a pending reward request to approve on the TV.
@@ -14,6 +16,11 @@ What it adds (repeating weekly for 12 weeks, so the account still looks lived-in
   - Weather location (Phoenix, AZ) and the four-digit parent code.
 
 Running it again updates the same items instead of duplicating them. Standard library only.
+
+The parent's greeting name and the household name are set only when a household is first created. On an
+account that already has a household, the parent is renamed on the family list, but the phone greeting and the
+household name stay as they were; use --fresh to start over with every name from this script. --fresh deletes
+everything in the account's household (events, photos, paired TVs, calendar links) and keeps the sign-in.
 Optional: HOMETIDE_API_URL (default https://hometide.up.railway.app).
 """
 from __future__ import annotations
@@ -97,8 +104,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--email", default=os.getenv("HOMETIDE_SEED_EMAIL"))
     parser.add_argument("--code", default=os.getenv("HOMETIDE_SEED_PARENT_CODE"), help="four-digit parent code")
-    parser.add_argument("--parent-name", default="Alex")
+    parser.add_argument("--parent-name", default="Lindsey")
     parser.add_argument("--household-name", default="The Rivera Family")
+    parser.add_argument("--fresh", action="store_true",
+                        help="delete this account's household first and start over (asks you to confirm)")
     args = parser.parse_args()
 
     email = (args.email or input("Hometide account email: ")).strip()
@@ -107,13 +116,33 @@ def main() -> None:
     if not email or not password or len(code) != 4 or not code.isdigit():
         fail("An email, a password and a four-digit parent code are required.")
 
+    if args.fresh and input(f"\n--fresh deletes everything in {email}'s household (events, photos, paired TVs,\n"
+                            "calendar links) before seeding. Type DELETE to continue: ").strip() != "DELETE":
+        fail("Nothing was changed.")
+
     print(f"Signing in to {API} as {email} ...")
-    session = http("POST", f"{API}/v1/auth/exchange",
-                   {"idToken": cognito_id_token(email, password), "parentName": args.parent_name,
-                    "householdName": args.household_name},
-                   {"X-FamilyOS-Session-Transport": "bearer"})["data"]["sessionToken"]
+    id_token = cognito_id_token(email, password)
     password = ""  # Not needed any more.
+
+    def sign_in() -> str:
+        return http("POST", f"{API}/v1/auth/exchange",
+                    {"idToken": id_token, "parentName": args.parent_name, "householdName": args.household_name},
+                    {"X-FamilyOS-Session-Transport": "bearer"})["data"]["sessionToken"]
+
+    session = sign_in()
+    if args.fresh:
+        http("POST", f"{API}/v1/account/delete", {"confirm": "DELETE", "idToken": id_token},
+             {"Authorization": f"Bearer {session}"})
+        print("  old household deleted; creating a new one")
+        session = sign_in()
     home = Household(session)
+
+    # The account's own parent member is named at sign-up (for example from the Cognito profile); use the seed name.
+    owner = next(member for member in home.data["members"] if member["role"] == "adult" and member["id"] != "seed-jordan")
+    if owner["name"] != args.parent_name:
+        home.edit("member", {**owner, "name": args.parent_name,
+                             "initials": "".join(part[0] for part in args.parent_name.split()[:2]).upper()})
+    print(f"  parent: {args.parent_name}")
 
     # Weather and time zone first, so "today" means today in Phoenix.
     home.edit("householdLocation", {"id": "home", "latitude": 33.45, "longitude": -112.07, "label": "Phoenix, AZ",
@@ -131,7 +160,7 @@ def main() -> None:
                                  "role": role, "accentColor": color})
             members[name] = member_id
     jordan, emma, leo = members["Jordan"], members["Emma"], members["Leo"]
-    print("  family: parent, Jordan, Emma, Leo")
+    print(f"  family: {args.parent_name}, Jordan, Emma, Leo")
 
     today = datetime.now(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
     monday = today - timedelta(days=today.weekday())
@@ -142,6 +171,10 @@ def main() -> None:
     existing_events = home.ids("events")
     added = 0
 
+    def owner_for(who: list[str], responsible: str | None) -> str:
+        """Show who an event is for: the driver if there is one, the one person it involves, else the parent."""
+        return responsible or (who[0] if len(who) == 1 else parent)
+
     def weekly(event_id: str, title: str, category: str, weekday: int, start: tuple[int, int], minutes: int,
                who: list[str], **extra) -> None:
         nonlocal added
@@ -150,7 +183,8 @@ def main() -> None:
         begin = at(weekday, *start)
         home.edit("event", {"id": event_id, "familyId": family["id"], "title": title, "category": category,
                             "startAt": begin.isoformat(), "endAt": (begin + timedelta(minutes=minutes)).isoformat(),
-                            "ownerMemberId": parent, "memberIds": who, "recurrence": "weekly", **extra})
+                            "ownerMemberId": owner_for(who, extra.get("responsibleMemberId")), "memberIds": who,
+                            "recurrence": "weekly", **extra})
         added += 1
 
     for day, name in enumerate(["mon", "tue", "wed", "thu", "fri"]):
@@ -162,7 +196,7 @@ def main() -> None:
         weekly(f"seed-pickup-{name}", "Emma pickup", "pickup", day, (15, 15), 20, [emma],
                responsibleMemberId=jordan if day in (1, 3) else parent, responsibilityType="pickup",
                location="Desert Willow Elementary", travelMinutes=12)
-    # Jordan's meeting overlaps Emma's Tuesday/Thursday pickup: the briefing flags it and suggests Alex.
+    # Jordan's meeting overlaps Emma's Tuesday/Thursday pickup: the briefing flags it and suggests the parent.
     weekly("seed-meeting-tue", "Team meeting", "appointment", 1, (14, 45), 75, [jordan], location="Office")
     weekly("seed-meeting-thu", "Team meeting", "appointment", 3, (14, 45), 75, [jordan], location="Office")
     weekly("seed-piano-wed", "Piano lesson", "appointment", 2, (16, 0), 45, [emma], location="Music Studio",
@@ -180,15 +214,28 @@ def main() -> None:
            location="Grandma's house", travelMinutes=20)
     weekly("seed-dinner", "Family dinner", "meal", 0, (18, 30), 45, [parent, jordan, emma, leo])
     print(f"  calendar: {added} weekly series added (12 weeks each)" if added else "  calendar: already seeded")
+    # Accounts seeded by an older version of this script had every event owned by the parent.
+    fixes = [event for event in home.data.get("events", []) if event["id"].startswith("seed-")
+             and event.get("ownerMemberId") != owner_for(event.get("memberIds") or [], event.get("responsibleMemberId"))]
+    fields = {"id", "familyId", "title", "category", "startAt", "endAt", "ownerMemberId", "memberIds",
+              "responsibleMemberId", "responsibilityType", "location", "travelMinutes", "preparation", "allDay",
+              "seriesId", "recurrence", "teamId", "sportKind", "arrivalMinutes", "uniform", "moveRoutineId"}
+    for event in fixes:
+        value = {key: item for key, item in event.items() if key in fields}
+        value["ownerMemberId"] = owner_for(event.get("memberIds") or [], event.get("responsibleMemberId"))
+        home.edit("event", value)
+    if fixes:
+        print(f"  calendar: {len(fixes)} events now show who they're for")
 
-    due = today.replace(hour=19)
-    chores = [("seed-chore-bed", "Make your bed", emma, 5, False, None),
-              ("seed-chore-backpack", "Pack your backpack", leo, 5, True, "Backpack zipped and by the door"),
-              ("seed-chore-cat", "Feed the cat", leo, 5, False, None),
-              ("seed-chore-table", "Set the table", emma, 5, False, None),
-              ("seed-chore-toys", "Put toys away", leo, 3, False, None),
-              ("seed-chore-reading", "Read for 20 minutes", emma, 5, False, None)]
-    for chore_id, title, who, points, photo, hint in chores:
+    # (id, title, child, points, photo check, photo hint, due time): spread over morning, after school and evening.
+    chores = [("seed-chore-bed", "Make your bed", emma, 5, False, None, (7, 15)),
+              ("seed-chore-backpack", "Pack your backpack", leo, 5, True, "Backpack zipped and by the door", (7, 30)),
+              ("seed-chore-cat", "Feed the cat", leo, 5, False, None, (16, 0)),
+              ("seed-chore-reading", "Read for 20 minutes", emma, 5, False, None, (16, 30)),
+              ("seed-chore-table", "Set the table", emma, 5, False, None, (18, 15)),
+              ("seed-chore-toys", "Put toys away", leo, 3, False, None, (19, 30))]
+    for chore_id, title, who, points, photo, hint, (hour, minute) in chores:
+        due = today.replace(hour=hour, minute=minute)
         home.edit("chore", {"id": chore_id, "familyId": family["id"], "title": title, "assignedToMemberId": who,
                             "dueAt": due.isoformat(), "status": "pending", "points": points, "recurrence": "daily",
                             "verifyWithPhoto": photo, "photoHint": hint})

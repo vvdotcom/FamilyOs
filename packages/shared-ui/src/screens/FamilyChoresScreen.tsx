@@ -95,7 +95,7 @@ export default function FamilyChoresScreen({
               key={member.id}
               accessibilityLabel={`${member.name}: ${done} of ${assigned.length} complete`}
               style={{
-                width: 196,
+                minWidth: 196,
                 height: 70,
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -108,7 +108,7 @@ export default function FamilyChoresScreen({
               }}>
               <Avatar id={member.id} initials={member.initials} size={52} />
               <View style={{ flex: 1, gap: 8 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
                   <DText size={22} weight={800}>
                     {member.name}
                   </DText>

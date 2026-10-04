@@ -261,7 +261,7 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
             )}
           </DPanel>
         </DRow>
-        <DFooter action="Select" detail="Local meal plan" />
+        <DFooter action="Select" />
         {editor}
       </View>
     );
@@ -371,7 +371,10 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
           </DRow>
         ))}
       </View>
-      <DFooter action="Open meal" detail="Local meal plan" />
+      <DFooter
+        action="Open meal"
+        detail={`${days.filter((day) => planner.data.meals[`${day.key}:Dinner`]).length} of ${days.length} dinners planned`}
+      />
     </View>
   );
 }

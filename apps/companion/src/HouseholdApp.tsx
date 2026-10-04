@@ -1808,7 +1808,7 @@ function HouseholdScreens({
               <View style={[s.row, { alignItems: 'flex-end', gap: 8 }]}>
                 <View style={s.grow}>
                   <Input label="Or search a city or ZIP" value={placeQuery} onChangeText={setPlaceQuery} maxLength={80}
-                    placeholder="e.g. Tucson, AZ or 85701" autoCapitalize="words" returnKeyType="search"
+                    placeholder="e.g. Phoenix, AZ or 85004" autoCapitalize="words" returnKeyType="search"
                     onSubmitEditing={() => void savePlace(() => searchPlace(placeQuery))} />
                 </View>
                 <Button disabled={busy || preview || !placeQuery.trim()} onPress={() => void savePlace(() => searchPlace(placeQuery))}

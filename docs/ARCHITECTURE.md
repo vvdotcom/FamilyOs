@@ -55,11 +55,11 @@ flowchart LR
 ## The loop that makes Hometide learn
 
 1. **Something repeats.** Jordan's Tuesday and Thursday team meeting overlaps Emma's pickup, every week.
-2. **The family fixes one by hand.** "Alexa, open home tide… swap Emma's pickup to Alex", confirmed with the
+2. **The family fixes one by hand.** "Alexa, open home tide… swap Emma's pickup to Lindsey", confirmed with the
    remote on the TV.
 3. **Hometide notices the pattern** (`services/family-agent/app/rhythm.py`). Right after that confirmation it
    checks the calendar for the same clash on later weeks. If an adult is free for all of them, the TV shows
-   *Hometide noticed: make Alex the usual Emma pickup on Tuesdays and Thursdays?*
+   *Hometide noticed: make Lindsey the usual Emma pickup on Tuesdays and Thursdays?*
 4. **A person decides.** Yes updates every later occurrence in one change. No is final for that pattern.
 5. **Hometide remembers.** What it noticed and what the family decided are written to AgentCore Memory under a
    hashed household id. Later, "what has Hometide learned about us?" is answered from that memory.
