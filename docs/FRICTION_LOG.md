@@ -1,6 +1,7 @@
 # Development friction log
 
-Record tool, SDK, API, simulator, and device friction while it happens.
+Record tool, SDK, API, simulator, and device friction while it happens. Hometide was called FamilyOS during early
+development, so older entries use that name.
 
 ## Entry 1 — The multi-TV sample lags the current Vega SDK
 
@@ -334,6 +335,41 @@ Suggested improvement: Honor an explicit "ask {invocation name}" before routing 
 service is answering ("From your Alexa calendar…") when Alexa+ answers instead of the named skill.  
 Evidence/log: Alexa history entries at 6:47 PM (Calendar) versus earlier Conversation entries; Railway logs with
 `POST /alexa` at 08:57–09:36 and 18:20–18:25 only, then 19:09–19:10 after "open home tide".
+
+## Entry 20 — The Developer Mode code is letters and numbers, but the docs say "6-digit code"
+
+Date: 2026-10-03  
+Tool/API: Vega Developer Mode on a physical Fire TV Stick (Vega OS), Vega CLI documentation  
+Task attempted: Enable Developer Mode on the Stick so the release `.vpkg` can be installed for testing.  
+Steps: Settings → My Fire TV → About (select the device name until Developer Options appears) → Developer Options →
+Developer Mode → Continue. Typed the code the TV showed into our setup script, which follows the docs.  
+Expected: A six-digit numeric code, as the docs say ("Enable the device using the 6-digit code displayed on your
+Fire TV screen").  
+Actual: The TV showed six letters and numbers (for example `1NJMC2`). Our script, written from the docs, rejected
+it as "not 6 digits".  
+Severity: Low  
+Workaround: Accept six letters or digits (`familyos.ps1`).  
+Suggested improvement: Say "6-character code" in the Developer Mode docs and CLI help, and show the format in the
+error message when a code is rejected.  
+Evidence/log: PowerShell error at `familyos.ps1:142`; the regex is now `^[A-Za-z0-9]{6}$`.
+
+## Entry 21 — `vega devmode login` can't save its token on a headless Linux host
+
+Date: 2026-10-03  
+Tool/API: Vega CLI (`vega devmode login`, `vega devmode enable-device`) on Ubuntu over SSH  
+Task attempted: Sign in with the Amazon Developer account from our headless Ubuntu build VM, then enable Developer
+Mode on the Stick.  
+Steps: Ran `vega devmode login` in an SSH session, completed the browser sign-in, then waited for the CLI.  
+Expected: The CLI stores the token and `enable-device` runs.  
+Actual: "Failed to save authentication token: failed to save access token data: The name org.freedesktop.secrets
+was not provided by any .service files: failed to store token in OS password management system". The sign-in had
+worked; only saving the token failed, so the whole flow stopped.  
+Severity: High (blocks enabling Developer Mode from a server, VM or CI host)  
+Workaround: Install `gnome-keyring` and `dbus`, then run the CLI inside `dbus-run-session` with an unlocked keyring
+(`familyos.ps1` does this automatically).  
+Suggested improvement: Fall back to an encrypted token file when no Secret Service is available (or offer a
+`--token-store file` option), and document the keyring requirement for Linux hosts.  
+Evidence/log: Terminal output from `familyos.ps1 tv` on 2026-10-03.
 
 ## Feature requests
 

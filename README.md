@@ -61,7 +61,8 @@ measured: [docs/MEASUREMENTS.md](./docs/MEASUREMENTS.md).
   own, and voice can only propose changes. If Bedrock is unavailable, deterministic fallbacks take over.
 - **Calendar links:** encrypted at rest and never sent to any client. They're fetched only over HTTPS from a public
   address that is checked and pinned for the connection, which blocks server-side request forgery (SSRF).
-- **Photos:** re-encoded to strip location and camera data, private to the household, and never sent to AI.
+- **Family photos** (the wall-calendar slideshow): re-encoded to strip location and camera data, private to the
+  household, and never sent to AI. Chore and flyer photos go to Amazon Bedrock only for a suggestion a parent reviews.
   The weather location is rounded to about 1 km.
 
 ## Status
@@ -71,13 +72,19 @@ measured: [docs/MEASUREMENTS.md](./docs/MEASUREMENTS.md).
 | Family agent API (FastAPI, MCP, Strands, Bedrock, AgentCore Memory) | 200+ automated tests, plus MCP conformance checks that can run against the live service. Deployed on Railway in production mode (Cognito and Postgres) |
 | AWS pieces as code ([`infra`](./infra)) | CDK stacks with assertion tests: AgentCore Memory, the API's IAM identity, Cognito |
 | TV app on the Vega Virtual Device | Full remote-only regression on 2026-09-28 ([report](./docs/VEGA_VVD_TEST_REPORT.md)). Calendar sync, the wall calendar, and that report's four recommendations were added afterward and are not yet re-run on the VVD |
-| TV app on a physical Fire TV | Not yet validated (Phase 15) |
+| TV app on a physical Fire TV | Installed and running on a Fire TV Stick (Vega OS) on 2026-10-03, with the real remote and Alexa. Amazon's full device checklist is in progress (Phase 15) |
 | Phone app (Expo, iOS) | Typecheck and browser previews pass; the iPhone checklist is in [apps/companion](./apps/companion/README.md) |
 | Real-world use | Used informally by the developer's family and friends. No public release yet |
 
 **Known platform limit:** Vega OS doesn't let non-media apps keep the display awake, so the system screensaver
 still starts after its timeout (about 5 minutes by default). Families can lengthen it in Fire TV Settings →
 Display & Sounds → Ambient Experience. See the [friction log](./docs/FRICTION_LOG.md).
+
+## Architecture
+
+![Hometide architecture: Fire TV, phone and Alexa talk to the Hometide API on Railway, which uses Amazon Bedrock, AgentCore Memory and Cognito in AWS](./docs/images/architecture.png)
+
+The TV app's layers on Vega OS are in [docs/images/vega-architecture.png](./docs/images/vega-architecture.png); the learning loop and trust rules are in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Repository map
 
@@ -150,6 +157,6 @@ changes Hyper-V or Windows security settings. Regression checks for the bootstra
 ## License
 
 Hometide is released under the MIT License, Copyright (c) 2026 Hometide; see [LICENSE](./LICENSE). The project
-started from Amazon's Fire TV / Vega sample app, whose files keep their MIT-0 notice; see [NOTICE](./NOTICE).
+started from Amazon's Fire TV / Vega sample app (MIT-0); files from it keep Amazon's copyright header.
 Bundled design fonts keep their SIL Open Font License notices in `packages/shared-ui/src/assets/fonts` and
 `apps/vega/assets/fonts`.

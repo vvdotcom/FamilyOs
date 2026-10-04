@@ -11,8 +11,8 @@ port, and `react-tv-space-navigation` for D-pad focus. The Vega Virtual Device (
 regression runs on an EC2 host.
 
 **What worked well?**
-- One set of React Native TV screens runs on Vega OS, on Fire OS / Android TV (Expo), and on the web for fast
-  iteration.
+- One set of React Native TV screens runs on Vega OS and on the web for fast iteration. The same screens are set up
+  for Fire OS / Android TV (Expo), which we haven't built yet.
 - Builds for armv7, aarch64, and x86_64 passed manifest validation.
 - `vega run-app` and `launch-app` were reliable, and cold start to a rendered Home took about 2–3 s even with
   software GL on the VVD.
@@ -20,6 +20,8 @@ regression runs on an EC2 host.
   [VVD report](./VEGA_VVD_TEST_REPORT.md).
 - The AsyncStorage port made it straightforward to keep pairing and state across restarts, which Amazon recommends
   now that apps can be closed when the display sleeps.
+- On a physical Fire TV Stick (Vega OS, 3 October 2026), the same release `.vpkg` installed and launched from our
+  Linux build VM, and the app ran with the real remote and Alexa.
 
 **What needs work?**
 - **No way to keep the display on for a non-media app [14].** This is the biggest gap for a Skylight-style family
@@ -32,13 +34,15 @@ regression runs on an EC2 host.
 - Focus did not move into overlays without a manual lock-and-root pattern [13].
 - The VVD needs KVM, so a Windows laptop with virtualization-based security can't run it [5]. We used an EC2
   `c8i.2xlarge` with nested virtualization.
+- Enabling Developer Mode on hardware: the docs call it a "6-digit code", but the TV showed letters and numbers
+  [20], and `vega devmode login` couldn't save its token on a headless Linux host without a desktop keyring [21].
 
 **How was onboarding?** The CLI installed cleanly, but Windows is not a native SDK host, so we automated an Ubuntu VM
 and later moved VVD runs to EC2. Pinning the SDK version from `vega sdk list-remote` was necessary. Device
 automation needed `inputd-cli` for input and host-side screenshots [12].
 
-**Would we use it again, and why?** Yes. Sharing React Native code across Vega, Fire OS, and the web let one small
-team build the TV app for all three from one codebase. For always-on dashboards, a keep-awake option (FR-2) is the one change that
+**Would we use it again, and why?** Yes. Sharing React Native code across Vega and the web, with Fire OS next, let
+one small team build the TV app from one codebase. For always-on dashboards, a keep-awake option (FR-2) is the one change that
 would matter most.
 
 ## Alexa+ and the Model Context Protocol
@@ -46,7 +50,7 @@ would matter most.
 **What was used and why?** A Hometide MCP server using Streamable HTTP and protocol 2025-11-25. It is built with the
 official Python SDK, publishes RFC 9728 protected-resource metadata, and exposes 13 tools plus an MCP Apps card
 (`ui://hometide/today.html`). A custom Alexa skill ("home tide") with account linking through Cognito reaches the
-same tools as an MCP client, and adds an APL card on Echo Show. Alexa+ can read the
+same tools as an MCP client, and adds an APL card on Echo Show. Through that skill, Alexa+ can read the
 family schedule and chores and *propose* changes; a person confirms each one on the TV or phone.
 
 **What worked well?** MCP maps cleanly onto a safe "propose, then confirm" design. The official MCP client negotiated
@@ -64,6 +68,43 @@ authorization-server setups are accepted.
 
 **Would we use it again, and why?** Yes. One MCP server serves Alexa+ and any other assistant, and the
 permission model stays on our server.
+
+## Alexa Skills Kit (custom skill "home tide")
+
+**What was used and why?** A custom skill with the invocation name "home tide", account linking through Amazon
+Cognito (authorization-code grant), and APL for a Hometide card on Echo Show. Its endpoint (`/alexa` on our API)
+verifies Alexa's signed requests and reaches the household through our MCP server with the parent's linked token.
+It is how a family talks to Hometide today, from an Echo or the Fire TV remote.
+
+**What worked well?** Account linking worked with a Cognito confidential client and the three regional redirect URLs
+the console lists. The developer console's simulator made it quick to test utterances, and APL gave Echo Show a
+visual card from the same response.
+
+**What needs work?** The build waits on an easy-to-miss confirmation, and the simulator silently keeps the old model
+if it's missed [18]. With Alexa+, a one-shot "ask home tide…" was sometimes answered by Alexa's own calendar and
+never reached the skill [19]; opening the skill first works.
+
+**How was onboarding?** Clear for a basic custom skill. Account linking took longer: the redirect URLs and the
+authorization-code settings had to match the Cognito client exactly (`docs/ALEXA_SETUP.md`).
+
+**Would we use it again, and why?** Yes. It puts Hometide on every Echo and Fire TV remote in the house today, and
+it is the bridge until Alexa+ add-ons for MCP servers open up.
+
+## Amazon Devices Builder Tools
+
+**What was used and why?** `init-context`, to give our coding agent current Amazon device and Vega context at the
+start of the project.
+
+**What worked well?** It installed the Amazon device skills in one command.
+
+**What needs work?** In Other/Custom mode it printed the context instead of saving it to the path we gave, and it
+installed skills at the user level without asking [2].
+
+**How was onboarding?** One command to start, but the Other/Custom mode didn't behave as documented, so we kept
+current Amazon docs in `docs/REFERENCES.md` instead.
+
+**Would we use it again, and why?** Yes, once Other/Custom mode honors the output path, because current Vega context
+saves a lot of searching.
 
 ## Amazon Bedrock (Nova Lite)
 
@@ -101,6 +142,10 @@ keys (`AWS_BEARER_TOKEN_BEDROCK`) worked without extra configuration.
 question, despite the system prompt. We now pass only read tools for questions. A per-call option to restrict the
 tool set, and a documented maximum number of model-tool cycles, would help.
 
+**How was onboarding?** Straightforward: install `strands-agents`, create a `BedrockModel` with the model ID we
+already used, and hand it our MCP tool list wrapped as tools. Most of the work was choosing which tools each request
+may see [16].
+
 **Would we use it again, and why?** Yes. It removed our own loop code and keeps the agent provider-neutral.
 
 ## Amazon Bedrock AgentCore Memory
@@ -116,6 +161,10 @@ we noticed" and "what has Hometide learned?", and namespaces per actor keep each
 searchable yet; we read recent events as a fallback and keep a local copy of confirmed routines. A synchronous
 "write a record" call for facts the app already knows would avoid that.
 
+**How was onboarding?** The memory itself is one CDK resource (`AWS::BedrockAgentCore::Memory`), and the app talks
+to it through boto3's `bedrock-agentcore` client. The part that took time was learning that long-term records appear
+asynchronously [17].
+
 **Would we use it again, and why?** Yes, as long-term memory that outlives a single voice session.
 
 ## AWS CDK (CloudFormation)
@@ -127,6 +176,11 @@ only) with its key in Secrets Manager, and the Cognito user pool, domain and app
 tests caught a wrong auth-flow order before anything was deployed.
 
 **What needs work?** Adopting an existing Cognito pool needs `cdk import` with each physical id typed in by hand.
+
+**How was onboarding?** Quick for new resources: `npx cdk deploy` from AWS CloudShell, with no local AWS setup.
+Importing the Cognito pool we had created by hand earlier was the slow part.
+
+**Would we use it again, and why?** Yes. The AWS pieces are reviewable, tested code instead of console clicks.
 
 ## Amazon Cognito
 
@@ -154,6 +208,10 @@ Virtual Device, because the development laptop couldn't expose KVM.
 **What worked well?** Nested virtualization on c8i ran the VVD reliably for a full remote-only regression.
 
 **What needs work?** Software rendering is slow, and screen capture and input needed custom scripts [12].
+
+**How was onboarding?** One user-data script installs the Vega SDK, a virtual display and a browser-based desktop
+unattended, and the instance shuts itself down after 8 hours to cap the cost. Finding that the VVD needs OpenGL
+through Mesa's software renderer (not `--no-gl-accel`) took some trial and error (`docs/VEGA-AWS-DISPLAY.md`).
 
 **Would we use it again, and why?** Yes, as a shared VVD host until physical-device testing.
 

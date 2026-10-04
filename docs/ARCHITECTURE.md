@@ -4,6 +4,13 @@ Hometide is one household service with three screens (Fire TV, phone, web) and t
 and an MCP server for Alexa+ and other assistants). Every change, from any of them, goes through one write path
 that checks who is asking, applies the change once, and records it.
 
+![Hometide architecture in AWS style, with the numbered request flow](./images/architecture.png)
+
+![Hometide on Vega OS: app, shared TV code, React Native for Vega, Vega OS services, Fire TV device](./images/vega-architecture.png)
+
+Both images are rendered by `docs/images/src/architecture.py` and `docs/images/src/vega.py`. The same structure in
+text form:
+
 ```mermaid
 flowchart LR
   subgraph Home["In the home"]
