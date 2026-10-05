@@ -4,6 +4,7 @@ import {
   Conflict,
   FamilyBriefing,
   FamilyMember,
+  HouseholdMeal,
   HouseholdProposal,
   HouseholdSnapshot,
   ProposedAction,
@@ -160,6 +161,16 @@ export const familyAgentClient = {
       method: 'POST',
       body: JSON.stringify({ kind, value, expectedRevision }),
     }),
+  /** Write a recipe from a short description with Hometide's AI; it is saved and put on the meal plan right away. */
+  generateRecipe: (body: { description: string; date?: string; category?: 'Breakfast' | 'Lunch' | 'Dinner'; groceries?: boolean }) =>
+    request<{
+      recipe: { id: string; name: string; servings: number; instructions: string[] };
+      meal: HouseholdMeal | null;
+      minutes: number;
+      summary: string;
+      provider: 'bedrock' | 'cookbook';
+      household: HouseholdSnapshot;
+    }>('/v1/recipes/generate', { method: 'POST', body: JSON.stringify(body) }, 35000),
   tvSession: () => request<{ paired: boolean; elevated: boolean }>('/v1/tv/session'),
   /** What voice asked this TV to show since `after` (-1 on start: learn the position, replay nothing). */
   tvCommands: (after: number) =>

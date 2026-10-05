@@ -11,6 +11,7 @@ import {
   DRow,
   DText,
   formatDate,
+  dateTimeFormat,
   localDateKey,
   memberColor,
   useDesignPalette,
@@ -46,7 +47,7 @@ export default function FamilyChoresScreen({
     .map((chore) => {
       const hour = chore.dueAt
         ? Number(
-            new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: timezone }).format(
+            dateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: timezone }).format(
               new Date(chore.dueAt),
             ),
           )

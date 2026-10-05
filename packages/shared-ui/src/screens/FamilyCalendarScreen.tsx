@@ -12,6 +12,7 @@ import {
   DPanel,
   DRow,
   DText,
+  dateTimeFormat,
   eventOnDay,
   eventTimeLabel,
   formatDate,
@@ -41,7 +42,7 @@ export function calendarDays(anchor: string, count = 7, week = true) {
   });
 }
 const localHour = (value: string | Date, timezone: string) => {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormat('en-US', {
     hour: 'numeric',
     minute: 'numeric',
     hourCycle: 'h23',

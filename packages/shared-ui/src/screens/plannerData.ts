@@ -134,11 +134,10 @@ export function usePlannerData(persist = true, sample = true) {
       const meals = Object.fromEntries(
         (household.meals || []).map((meal) => [`${meal.date}:${meal.category}`, meal.title]),
       );
-      setData({
-        version: 1,
-        meals,
-        lists: groups.size ? Array.from(groups.values()) : [],
-      });
+      const next: PlannerSnapshot = { version: 1, meals, lists: groups.size ? Array.from(groups.values()) : [] };
+      // Called on every 5-second sync: keep the same object when nothing changed, so the TV doesn't re-render
+      // (and re-save the planner) every few seconds.
+      setData((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next));
     },
     reset: () => setData(sample ? createPlannerDemo() : createEmptyPlanner()),
     setMeal: (key: string, title: string) =>

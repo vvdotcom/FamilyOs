@@ -13,6 +13,8 @@ min = "1.2"
 title = "Hometide"
 version = "1.0.0"
 id = "com.hometide.tv"
+# Launcher icon on the Fire TV Home screen (512x512 PNG). Without it the tile is a gray placeholder.
+icon = "@image/hometide_icon.png"
 
 [components]
 [[components.interactive]]

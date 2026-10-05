@@ -19,11 +19,21 @@ export function detectConflicts(
   const conflicts: Conflict[] = [];
 
   // All-day items (birthdays, holidays, "no school") are informational and never conflict (same rule as the server).
-  const ordered = events.filter((item) => !item.allDay).sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt) || a.id.localeCompare(b.id));
+  // Parse each event's times once: a seeded household has hundreds of events and this runs on a Fire TV.
+  const startOf = new Map<CalendarEvent, number>();
+  const endOf = new Map<CalendarEvent, number>();
+  for (const item of events) {
+    startOf.set(item, Date.parse(item.startAt));
+    endOf.set(item, Date.parse(item.endAt));
+  }
+  const ordered = events.filter((item) => !item.allDay).sort((a, b) => startOf.get(a)! - startOf.get(b)! || a.id.localeCompare(b.id));
   for (let i = 0; i < ordered.length; i += 1) {
     const first = ordered[i];
+    const firstEnd = endOf.get(first)!;
     for (let j = i + 1; j < ordered.length; j += 1) {
       const second = ordered[j];
+      // Sorted by start: once an event starts at or after this one ends, no later one can overlap it.
+      if (startOf.get(second)! >= firstEnd) break;
       if (!overlaps(first, second)) continue;
       const shared = first.memberIds.filter((memberId) => second.memberIds.includes(memberId));
       if (shared.length) {

@@ -246,8 +246,8 @@ starts after the idle timeout (about 5 minutes by default), and Settings offers 
 Amazon staff confirmed this in the developer forum (June 24, July 7, and July 21, 2026) and said it is not on the
 near-term roadmap. Fire OS (Android-based) devices still allow `FLAG_KEEP_SCREEN_ON`.  
 Severity: High (for this product category)  
-Workaround: FamilyOS shows its wall calendar after 2 idle minutes, so the family sees the day in large type before the
-system screensaver takes over. The TV's Settings screen tells families where to lengthen the wait (Settings → Display &
+Workaround: FamilyOS shows its wall calendar after 5 idle minutes. That matches the system screensaver's default
+wait, so families should lengthen the screensaver wait for the wall calendar to stay up. The TV's Settings screen tells families where to lengthen the wait (Settings → Display &
 Sounds → Ambient Experience). Pairing and household state survive the app being closed, as Amazon recommends.  
 Suggested improvement: See FR-2.  
 Evidence/log: [Vega OS: no API or device setting to keep the display awake](https://community.amazondeveloper.com/t/vega-os-no-api-or-device-setting-to-keep-the-display-awake-for-non-media-signage-kiosk-apps-screensaver-engages-despite-foreground-app/28610),

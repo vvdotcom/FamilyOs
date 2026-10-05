@@ -46,14 +46,14 @@ class Actor:
 SERVER_ONLY_KINDS = frozenset({
     "importDraft", "redemptionRequest", "redemptionDecision", "starAdjustment",
     "choreVerificationCreate", "choreVerificationDecide", "proposalCreate", "photoCreate",
-    "calendarAdd", "calendarRemove",
+    "calendarAdd", "calendarRemove", "recipeGenerated",
 })
 
 # Changes any family member may make at the shared TV, with item checks below.
 DEVICE_KINDS = frozenset({"completeChore", "listItemToggle", "prepToggle", "moveComplete", "proposalDecide"})
 # Additional changes allowed once a parent unlocked the TV with the four-digit code.
 DEVICE_PARENT_KINDS = DEVICE_KINDS | frozenset({
-    "chore", "listItem", "deleteListItem", "meal", "deleteMeal", "familyNightClose", "familyNightPick",
+    "chore", "listItem", "deleteListItem", "meal", "deleteMeal", "mealGroceries", "familyNightClose", "familyNightPick",
     "redemptionFulfill",
 })
 CHILD_KINDS = frozenset({"completeChore", "familyNightSuggest", "familyNightVote"})
@@ -67,6 +67,7 @@ MATRIX: dict[str, dict[str, str]] = {
     "rewards and reward settings": {"parent": "yes", "child": "request (own)", "tv": "no", "tv+code": "mark fulfilled", "voice": "balance only"},
     "reward approval / star correction": {"parent": "code each time", "child": "no", "tv": "code each time", "tv+code": "code each time", "voice": "no"},
     "household members and roles": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},
+    "AI recipes (describe a meal; saved and planned straight away)": {"parent": "yes", "child": "no", "tv": "yes", "tv+code": "yes", "voice": "no"},
     "imports": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},
     "photos": {"parent": "yes", "child": "no", "tv": "view", "tv+code": "view", "voice": "no"},
     "connected calendars (Google, iCloud, Outlook links)": {"parent": "yes", "child": "no", "tv": "view events", "tv+code": "view events", "voice": "read events"},

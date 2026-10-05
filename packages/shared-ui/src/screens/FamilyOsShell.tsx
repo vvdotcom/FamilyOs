@@ -375,6 +375,28 @@ function FamilyOsShellContent() {
             ? { ...existing, title: title.trim().slice(0, 120) }
             : { id: `tv-${date}-${category}`, title: title.trim().slice(0, 120), date, category, cookIds: [], servings: 4, minutes: 30, ingredients: [], instructions: [] });
         },
+        generateRecipe: async (key: string, description: string) => {
+          const [date, category] = key.split(':');
+          try {
+            const response = await familyAgentClient.generateRecipe({
+              description, date, category: category as 'Breakfast' | 'Lunch' | 'Dinner',
+            });
+            applyServerHousehold(response.data.household);
+            setToast(
+              response.data.provider === 'bedrock'
+                ? `${response.data.recipe.name} is on the meal plan.`
+                : `${response.data.recipe.name} is on the meal plan (from Hometide's built-in recipes).`,
+            );
+            return null;
+          } catch (error) {
+            return error instanceof Error ? error.message : 'Hometide could not write that recipe. Try again.';
+          }
+        },
+        addMealGroceries: async (key: string) => {
+          const [date, category] = key.split(':');
+          const meal = (householdRef.current.meals || []).find((item) => item.date === date && item.category === category);
+          return meal ? serverEdit('mealGroceries', { id: meal.id }) : false;
+        },
       }
     : planner;
   const unlockTVParentMode = async (code: string) => {

@@ -4,6 +4,7 @@ import { CalendarEvent, Conflict, HouseholdSnapshot, ProviderState, WeatherForec
 import {
   Avatar,
   DText,
+  dateTimeFormat,
   eventOnDay,
   formatDate,
   formatTime,
@@ -15,7 +16,7 @@ import { WeatherIcon } from '../design/WeatherIcon';
 import { familyAgentClient } from '../api/familyAgentClient';
 
 /** Minutes without remote input before the TV turns into the wall calendar. */
-export const WALL_IDLE_MINUTES = 2;
+export const WALL_IDLE_MINUTES = 5;
 const NIGHT_FROM = 22;
 const NIGHT_UNTIL = 6;
 const FIRST_HOUR = 7;
@@ -33,7 +34,7 @@ const SHIFTS = [
 
 /** Household-local date key and fractional hour, read with formatToParts (Vega pads lone fields). */
 function localClock(value: string | Date, timezone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormat('en-US', {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZone: timezone,
   }).formatToParts(new Date(value));
   const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '0';

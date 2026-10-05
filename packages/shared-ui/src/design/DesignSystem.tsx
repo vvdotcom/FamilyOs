@@ -379,27 +379,39 @@ export function Keycap({ children }: { children: React.ReactNode }) {
   );
 }
 export const headingStyle: TextStyle = { letterSpacing: -1.36 };
+/**
+ * Intl.DateTimeFormat is slow to construct on Fire TV (Vega): a week of a seeded household (a few hundred
+ * events) built thousands per render, which froze the app. Each formatter is built once per locale and options.
+ */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+export function dateTimeFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let formatter = formatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, formatter);
+  }
+  return formatter;
+}
 export function formatDate(date: Date, timezone: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    timeZone: timezone,
-  }).format(date);
+  return dateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: timezone }).format(date);
 }
 export function formatTime(value: string | Date, timezone: string, meridiem = true) {
-  const result = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }).format(
-    new Date(value),
-  );
+  const result = dateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }).format(new Date(value));
   return meridiem ? result : result.replace(/\s[AP]M$/, '');
 }
+/** Day keys are asked for the same timestamps on every render, so they are remembered (bounded). */
+const dateKeys = new Map<string, string>();
 export function localDateKey(value: string | Date, timezone: string) {
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: timezone,
-  }).format(new Date(value));
+  const cacheKey = `${timezone}|${typeof value === 'string' ? value : value.getTime()}`;
+  const cached = dateKeys.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const result = dateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: timezone }).format(
+    new Date(value),
+  );
+  if (dateKeys.size > 20_000) dateKeys.clear();
+  dateKeys.set(cacheKey, result);
+  return result;
 }
 
 /** Whether an event belongs on a household-local day. All-day items span every day until their (exclusive) end. */

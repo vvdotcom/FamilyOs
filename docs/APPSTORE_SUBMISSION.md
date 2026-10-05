@@ -77,7 +77,7 @@ Amazon's testers must be able to complete every sign-in path, including pairing 
    >    Sign in with Email: <reviewer email>  Password: <reviewer password>, and tap **Approve TV**.
    >    Within a few seconds the TV shows the reviewer household (the Rivera family).
    > 4. Parent code for approvals on the TV (menu → Approvals) and for parent mode: 2468.
-   > 5. The Menu (≡) button opens the Hometide menu. After 2 idle minutes the TV shows a large wall calendar; any
+   > 5. The Menu (≡) button opens the Hometide menu. After 5 idle minutes the TV shows a large wall calendar; any
    >    button returns.
    > 6. Settings → Unpair this TV returns the TV to the empty, unpaired start.
    > 7. Account deletion: web app → Family → Settings → Delete account (please don't delete the reviewer account),
@@ -92,6 +92,7 @@ Assets are in `store-listing/fire-tv/`:
 | App icon | `icon-1280x720.png` | 1280×720 PNG, no transparency |
 | Background | `background-1920x1080.png` | 1920×1080 |
 | Screenshots | `screenshots/01-home.png` … | 1920×1080, 3–10 |
+| Screenshots (Fire OS) | `screenshots/fireos/01-home.png` … | 1920×1080, from the Fire OS APK |
 
 The screenshots are rendered from the TV app's shared UI (the same screens the Fire TV build runs) with the
 fictional sample family, so they contain no real people's data.
@@ -115,7 +116,8 @@ phone or web app.
 Chores and rewards: kids see their chores and stars on the TV. Chores can ask for a photo, and a parent approves it
 with a four-digit code.
 
-Meals and lists: this week's dinners, recipes and a shared grocery list.
+Meals and lists: this week's dinners, recipes and a shared grocery list. Describe a meal and Hometide's AI writes
+the recipe, with ingredients and steps, right on the meal plan.
 
 Wall calendar: after a couple of quiet minutes the TV shows a large, easy-to-read view of today.
 
@@ -126,7 +128,7 @@ No ads and no tracking. Pair the TV in seconds: scan the QR code on the TV with 
 - Today's family schedule, conflicts and weather at a glance
 - Chores, stars and rewards kids can see, with parent approvals on the TV
 - Shared calendar with Google, iCloud and Outlook calendars
-- Weekly meals and a shared grocery list
+- Weekly meals and a shared grocery list, plus recipes written by AI from a short description
 - Wall calendar mode when the TV is idle; no ads, no tracking
 
 **Category:** Lifestyle (or Productivity). **Keywords:** family calendar, chores, chore chart, meal planner,

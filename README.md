@@ -42,6 +42,9 @@ measured: [docs/MEASUREMENTS.md](./docs/MEASUREMENTS.md).
   league `.ics` link). Hometide re-reads it about every 15 minutes and never writes back.
 - **Import:** photograph a flyer or pick a PDF, email, or `.ics` file. Amazon Bedrock drafts the event, and you
   review it before saving.
+- **AI recipes:** describe a meal ("quick chicken dinner the kids will eat, 30 minutes") and Amazon Bedrock writes
+  the recipe with ingredients and steps. It is saved to Recipes, put on that day's meal plan, and its ingredients can
+  go straight to Groceries. Also on the TV (Meals → Create with AI).
 - Chores with photo verification, rewards, lists, meals and recipes, groceries, sports teams and carpool
   rotation, family night, photos for the TV, and a child mode kids can use on their own.
 
@@ -112,7 +115,7 @@ npx -y corepack@0.34.0 yarn test             # TV tests (Expo TV and Vega)
 
 The family agent API runs at `http://127.0.0.1:8787`. Set up the ignored root `.env` from `.env.example`, then follow
 [the service guide](./services/family-agent/README.md). Bedrock is optional: without it, briefings, imports,
-and chore checks use deterministic providers.
+and chore checks use deterministic providers, and AI recipes come from a small built-in cookbook.
 
 A browser run is not Fire TV or VVD validation. Those are tracked in the phase documents.
 

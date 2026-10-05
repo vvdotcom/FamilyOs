@@ -218,6 +218,21 @@ export type Edit = {
 };
 export type AccessContext = { accessMode: 'parent' | 'child' | null; memberId: string | null; memberName?: string; elevated?: boolean };
 export type ChorePhotoResult = { verification: ChoreVerification; message: string; household: Household };
+export type RecipeRequest = {
+  description: string;
+  date?: string;
+  category?: 'Breakfast' | 'Lunch' | 'Dinner';
+  groceries?: boolean;
+};
+export type GeneratedRecipeResult = {
+  recipe: Recipe;
+  meal: Meal | null;
+  minutes: number;
+  summary: string;
+  /** "bedrock" when Amazon Bedrock wrote it; "cookbook" when AI was unavailable and a built-in recipe was used. */
+  provider: 'bedrock' | 'cookbook';
+  household: Household;
+};
 export interface HouseholdAPI {
   household(): Promise<Household>;
   editHousehold(edit: Edit): Promise<Household>;
@@ -225,6 +240,8 @@ export interface HouseholdAPI {
   pairedTVs?(): Promise<PairedTV[]>;
   unpairTV?(deviceId: string): Promise<void>;
   createImportDraft?(body: ImportSource): Promise<{ draft: ImportDraft; drafts?: ImportDraft[]; household: Household }>;
+  /** Write a recipe from a short description with AI; it is saved (and planned on `date`) straight away. */
+  generateRecipe?(body: RecipeRequest): Promise<GeneratedRecipeResult>;
   setParentAccessCode?(code: string): Promise<void>;
   accessCodeConfigured?(): Promise<boolean>;
   changeParentAccessCode?(oldCode: string, newCode: string): Promise<void>;

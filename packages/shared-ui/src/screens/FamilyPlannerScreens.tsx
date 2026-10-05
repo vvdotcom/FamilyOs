@@ -27,7 +27,13 @@ import { usePageBack } from '../hooks/usePageBack';
 import { familyAgentClient } from '../api/familyAgentClient';
 import { SAMPLE_BUILD } from './householdStorage';
 
-type PlannerProps = FamilyScreenProps & { planner: Planner };
+/** Extra meal tools a paired TV gets from the shell: an AI recipe from a description, and meal groceries. */
+export type PlannerMealTools = {
+  /** Resolves to null when the recipe was saved and planned, or to an error message. */
+  generateRecipe?: (key: string, description: string) => Promise<string | null>;
+  addMealGroceries?: (key: string) => Promise<boolean>;
+};
+type PlannerProps = FamilyScreenProps & { planner: Planner & PlannerMealTools };
 const ingredients = [
   '1 lb ground turkey',
   '8 corn tortillas',
@@ -65,13 +71,41 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
   const [draft, setDraft] = useState('');
   const [added, setAdded] = useState(false);
   const [needed, setNeeded] = useState<number[]>([0, 4, 5, 6]);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiDraft, setAiDraft] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
   const selectedTitle = selected ? planner.data.meals[selected] : '';
+  const serverMeal = selected
+    ? (household.meals || []).find((meal) => `${meal.date}:${meal.category}` === selected)
+    : undefined;
+  const hasRecipe = !!serverMeal && (serverMeal.ingredients.length > 0 || serverMeal.instructions.length > 0);
+  const openAI = (seed = '') => {
+    setAiDraft(seed);
+    setAiError('');
+    setEditing(false);
+    setAiOpen(true);
+  };
+  const createWithAI = async () => {
+    if (!selected || !planner.generateRecipe || aiBusy || aiDraft.trim().length < 3) return;
+    setAiBusy(true);
+    setAiError('');
+    const problem = await planner.generateRecipe(selected, aiDraft.trim());
+    setAiBusy(false);
+    if (problem) setAiError(problem);
+    else {
+      setAiOpen(false);
+      setAdded(false);
+    }
+  };
   usePageBack(() => {
-    if (editing) {
+    if (aiOpen) {
+      if (!aiBusy) setAiOpen(false);
+    } else if (editing) {
       setEditing(false);
       if (!selectedTitle) setSelected(null);
     } else setSelected(null);
-  }, selected !== null);
+  }, selected !== null || aiOpen);
   const open = (key: string) => {
     setSelected(key);
     setAdded(false);
@@ -95,6 +129,22 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
             setEditing(false);
           }
         }}
+        extra={planner.generateRecipe ? { label: 'Create with AI', onPress: () => openAI(draft) } : undefined}
+      />
+    ) : aiOpen && selected ? (
+      <Editor
+        title="Create a recipe with AI"
+        label={aiBusy ? 'Writing your recipe…' : aiError || 'Describe what you’d like to cook, for example “quick chicken dinner the kids will eat, 30 minutes”.'}
+        value={aiDraft}
+        onChange={setAiDraft}
+        maxLength={300}
+        saveLabel={aiBusy ? 'Writing…' : 'Create recipe'}
+        onCancel={() => {
+          if (aiBusy) return;
+          setAiOpen(false);
+          if (!selectedTitle) setSelected(null);
+        }}
+        onSave={() => void createWithAI()}
       />
     ) : null;
   if (selected)
@@ -156,8 +206,11 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
                   setDraft(selectedTitle);
                   setEditing(true);
                 }}
-                active={focusActive && !editing}
+                active={focusActive && !editing && !aiOpen}
               />
+              {planner.generateRecipe ? (
+                <DAction label="Create with AI" size={22} onPress={() => openAI()} active={focusActive && !editing && !aiOpen} />
+              ) : null}
               <DAction
                 label="Delete"
                 size={22}
@@ -165,14 +218,70 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
                   planner.setMeal(selected, '');
                   setSelected(null);
                 }}
-                active={focusActive && !editing}
+                active={focusActive && !editing && !aiOpen}
               />
             </DRow>
             <DText size={22} color={p.muted}>
               {formatDate(new Date(`${selected.split(':')[0]}T12:00:00Z`), 'UTC')} · {selected.split(':')[1]}
-              {selectedTitle === 'Taco night' ? ' · Serves 4 · 35 min' : ''}
+              {hasRecipe ? ` · Serves ${serverMeal!.servings} · ${serverMeal!.minutes} min` : selectedTitle === 'Taco night' ? ' · Serves 4 · 35 min' : ''}
             </DText>
-            {selectedTitle === 'Taco night' ? (
+            {hasRecipe ? (
+              <DRow style={{ flex: 1, gap: 48 }}>
+                <View style={{ flex: 1, gap: 12 }}>
+                  <DText size={26} weight={800}>
+                    Ingredients
+                  </DText>
+                  <SpatialNavigationScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 7, gap: 10 }}>
+                    {serverMeal!.ingredients.map((line, i) => (
+                      <DText key={`${i}-${line}`} size={24} weight={500}>
+                        {`•  ${line}`}
+                      </DText>
+                    ))}
+                  </SpatialNavigationScrollView>
+                  {planner.addMealGroceries && serverMeal!.ingredients.length ? (
+                    <DAction
+                      label={added ? 'Open Groceries' : 'Add ingredients to Groceries'}
+                      onPress={() => {
+                        if (added) onNavigate('Lists');
+                        else void planner.addMealGroceries!(selected).then((ok) => setAdded(ok));
+                      }}
+                      primary
+                      active={focusActive && !editing && !aiOpen}
+                      defaultFocus
+                      size={24}
+                      style={{ minHeight: 68, paddingHorizontal: 14 }}
+                    />
+                  ) : null}
+                </View>
+                <View style={{ flex: 0.9, gap: 18 }}>
+                  <DText size={26} weight={800}>
+                    Instructions
+                  </DText>
+                  <SpatialNavigationScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 18 }}>
+                    {serverMeal!.instructions.map((step, i) => (
+                      <View key={`${i}-${step}`} style={{ flexDirection: 'row', gap: 18 }}>
+                        <View
+                          style={{
+                            width: 40,
+                            height: 40,
+                            backgroundColor: p.soft,
+                            borderRadius: 20,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}>
+                          <DText size={20} weight={800}>
+                            {i + 1}
+                          </DText>
+                        </View>
+                        <DText size={24} weight={500} style={{ flex: 1, lineHeight: 31.2 }}>
+                          {step}
+                        </DText>
+                      </View>
+                    ))}
+                  </SpatialNavigationScrollView>
+                </View>
+              </DRow>
+            ) : selectedTitle === 'Taco night' ? (
               <DRow style={{ flex: 1, gap: 48 }}>
                 <View style={{ flex: 1, gap: 12 }}>
                   <DText size={26} weight={800}>
@@ -255,7 +364,9 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
                   On the family menu
                 </DText>
                 <DText size={26} color={p.muted}>
-                  No recipe has been saved for this meal yet.
+                  {planner.generateRecipe
+                    ? 'No recipe yet. Choose Create with AI and describe it; Hometide writes the ingredients and steps.'
+                    : 'No recipe has been saved for this meal yet.'}
                 </DText>
               </View>
             )}
@@ -513,6 +624,9 @@ function Editor({
   onCancel,
   onSave,
   choices,
+  maxLength = 100,
+  saveLabel = 'Save',
+  extra,
 }: {
   title: string;
   label: string;
@@ -521,6 +635,10 @@ function Editor({
   onCancel: () => void;
   onSave: () => void;
   choices?: React.ReactNode;
+  maxLength?: number;
+  saveLabel?: string;
+  /** A third button, like "Create with AI" next to Save and Cancel. */
+  extra?: { label: string; onPress: () => void };
 }) {
   const p = useDesignPalette();
   const { lock, unlock } = useLockSpatialNavigation();
@@ -557,7 +675,7 @@ function Editor({
             value={value}
             onChangeText={onChange}
             onSubmitEditing={onSave}
-            maxLength={100}
+            maxLength={maxLength}
             style={{
               height: 72,
               borderWidth: 2,
@@ -571,7 +689,8 @@ function Editor({
             }}
           />
           <DRow style={{ gap: 18 }}>
-            <DAction label="Save" onPress={onSave} primary defaultFocus />
+            <DAction label={saveLabel} onPress={onSave} primary defaultFocus />
+            {extra ? <DAction label={extra.label} onPress={extra.onPress} /> : null}
             <DAction label="Cancel" onPress={onCancel} />
           </DRow>
         </DPanel>

@@ -61,7 +61,7 @@ phone app, and reached by voice through Alexa.
 - **Your calendars, already there.** Paste the private iCal link from Google Calendar, iCloud, or Outlook. Hometide
   mirrors the next three months, keeps them in sync about every 15 minutes, and never changes them.
 - **Set up by scanning the TV.** The TV shows a QR code; scan it with the phone camera, tap Approve TV, done.
-- **A wall calendar when nobody's using the TV.** After two idle minutes the TV shows today in large type: the time,
+- **A wall calendar when nobody's using the TV.** After five idle minutes the TV shows today in large type: the time,
   weather, what's next and when to leave, dinner, chores left, and a family photo.
 - **It catches conflicts.** Double-booked drivers and tight travel times are flagged with who is free.
 - **It learns the family's rhythm.** When the family fixes a clash by hand and the same clash keeps coming back,
@@ -74,6 +74,9 @@ phone app, and reached by voice through Alexa.
   Hometide card (APL); MCP hosts that support MCP Apps get a day card.
 - **Snap a flyer, get an event.** Photograph a school flyer or pick a PDF. Amazon Bedrock drafts the event, and a
   parent reviews it before it's saved.
+- **Describe dinner, get a recipe.** Type "quick chicken dinner the kids will eat, 30 minutes" on the phone or the
+  TV. Amazon Bedrock writes the recipe with amounts and steps, it lands on that night's meal plan, and its
+  ingredients go to the grocery list.
 - **Kids can join in.** Chores with photo check-ins, stars and rewards, family night voting, and movement breaks.
   Anything that matters needs a four-digit parent code.
 
@@ -195,7 +198,7 @@ and still waits for a parent's yes.
 
 | Service | How Hometide uses it |
 |---|---|
-| Amazon Bedrock (Nova Lite, Converse) | Voice agent tool use, family briefing, flyer and PDF import, chore photo checks |
+| Amazon Bedrock (Nova Lite, Converse) | Voice agent tool use, family briefing, flyer and PDF import, AI recipes, chore photo checks |
 | Strands Agents SDK | The voice agent's model-tool loop, over the Hometide MCP tools |
 | Amazon Bedrock AgentCore Memory | Learned routines and the family's decisions, recalled across sessions |
 | Amazon Cognito | Parent accounts, Alexa account linking, OAuth bearer tokens for the MCP server |
@@ -275,6 +278,9 @@ Try this, in order:
 3. **Watch Hometide learn:** the TV then shows *Hometide noticed*, with the reason. Confirm it, and every later
    Tuesday and Thursday pickup moves to Lindsey.
 4. **Ask what it learned:** "What has Hometide learned about us?" in the same voice panel.
+5. **Create a recipe:** in the phone app, Lists → Meals, pick a day, type a short description such as "easy
+   salmon dinner, 25 minutes" under **Create a recipe with AI**, and tap **Create recipe**. The recipe (ingredients
+   and steps) appears on that day and on the TV's Meals screen, and the ingredients are on Groceries.
 
 **Run it yourself:** `yarn install`, then `yarn dev:web` (the TV in a browser; arrow keys and Enter are the
 remote). A new TV starts empty and asks to be paired; it shows a family only after a parent approves it. The API in

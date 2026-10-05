@@ -42,8 +42,9 @@ export default function FamilyHomeScreen({
   const p = useDesignPalette(true);
   const timezone = household.family.timezone;
   const events = calendarState.status === 'unavailable' || calendarState.status === 'empty' ? [] : household.events;
+  const todayKey = localDateKey(now, timezone);
   const today = events
-    .filter((event) => eventOnDay(event, localDateKey(now, timezone), timezone))
+    .filter((event) => eventOnDay(event, todayKey, timezone))
     .sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt));
   // Simultaneous school entries share one timeline row, while both events remain in Calendar.
   const rows = today
@@ -56,9 +57,17 @@ export default function FamilyHomeScreen({
   const upcoming = today.filter((event) => !event.allDay && Date.parse(event.endAt) > now.getTime());
   const notStarted = upcoming.filter((event) => Date.parse(event.startAt) >= now.getTime());
   const next = notStarted.find((event) => event.preparation.length > 0) ?? notStarted[0] ?? upcoming[0];
-  const conflict = conflicts.find((item) => item.type === 'responsibility_overlap');
+  // The next pickup clash that hasn't happened yet, on any day, so "Fix pickup" works before the day itself.
+  // A recurring series also has clashes in past weeks; those are skipped.
+  const pickupOf = (eventIds: string[]) => events.find((event) => event.category === 'pickup' && eventIds.includes(event.id));
+  const openClashes = conflicts
+    .filter((item) => item.type === 'responsibility_overlap')
+    .map((item) => ({ item, event: pickupOf(item.eventIds) }))
+    .filter((entry) => !entry.event || Date.parse(entry.event.endAt) > now.getTime());
+  const nextClash = openClashes.find((entry) => entry.event) ?? openClashes[0];
+  const conflict = nextClash?.item;
   const suggested = household.members.find((member) => member.id === conflict?.suggestedMemberId);
-  const conflictEvent = today.find((event) => event.category === 'pickup' && conflict?.eventIds.includes(event.id));
+  const conflictEvent = nextClash?.event;
   const [resolution, setResolution] = useState<'closed' | 'review' | 'confirm' | 'done'>('closed');
   const [pendingAction, setPendingAction] = useState<{ action: ProposedAction; remote: boolean } | null>(null);
   const [completedAction, setCompletedAction] = useState<ProposedAction | null>(null);

@@ -179,6 +179,9 @@ function HouseholdScreens({
   const [listPrompt, setListPrompt] = useState(false);
   const [listDraft, setListDraft] = useState('');
   const [recipeName, setRecipeName] = useState('');
+  const [aiRecipePrompt, setAiRecipePrompt] = useState('');
+  const [aiRecipeGroceries, setAiRecipeGroceries] = useState(true);
+  const [aiRecipeBusy, setAiRecipeBusy] = useState(false);
   const [recipeIngredients, setRecipeIngredients] = useState('');
   const [recipeInstructions, setRecipeInstructions] = useState('');
   const [selectedChildId, setSelectedChildId] = useState('');
@@ -643,6 +646,24 @@ function HouseholdScreens({
       setRecipeIngredients('');
       setRecipeInstructions('');
     }
+  };
+  const createAIRecipe = async () => {
+    const description = aiRecipePrompt.trim();
+    if (!api.generateRecipe || description.length < 3 || aiRecipeBusy) return;
+    const day = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+    setAiRecipeBusy(true);
+    const result = await run(() => api.generateRecipe!({
+      description, date: dateKey(selectedDate), category: 'Dinner', groceries: aiRecipeGroceries,
+    }));
+    if (alive.current) setAiRecipeBusy(false);
+    if (!result || !alive.current) return;
+    replace(result.household);
+    setAiRecipePrompt('');
+    setNotice(
+      `${result.recipe.name} is ${day}’s dinner and saved to Recipes` +
+        (aiRecipeGroceries ? '. Its ingredients are on Groceries.' : '.') +
+        (result.provider === 'cookbook' ? ' AI was unavailable, so this one came from Hometide’s built-in recipes.' : ''),
+    );
   };
   const scheduleRecipe = async (recipe: NonNullable<Household['recipes']>[number]) => {
     await mutate('meal', {
@@ -1166,6 +1187,44 @@ function HouseholdScreens({
               {accessMode === 'parent' ? <Button label="Add meal" icon="plus" onPress={() => openEditor({ kind: 'meal' })} /> : null}
             </View>
             {weekStrip}
+            {accessMode === 'parent' && api.generateRecipe ? (
+              <Card style={{ padding: 20, gap: 14, borderRadius: 24 }}>
+                <View style={s.row}>
+                  <Icon name="sparkle" color={t.ink} />
+                  <Heading small>Create a recipe with AI</Heading>
+                </View>
+                <Copy size={15} color={t.muted}>
+                  Describe what you’d like to cook. Hometide writes the recipe with ingredients and steps, and makes it{' '}
+                  {selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}’s dinner.
+                </Copy>
+                <Input
+                  label="What would you like to cook?"
+                  value={aiRecipePrompt}
+                  onChangeText={setAiRecipePrompt}
+                  maxLength={300}
+                  multiline
+                  placeholder="e.g. quick chicken dinner the kids will eat, 30 minutes"
+                  style={{ minHeight: 76, textAlignVertical: 'top' }}
+                  editable={!aiRecipeBusy}
+                />
+                <View style={s.spread}>
+                  <Copy size={15}>Add the ingredients to Groceries</Copy>
+                  <Switch
+                    value={aiRecipeGroceries}
+                    onValueChange={setAiRecipeGroceries}
+                    accessibilityLabel="Add the ingredients to Groceries"
+                  />
+                </View>
+                <Button
+                  primary
+                  icon="sparkle"
+                  disabled={busy || aiRecipeBusy || aiRecipePrompt.trim().length < 3}
+                  onPress={() => void createAIRecipe()}
+                >
+                  {aiRecipeBusy ? 'Writing your recipe…' : 'Create recipe'}
+                </Button>
+              </Card>
+            ) : null}
             {!meals.length ? (
               <Card style={{ padding: 22, gap: 16 }}>
                 <Heading small>What’s for dinner?</Heading>

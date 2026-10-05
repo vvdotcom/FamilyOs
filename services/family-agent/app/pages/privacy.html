@@ -46,6 +46,7 @@ th, td { text-align: left; vertical-align: top; padding: .5rem; border-bottom: 1
 <tr><td>Calendar links you connect (for example a Google, iCloud or Outlook calendar address)</td><td>To show those events. The links are encrypted when stored</td></tr>
 <tr><td>Approximate home area (rounded to about 1 km) and time zone</td><td>For the weather forecast and correct times. We never store your address</td></tr>
 <tr><td>Files you choose to import (flyers, emails, calendar files)</td><td>To suggest events for you to review. We keep only the events you confirm, not the file</td></tr>
+<tr><td>Meal descriptions you type to create a recipe</td><td>To write the recipe. The recipe is saved in your household with the description as its source</td></tr>
 <tr><td>Paired TVs, signed-in sessions, the four-digit parent code (stored only as a salted verifier), and linked voice assistants</td><td>To keep devices connected and approvals safe</td></tr>
 <tr><td>Basic service logs: request times, error codes and request IDs</td><td>To keep the service running and secure. Logs don't contain household content</td></tr>
 </table>
@@ -53,7 +54,7 @@ th, td { text-align: left; vertical-align: top; padding: .5rem; border-bottom: 1
 
 <h2>Service providers we use</h2>
 <ul>
-<li><strong>Amazon Web Services</strong>: Amazon Cognito holds parent sign-in details. Amazon Bedrock reads a flyer or photo you choose to import, checks a chore photo, writes the daily family briefing, and answers voice requests. Only the information needed for that task is sent. AWS states that Bedrock does not use your inputs or outputs to train AI models.</li>
+<li><strong>Amazon Web Services</strong>: Amazon Cognito holds parent sign-in details. Amazon Bedrock reads a flyer or photo you choose to import, checks a chore photo, writes the daily family briefing, writes a recipe from the short description you type, and answers voice requests. Only the information needed for that task is sent. AWS states that Bedrock does not use your inputs or outputs to train AI models.</li>
 <li><strong>Railway</strong>: hosts the Hometide service and its database.</li>
 <li><strong>U.S. National Weather Service</strong>: receives your rounded home area to return a forecast.</li>
 <li><strong>Calendar providers</strong> you connect, when we fetch your calendar link.</li>

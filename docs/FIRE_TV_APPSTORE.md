@@ -59,8 +59,9 @@ does not document are marked **unverified**.
 ## Older Fire TVs (Fire OS, Android-based)
 
 Most Fire TVs in homes today run Fire OS (Android), not Vega. Reaching them needs a separate Android
-build (APK/AAB) — the React Native for Vega app does not build for Android. `apps/expo-multi-tv` is a
-React Native TV app that could be the starting point. Requirements there: touchscreen declared
+build (APK/AAB) — the React Native for Vega app does not build for Android. `apps/expo-multi-tv` builds it from
+the same shared screens; it has been built and tested on the Android TV emulator (see
+[FIRE_OS_BUILD.md](FIRE_OS_BUILD.md)). Requirements there: touchscreen declared
 not required, no Google Play Services (so no Firebase), Android 9 (API 28) or later. A Fire OS build
 can share one store listing with the Vega build if both use the same package name.
 

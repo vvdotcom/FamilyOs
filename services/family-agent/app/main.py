@@ -25,6 +25,7 @@ from .demo import demo_now
 from .domain import DemoRepository, DomainError, snapshot_context, sports_reminders
 from .household_ops import FAMILY_NIGHT_RULE, current_picker, household_today
 from .imports import ImportContext, ImportRequest, configured_import_provider, make_import_drafts
+from .recipe_ai import RecipeRequest, configured_recipe_writer, ingredient_line, write_recipe
 from .models import (
     APIEnvelope, ActionProposalRequest, CalendarAddBody, CalendarSubscriptionMeta, ChangeParentAccessCodeBody, ChildAccessBody, ChoreVerificationBody,
     CognitoExchangeBody, DecisionWithCodeBody, EmptyBody, HouseholdContext, MoveCompleteBody, PairingApproveBody,
@@ -210,7 +211,7 @@ async def validation_error_handler(request: Request, _exc: RequestValidationErro
 
 # Public policy pages (linked from the app stores) ------------------------------------------------------
 PAGES_DIR = Path(__file__).with_name("pages")
-POLICY_UPDATED = "October 1, 2026"
+POLICY_UPDATED = "October 4, 2026"
 
 
 def _public_page(name: str) -> HTMLResponse:
@@ -883,6 +884,35 @@ async def create_import_draft(body: ImportRequest, request: Request):
         snapshot = service().edit(actor, "importDraft", draft.model_dump(mode="json"), server=True)
     saved = [item for item in snapshot.importDrafts if item.id in {draft.id for draft in drafts}]
     return success(request, {"draft": saved[0], "drafts": saved, "household": snapshot})
+
+
+# AI recipes ------------------------------------------------------------------------------------------
+
+@app.post("/v1/recipes/generate", response_model=APIEnvelope)
+async def generate_recipe(body: RecipeRequest, request: Request):
+    """Write a recipe from a short description and save it (and put it on the meal plan when a date is given).
+
+    No review step: the family asked for this recipe, and it only adds a recipe and fills one meal slot.
+    """
+    actor = require_actor(request, {"parent", "device", "device_parent"})
+    snapshot = service().snapshot(actor.owner)
+    recipe = await write_recipe(body, snapshot, configured_recipe_writer(), lambda: take_ai_call(actor.owner))
+    recipe_id = f"ai-{uuid4().hex[:16]}"
+    meal = None
+    if body.date:
+        meal = {"id": f"meal-{recipe_id}", "title": recipe.title, "date": body.date, "category": body.category,
+                "cookIds": [], "servings": recipe.servings, "minutes": recipe.minutes,
+                "ingredients": [ingredient_line(item) for item in recipe.ingredients],
+                "instructions": recipe.instructions, "recipeId": recipe_id}
+    saved = {"id": recipe_id, "name": recipe.title, "servings": recipe.servings,
+             "ingredients": [item.model_dump(mode="json") for item in recipe.ingredients],
+             "instructions": recipe.instructions, "source": f"Hometide AI: {' '.join(body.description.split())}"[:240]}
+    household = service().edit(actor, "recipeGenerated", {"id": recipe_id, "recipe": saved, "meal": meal,
+                                                          "groceries": body.groceries}, server=True)
+    placed = next((item for item in household.meals if item.recipeId == recipe_id), None)
+    return success(request, {"recipe": next(item for item in household.recipes if item.id == recipe_id),
+                             "meal": placed, "minutes": recipe.minutes, "summary": recipe.summary,
+                             "provider": recipe.provider, "household": household})
 
 
 # Parent / child access ------------------------------------------------------------------------------

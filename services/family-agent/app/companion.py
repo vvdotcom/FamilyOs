@@ -16,7 +16,7 @@ from .models import (
 class CompanionMutation(StrictModel):
     expectedRevision: int = Field(ge=0)
     kind: Literal[
-        "event", "member", "chore", "listItem", "meal", "mealGroceries", "deleteEvent", "deleteMeal",
+        "event", "member", "chore", "listItem", "meal", "mealGroceries", "recipeGenerated", "deleteEvent", "deleteMeal",
         "list", "recipe", "mealSeries", "importDraft", "importConfirm", "importCancel",
         "reward", "redemptionRequest", "redemptionDecision", "completeChore",
         "deleteListItem", "deleteChore", "deleteRecipe", "listItemToggle", "prepToggle", "redemptionFulfill",
@@ -41,6 +41,75 @@ def apply_edit(snapshot: HouseholdSnapshot, edit: CompanionMutation, actor: str 
     ))
     updated.auditLog = updated.auditLog[-AUDIT_LIMIT:]
     return updated
+
+
+def _add_meal_groceries(updated: HouseholdSnapshot, meal: Meal) -> int:
+    """Add a meal's missing ingredients to Groceries, merging amounts already on the list. Returns how many were new."""
+    recipe = next((recipe for recipe in updated.recipes if recipe.id == meal.recipeId), None)
+    ingredients = (
+        [(part.name, part.quantity, part.unit) for part in recipe.ingredients]
+        if recipe else [(line.strip(), None, None) for line in meal.ingredients if line.strip()]
+    )
+    grocery = next((item for item in updated.lists if item.name.casefold() == "groceries"), None)
+    list_id = grocery.id if grocery else "groceries"
+    missing: list[tuple[str, float | None, str | None]] = []
+    for name, quantity, unit in ingredients:
+        key = (name.strip().casefold(), (unit or "").strip().casefold())
+        existing = next((item for item in updated.listItems if item.listName.casefold() == "groceries"
+                         and not item.completed and ((item.ingredientName or item.title).strip().casefold(),
+                         (item.unit or "").strip().casefold()) == key), None)
+        if existing:
+            if quantity is not None:
+                existing.quantity = round((existing.quantity or 0) + quantity, 3)
+            continue
+        pending = next((item for item in missing if (item[0].strip().casefold(), (item[2] or "").strip().casefold()) == key), None)
+        if pending:
+            at = missing.index(pending)
+            missing[at] = (pending[0], (pending[1] or 0) + (quantity or 0) if pending[1] is not None or quantity is not None else None, pending[2])
+        else:
+            missing.append((name.strip(), quantity, unit))
+    if len(updated.listItems) + len(missing) > 1000:
+        raise DomainError(422, "HOUSEHOLD_LIMIT", "Your household list limit has been reached.")
+    if any(len(name) > 160 for name, _, _ in missing):
+        raise DomainError(422, "INVALID_EDIT", "Shorten ingredient names to 160 characters before adding them to groceries.")
+    if not grocery:
+        updated.lists.append(HouseholdList(id=list_id, name="Groceries", kind="grocery"))
+    for name, quantity, unit in missing:
+        updated.listItems.append(ListItem(id=uuid4().hex, listName="Groceries", title=name, ingredientName=name,
+                                          quantity=quantity, unit=unit, addedBy=meal.title[:80]))
+    return len(missing)
+
+
+def _apply_generated_recipe(updated: HouseholdSnapshot, value: dict) -> None:
+    """Save an AI-written recipe and, when a meal is included, put it on that day (replacing that slot's meal)."""
+    if set(value) - {"id", "recipe", "meal", "groceries"}:
+        raise DomainError(422, "INVALID_EDIT", "Unexpected recipe fields.")
+    try:
+        recipe = Recipe.model_validate(value.get("recipe"))
+        meal = Meal.model_validate(value["meal"]) if value.get("meal") else None
+    except ValidationError as error:
+        raise DomainError(422, "INVALID_EDIT", "The recipe could not be saved.") from error
+    if recipe.id != value.get("id") or (meal is not None and meal.recipeId != recipe.id):
+        raise DomainError(422, "INVALID_EDIT", "The recipe could not be saved.")
+    if any(old.id == recipe.id for old in updated.recipes):
+        raise DomainError(409, "RECIPE_EXISTS", "That recipe was already saved.")
+    if len(updated.recipes) >= 500:
+        raise DomainError(422, "HOUSEHOLD_LIMIT", "Your recipe limit has been reached.")
+    updated.recipes.append(recipe)
+    if meal is None:
+        return
+    slot = next((index for index, old in enumerate(updated.meals)
+                 if old.date == meal.date and old.category == meal.category), None)
+    if slot is None:
+        updated.meals.append(meal)
+    else:
+        # Keep the slot's id and cooks so the TV, phone and any repeating series stay in step.
+        old = updated.meals[slot]
+        meal = meal.model_copy(update={"id": old.id, "cookIds": old.cookIds or meal.cookIds,
+                                       "seriesId": None, "recurrence": None})
+        updated.meals[slot] = meal
+    if value.get("groceries"):
+        _add_meal_groceries(updated, meal)
 
 
 def complete_chore(snapshot: HouseholdSnapshot, chore_id: str) -> Chore:
@@ -190,39 +259,9 @@ def _apply_edit(snapshot: HouseholdSnapshot, edit: CompanionMutation, actor: str
         meal = next((meal for meal in updated.meals if meal.id == item_id), None)
         if meal is None:
             raise DomainError(404, "NOT_FOUND", "That meal no longer exists.")
-        recipe = next((recipe for recipe in updated.recipes if recipe.id == meal.recipeId), None)
-        ingredients = (
-            [(part.name, part.quantity, part.unit) for part in recipe.ingredients]
-            if recipe else [(line.strip(), None, None) for line in meal.ingredients if line.strip()]
-        )
-        grocery = next((item for item in updated.lists if item.name.casefold() == "groceries"), None)
-        list_id = grocery.id if grocery else "groceries"
-        missing: list[tuple[str, float | None, str | None]] = []
-        for name, quantity, unit in ingredients:
-            key = (name.strip().casefold(), (unit or "").strip().casefold())
-            existing = next((item for item in updated.listItems if item.listName.casefold() == "groceries"
-                             and not item.completed and ((item.ingredientName or item.title).strip().casefold(),
-                             (item.unit or "").strip().casefold()) == key), None)
-            if existing:
-                if quantity is not None:
-                    existing.quantity = round((existing.quantity or 0) + quantity, 3)
-                continue
-            pending = next((item for item in missing if (item[0].strip().casefold(), (item[2] or "").strip().casefold()) == key), None)
-            if pending:
-                at = missing.index(pending)
-                missing[at] = (pending[0], (pending[1] or 0) + (quantity or 0) if pending[1] is not None or quantity is not None else None, pending[2])
-            else:
-                missing.append((name.strip(), quantity, unit))
-        if len(updated.listItems) + len(missing) > 1000:
-            raise DomainError(422, "HOUSEHOLD_LIMIT", "Your household list limit has been reached.")
-        if any(len(name) > 160 for name, _, _ in missing):
-            raise DomainError(422, "INVALID_EDIT", "Shorten ingredient names to 160 characters before adding them to groceries.")
-        if not grocery:
-            from .models import HouseholdList
-            updated.lists.append(HouseholdList(id=list_id, name="Groceries", kind="grocery"))
-        for name, quantity, unit in missing:
-            updated.listItems.append(ListItem(id=uuid4().hex, listName="Groceries", title=name, ingredientName=name,
-                                              quantity=quantity, unit=unit, addedBy=meal.title[:80]))
+        _add_meal_groceries(updated, meal)
+    elif edit.kind == "recipeGenerated":
+        _apply_generated_recipe(updated, value)
     elif edit.kind == "list":
         try:
             item = HouseholdList.model_validate(value)

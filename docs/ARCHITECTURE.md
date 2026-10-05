@@ -30,7 +30,7 @@ flowchart LR
 
   subgraph AWS["AWS (us-west-2) · infra/ CDK"]
     Cognito["Amazon Cognito<br/>parent accounts · Alexa account linking · MCP OAuth"]
-    Bedrock["Amazon Bedrock<br/>Nova Lite: agent, briefing, flyer import, chore photos"]
+    Bedrock["Amazon Bedrock<br/>Nova Lite: agent, briefing, flyer import, recipes, chore photos"]
     Memory["Amazon Bedrock AgentCore Memory<br/>learned routines, one namespace per household"]
     Secrets["AWS Secrets Manager<br/>API credentials"]
   end
@@ -49,7 +49,7 @@ flowchart LR
   Agent -- "get_learned_routines" --> Memory
   Phone -- "sign in" --> Cognito
   Skill -. "verify linked token" .-> Cognito
-  Write -. "briefing · import · photo check" .-> Bedrock
+  Write -. "briefing · import · recipes · photo check" .-> Bedrock
 ```
 
 ## The loop that makes Hometide learn
@@ -82,7 +82,7 @@ tests (`tests/test_rhythm.py`). Bedrock is used for language, never for deciding
 
 | Service | What Hometide uses it for | Where |
 |---|---|---|
-| Amazon Bedrock (Nova Lite, Converse API) | Voice agent tool use, the family briefing, flyer and PDF import, chore photo checks | `app/agent.py`, `app/briefing.py`, `app/imports.py`, `app/vision.py` |
+| Amazon Bedrock (Nova Lite, Converse API) | Voice agent tool use, the family briefing, flyer and PDF import, AI recipes from a description, chore photo checks | `app/agent.py`, `app/briefing.py`, `app/imports.py`, `app/recipe_ai.py`, `app/vision.py` |
 | Strands Agents SDK | Runs the voice agent's model-tool loop over the same tools the MCP server exposes | `app/agent.py`, `app/voice.py` |
 | Amazon Bedrock AgentCore Memory | Remembers the routines Hometide noticed and the family's decisions, across sessions | `app/rhythm.py`, `infra/lib/ai-stack.ts` |
 | Amazon Cognito | Parent accounts, Alexa account linking (authorization-code grant), OAuth 2.1 bearer tokens for the MCP server | `app/production.py`, `infra/lib/auth-stack.ts` |

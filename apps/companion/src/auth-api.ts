@@ -9,6 +9,8 @@ import {
   type Edit,
   type ImportDraft,
   type ImportSource,
+  type RecipeRequest,
+  type GeneratedRecipeResult,
   type PairedTV,
   type PhotoMeta,
   type Proposal,
@@ -116,6 +118,10 @@ export class FamilyOSAPI {
 
   createImportDraft(body: ImportSource): Promise<{ draft: ImportDraft; drafts?: ImportDraft[]; household: Household }> {
     return this.post('v1/imports/drafts', body, false, true);
+  }
+
+  generateRecipe(body: RecipeRequest): Promise<GeneratedRecipeResult> {
+    return this.post('v1/recipes/generate', body, false, true);
   }
 
   async resetParentAccessCode(newCode: string, password: string, idToken?: string): Promise<void> {
