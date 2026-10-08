@@ -2,7 +2,8 @@
 
 This is a remote-only regression of the current FamilyOS TV app on the Vega Virtual Device (VVD).
 It does **not** replace the Phase 6 and Phase 15 checks on real Fire TV hardware. Nothing here
-claims physical-device validation.
+claims physical-device validation; results on the real Fire TV Stick are in
+[FIRE_TV_DEVICE_TEST.md](./FIRE_TV_DEVICE_TEST.md).
 
 ## Environment
 

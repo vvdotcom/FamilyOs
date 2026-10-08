@@ -117,14 +117,15 @@ def skill(api, monkeypatch):
 
 
 def ask(api, kind: str = "IntentRequest", *, intent: str | None = None, request: str | None = None, token: str | None = None,
-        screen: bool = False, new: bool = True):
+        screen: bool = False, new: bool = True, tv: bool = False):
     payload = {"type": kind, "requestId": "r1", "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "locale": "en-US"}
     if intent:
         payload["intent"] = {"name": intent, "slots": {"request": {"name": "request", "value": request}} if request else {}}
     user = {"userId": "amzn1.ask.account.test", **({"accessToken": token} if token else {})}
     envelope = {"version": "1.0", "session": {"new": new, "user": user, "application": {"applicationId": SKILL}},
                 "context": {"System": {"application": {"applicationId": SKILL}, "user": user,
-                                       **({"device": {"supportedInterfaces": {"Alexa.Presentation.APL": {}}}} if screen else {})}},
+                                       **({"device": {"supportedInterfaces": {"Alexa.Presentation.APL": {}}}} if screen or tv else {})},
+                            **({"Viewport": {"mode": "TV", "shape": "RECTANGLE", "pixelWidth": 1920, "pixelHeight": 1080}} if tv else {})},
                 "request": payload}
     reply = api.client.post("/alexa", content=json.dumps(envelope), headers={"Content-Type": "application/json"})
     assert reply.status_code == 200, reply.text
@@ -230,3 +231,21 @@ def test_echo_show_gets_a_hometide_card_and_speakers_do_not(skill):
     assert directive["document"]["type"] == "APL"
     speaker = ask(skill, intent="OpenIntent", request="the calendar", token=token)
     assert "directives" not in speaker
+
+
+def test_fire_tv_gets_no_card_over_the_hometide_app(skill):
+    parent, token = linked_token(skill)
+    pair_tv(skill, parent)
+    tv = ask(skill, intent="OpenIntent", request="the calendar", token=token, tv=True)
+    assert tv["outputSpeech"]["text"] == "Showing the calendar on the TV."
+    assert "directives" not in tv
+    assert "card" not in tv
+    echo_show = ask(skill, intent="OpenIntent", request="the calendar", token=token, screen=True)
+    assert echo_show["card"]["type"] == "Simple"
+
+
+def test_fire_tv_is_recognized_from_any_viewport_field():
+    assert alexa.on_tv({"context": {"Viewport": {"mode": "TV"}}})
+    assert alexa.on_tv({"context": {"Viewports": [{"type": "APL", "configuration": {"current": {"mode": "TV"}}}]}})
+    assert not alexa.on_tv({"context": {"Viewport": {"mode": "HUB"}}})
+    assert not alexa.on_tv({})

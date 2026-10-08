@@ -187,13 +187,20 @@ async def mcp_tools(url: str, token: str, client_factory=None) -> AsyncIterator[
 # Answering Alexa -----------------------------------------------------------------------------------------
 
 def speech(text: str, *, end: bool = True, reprompt: str | None = None, link_account: bool = False,
-           screen: str | None = None) -> dict:
-    """An Alexa response. ``screen`` (a short tag) adds a Hometide card on devices with a screen (APL)."""
+           screen: str | None = None, card: bool = True) -> dict:
+    """An Alexa response. ``screen`` (a short tag) adds a Hometide card on devices with a screen (APL).
+
+    ``card=False`` leaves out the Alexa app card too: on a Fire TV the Hometide app is the screen, so nothing is drawn
+    over it while it switches screens.
+    """
     text = (text or "").strip()[:7000] or "Okay."
     response: dict[str, Any] = {"outputSpeech": {"type": "PlainText", "text": text}, "shouldEndSession": end}
     if reprompt:
         response["reprompt"] = {"outputSpeech": {"type": "PlainText", "text": reprompt}}
-    response["card"] = {"type": "LinkAccount"} if link_account else {"type": "Simple", "title": "Hometide", "content": text}
+    if link_account:
+        response["card"] = {"type": "LinkAccount"}
+    elif card:
+        response["card"] = {"type": "Simple", "title": "Hometide", "content": text}
     if screen is not None and not link_account:
         response["directives"] = [apl_card(text, screen)]
     return {"version": "1.0", "sessionAttributes": {}, "response": response}
@@ -228,9 +235,21 @@ def apl_card(text: str, tag: str) -> dict:
             "datasources": {"card": {"text": text[:600], "tag": tag.upper()[:60]}}}
 
 
+def on_tv(envelope: dict) -> bool:
+    """True when the request comes from a Fire TV (an APL viewport in TV mode)."""
+    context = envelope.get("context") or {}
+    modes = [str((context.get("Viewport") or {}).get("mode") or "")]
+    for viewport in context.get("Viewports") or []:
+        if isinstance(viewport, dict):
+            current = (viewport.get("configuration") or {}).get("current") or {}
+            modes += [str(viewport.get("mode") or ""), str(current.get("mode") or "")]
+    return any(mode.upper() == "TV" for mode in modes)
+
+
 def supports_screen(envelope: dict) -> bool:
+    """Echo Show and other screens get the Hometide card. A Fire TV doesn't: the Hometide app is already on screen."""
     device = ((envelope.get("context") or {}).get("System") or {}).get("device") or {}
-    return "Alexa.Presentation.APL" in (device.get("supportedInterfaces") or {})
+    return "Alexa.Presentation.APL" in (device.get("supportedInterfaces") or {}) and not on_tv(envelope)
 
 
 def screen_tag(result: dict) -> str:
@@ -298,4 +317,4 @@ async def respond(envelope: dict, *, identity_for: Callable[[str], Any], open_to
         logger.warning("Alexa turn failed", exc_info=False)
         return speech("Sorry, Hometide isn't answering right now.", **keep)
     return speech(str(result.get("reply") or "Done."), screen=screen_tag(result) if supports_screen(envelope) else None,
-                  **keep)
+                  card=not on_tv(envelope), **keep)

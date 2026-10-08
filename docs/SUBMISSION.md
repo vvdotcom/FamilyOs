@@ -11,24 +11,25 @@ delete the two image lines under "How we built it".
 
 | Rule | Where Hometide meets it |
 |---|---|
-| Fire TV track: a demo-ready app that works on Fire OS or Vega OS | The Vega OS app (`apps/vega`) is installed and running on a physical Fire TV Stick (Vega OS) |
+| Fire TV track: a demo-ready app that works on Fire OS or Vega OS | The Vega OS app (`apps/vega`) is installed and running on a physical Fire TV Stick 4K Select (Vega OS); results in `docs/FIRE_TV_DEVICE_TEST.md` |
 | Primary track(s) and mini challenge(s) named | Fire TV track · AWS Builder. Optional: Hometide's self-hosted MCP server (Streamable HTTP, protocol 2025-11-25) also meets the Alexa+ track requirement, if you want to enter both. A project can win only one track prize |
 | Text description of features and functionality | This document, from "Tagline" to "Built with" |
 | GitHub repository with all source, assets and instructions | https://github.com/vvdotcom/FamilyOs, with setup, run and test steps in `README.md` ("Run it locally"). Push all local changes before submitting |
 | Public repo with a detectable open-source license, or private and shared | MIT `LICENSE`; files from Amazon's MIT-0 sample keep their headers. If public, check that GitHub's About box shows "MIT license". If private, add testing@devpost.com and chris-trag, knmeiss, giolaq, anishamalde, mosesroth, emersonsklar as collaborators |
-| Demo video under 3 minutes, public on YouTube or Vimeo, showing the app on an actual Fire TV | To do: film on the Fire TV Stick and upload (see "Video") |
+| Demo video under 3 minutes, public on YouTube or Vimeo, showing the app on an actual Fire TV | Draft cut filmed on the Fire TV Stick (V5, 2:48). To do: re-edit around the learning loop, then upload (see "Video") |
 | No third-party trademarks or copyrighted music in the video | Royalty-free music only; no other companies' names or logos on screen (the video says "smart wall calendars", not a brand) |
 | New, or significantly updated during the Submission Period | Created during the Submission Period, starting 22 September 2026 from Amazon's MIT-0 multi-TV sample (see "Built during the hackathon") |
 | Third-party integrations authorized | Calendar data comes from the family's own private iCal links; weather from the US National Weather Service public API; fonts under the SIL Open Font License; libraries under their open-source licenses |
 | Product Feedback for each tool, with the five questions | `docs/PRODUCT_FEEDBACK.md` (10 tools), pasted into the Product Feedback field. Swap its relative links for full GitHub links when pasting |
 | AWS Builder: AWS services and how they are used, in the Product Feedback | "How AWS services are used" at the end of `docs/PRODUCT_FEEDBACK.md`, and "AWS services used" below |
-| Optional friction log and feature requests (up to a 10% bonus) | `docs/FRICTION_LOG.md`: 21 entries plus 2 feature requests with priority. Entries 4–7 and 9 use an older, shorter format; add their missing steps, expected result and suggestion for the full bonus |
+| Optional friction log and feature requests (up to a 10% bonus) | `docs/FRICTION_LOG.md`: 21 entries plus 2 feature requests with priority. Every entry has the full format: task, steps, expected vs. actual, severity, workaround and suggested improvement |
 | Judges can test it free, without restriction, until judging ends (20 November 2026) | Hosted demo family and judge login on the Devpost form; keep the Railway service and the judge account live until 20 November |
 | English | All materials are in English |
 
 ## Tagline
 
-The family wall calendar on the Fire TV you already own, and it learns your family's rhythm.
+The family TV that learns your family's rhythm: it catches the clash, takes the fix by voice or remote, waits for a
+parent's yes, and makes the fix the routine.
 
 ## Inspiration
 
@@ -55,14 +56,10 @@ family's patterns and help with them.
 
 ## What it does
 
-Hometide turns Fire TV into the family's shared calendar and command center. It is run with the remote, fed from a
-phone app, and reached by voice through Alexa.
+Hometide turns the Fire TV into the family's command center. It catches the week's clashes, takes the fix by voice,
+remote or phone, waits for a parent's yes on the shared screen, and learns the routine. Fire TV's Ambient Experience
+and Alexa+ can already show a linked calendar; Hometide goes further and helps run it.
 
-- **Your calendars, already there.** Paste the private iCal link from Google Calendar, iCloud, or Outlook. Hometide
-  mirrors the next three months, keeps them in sync about every 15 minutes, and never changes them.
-- **Set up by scanning the TV.** The TV shows a QR code; scan it with the phone camera, tap Approve TV, done.
-- **A wall calendar when nobody's using the TV.** After five idle minutes the TV shows today in large type: the time,
-  weather, what's next and when to leave, dinner, chores left, and a family photo.
 - **It catches conflicts.** Double-booked drivers and tight travel times are flagged with who is free.
 - **It learns the family's rhythm.** When the family fixes a clash by hand and the same clash keeps coming back,
   the TV says *Hometide noticed: make Lindsey the usual Emma pickup on Tuesdays and Thursdays?* One press of the remote
@@ -72,6 +69,11 @@ phone app, and reached by voice through Alexa.
 - **Voice, remote, and phone in one flow.** "Alexa, open home tide… swap Emma's pickup to Lindsey": the TV shows a
   confirm card with focus already on Confirm, the remote confirms, and the phone shows the change. Echo Show gets a
   Hometide card (APL); MCP hosts that support MCP Apps get a day card.
+- **Your calendars, already there.** Paste the private iCal link from Google Calendar, iCloud, or Outlook. Hometide
+  mirrors the next three months, keeps them in sync about every 15 minutes, and never changes them.
+- **Set up by scanning the TV.** The TV shows a QR code; scan it with the phone camera, tap Approve TV, done.
+- **A wall calendar when nobody's using the TV.** After five idle minutes the TV shows today in large type: the time,
+  weather, what's next and when to leave, dinner, chores left, and a family photo.
 - **Snap a flyer, get an event.** Photograph a school flyer or pick a PDF. Amazon Bedrock drafts the event, and a
   parent reviews it before it's saved.
 - **Describe dinner, get a recipe.** Type "quick chicken dinner the kids will eat, 30 minutes" on the phone or the
@@ -82,17 +84,14 @@ phone app, and reached by voice through Alexa.
 
 ## How it meets the Fire TV priorities
 
-Hometide is built around the two Fire TV priorities the rules call creative: AI that adapts to household patterns,
-and voice, D-pad and visuals in a single flow. It also touches the other four.
+The rules give two creative examples for Fire TV, and Hometide is built around both.
 
-| Priority | What Hometide does on the TV | Code |
+| Creative example in the rules | What Hometide does on the TV | Code |
 |---|---|---|
-| AI-enhanced viewing | The TV adapts to the household. "Hometide noticed" turns the family's own repeated fixes into routines, and a morning briefing flags today's conflicts and who can help | `app/rhythm.py`, `app/briefing.py` |
-| Multi-modal UX | Alexa takes the request, the TV shows a confirm card with focus on Confirm, the remote approves, and the phone updates, all in one flow | `app/alexa.py`, `FamilyTVFeatures.tsx` |
-| Family entertainment | Family night: everyone suggests ideas and votes from their phone, the TV shows the vote live, and a picker who rotates each week breaks ties. Stars and rewards for chores | `app/household_ops.py`, `FamilyTVFeatures.tsx` |
-| Fitness | Movement breaks: original guided routines for kids, timed on screen, that earn stars | `app/move.py`, `FamilyTVFeatures.tsx` |
-| Sports | Practices and games are tracked with who drives, and get "leave in 25 minutes; shin guards not packed" reminders | `app/domain.py` |
-| Computer vision | Chore photo checks and flyer or PDF import with Amazon Bedrock vision. Photos come from the phone (Fire TV has no camera), and a parent always decides | `app/vision.py`, `app/imports.py` |
+| AI-enhanced viewing that adapts to household patterns | "Hometide noticed" turns the family's own repeated fixes into routines, remembered across sessions in AgentCore Memory. The morning briefing flags today's clashes and who can help | `app/rhythm.py`, `app/briefing.py` |
+| Multi-modal UX combining voice, D-pad and visuals in a single flow | A voice request becomes a confirm card on the TV with focus already on Confirm; the remote approves it, and the phone shows the change | `app/alexa.py`, `FamilyTVFeatures.tsx` |
+
+Chores, family night and photo checks round out the household, but the learning loop above is the core of the entry.
 
 ## Hometide vs. smart wall calendars
 
@@ -177,8 +176,8 @@ and still waits for a parent's yes.
 
 ![Hometide on Vega OS: the TV app, the shared TV code, React Native for Vega, Vega OS services and the Fire TV device](images/vega-architecture.png)
 
-- **TV:** React Native on Vega OS, installed and running on a Fire TV Stick. The same screens are set up for Fire OS
-  (Expo with react-native-tvos) in `apps/expo-multi-tv`, not yet built. `react-tv-space-navigation` for D-pad focus, designed at 1920×1080 within title-safe margins. The pairing QR code
+- **TV:** React Native on Vega OS, installed and running on a Fire TV Stick. The same screens also build for Fire OS
+  (Expo with react-native-tvos) in `apps/expo-multi-tv`, which has run on an emulator. `react-tv-space-navigation` for D-pad focus, designed at 1920×1080 within title-safe margins. The pairing QR code
   is drawn by a small built-in encoder with plain Views, so it works on Vega without a native module.
 - **Phone:** Expo (iOS first, plus the web app at `/app`), secure session storage, and on-device photo downscaling that
   strips location data.

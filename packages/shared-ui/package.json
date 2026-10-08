@@ -15,9 +15,7 @@
     "@familyos/domain": "workspace:*"
   },
   "peerDependencies": {
-    "@amazon-devices/kepler-media-controls": "*",
     "@amazon-devices/react-native-kepler": "*",
-    "@amazon-devices/react-native-w3cmedia": "*",
     "@bam.tech/lrud": "*",
     "@react-navigation/drawer": "*",
     "@react-navigation/native": "*",
@@ -28,17 +26,10 @@
     "react-native-gesture-handler": "*",
     "react-native-keyevent": "*",
     "react-native-pixel-perfect": "*",
-    "react-native-video": "*",
     "react-tv-space-navigation": "*"
   },
   "peerDependenciesMeta": {
-    "@amazon-devices/kepler-media-controls": {
-      "optional": true
-    },
     "@amazon-devices/react-native-kepler": {
-      "optional": true
-    },
-    "@amazon-devices/react-native-w3cmedia": {
       "optional": true
     }
   },

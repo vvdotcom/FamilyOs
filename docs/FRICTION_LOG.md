@@ -61,23 +61,30 @@ Evidence/log: `package.json`, `packages/shared-ui/src/index.d.ts`, and
 ## Entry 4 — Windows bootstrap recovery
 
 Date: 2026-09-22  
-Tool/API: Windows PowerShell 5.1, OpenSSH, VirtualBox 7.2.20  
-Task attempted: Resume the partially created `FamilyOS-Vega` Ubuntu VM.  
+Tool/API: Vega SDK host setup on Windows: Windows PowerShell 5.1, OpenSSH, VirtualBox 7.2.20, an Ubuntu VM  
+Task attempted: Resume the partially created `FamilyOS-Vega` Ubuntu VM that hosts the Vega SDK on our Windows laptop
+(Windows isn't a Vega SDK host, so the SDK runs in a Linux VM).  
+Steps: Re-ran our Windows bootstrap after an interrupted first run. It creates an SSH key with an empty passphrase,
+attaches the cached Ubuntu ISO, and resumes the existing VM so Ubuntu's unattended installer can continue.  
+Expected: The bootstrap picks up where it stopped and the Ubuntu installer starts.  
 Actual: PowerShell dropped the empty SSH-key passphrase argument; VirtualBox could not
 open the ISO through its original user-profile path; unchecked native failures let setup
 continue. After resolving those errors, the existing VirtualBox installation at the
 root of `D:\` failed to load `VMMR0.r0` with `VERR_SUPLIB_PATH_NOT_CLEAN`.  
 Severity: High  
-Resolution: Preserve native empty arguments when generating keys, check every bootstrap
+Workaround: Preserve native empty arguments when generating keys, check every bootstrap
 VirtualBox operation, verify the ISO checksum before use, and use a same-volume hard link
 in the shared cache when necessary. Track installation stages so retries cannot silently
 overwrite a populated VM disk. Reinstalled the verified, Oracle-signed VirtualBox package
 in its standard `C:\Program Files\Oracle\VirtualBox` directory after backing up VM
 configuration. The VM UUID and disk were preserved. Ubuntu then booted its unattended
-installer successfully.  
-Verification: Windows PowerShell 5.1 tests pass for key generation with a spaced path,
+installer successfully. Windows PowerShell 5.1 tests now cover key generation with a spaced path,
 key-pair round-trip, key reuse, and native failure propagation.  
-Evidence: `setup/tests/windows-bootstrap.tests.ps1`; recovery logs and configuration
+Suggested improvement: Most of this cost came from Windows not being a Vega SDK host, which leaves each Windows
+developer to build and maintain their own Linux VM. Publish a supported Windows path (for example a WSL2 guide or a
+ready-made VM image with the SDK installed), and put the host requirements (Linux or macOS, and KVM for the Vega
+Virtual Device) on the first page of the getting-started guide.  
+Evidence/log: `setup/tests/windows-bootstrap.tests.ps1`; recovery logs and configuration
 backups in `C:\ProgramData\FamilyOS\repair`; installer screenshot in
 `logs/ubuntu-install.png`. The recovery script is specific to the detected broken
 installation, not a routine setup prerequisite.
@@ -85,44 +92,63 @@ installation, not a routine setup prerequisite.
 ## Entry 5 — Nested virtualization unavailable
 
 Date: 2026-09-22  
-Tool/API: VirtualBox NEM, Windows hypervisor, Ubuntu KVM  
+Tool/API: Vega Virtual Device (VVD) host requirements; VirtualBox NEM, Windows hypervisor, Ubuntu KVM  
+Task attempted: Run the Vega Virtual Device inside the Ubuntu build VM on our Windows laptop.  
+Steps: Turned on nested virtualization for the VM (`NestedHWVirt=1`), booted Ubuntu, and checked for KVM with
+`setup/verify-kvm.sh` before starting the VVD.  
+Expected: KVM available inside the VM, so the VVD can start.  
 Actual: VirtualBox enables `NestedHWVirt=1` but reports `AMD-V is not available` and
 `WHvCapabilityCodeHypervisorPresent is TRUE`. Windows reports a present hypervisor and
 active virtualization-based security. Inside Ubuntu, the virtualization flag count is
 zero, `/dev/kvm` is missing, `kvm-ok` reports unavailable extensions, and loading
 `kvm_amd` returns `Operation not supported`.  
 Severity: High for VVD; not a build-host blocker.  
-Resolution: Keep VVD gated. Continue SDK-only installation and builds. Do not disable
-Hyper-V, VBS, Memory Integrity, WSL, or other host features without separate permission.
-A physical Vega device or a Linux host with accessible KVM avoids this nested setup.  
-Evidence: VM `Logs/VBox.log`, guest `setup/verify-kvm.sh`, Windows DeviceGuard CIM status.
+Workaround: Keep the VVD off on this host and continue SDK-only installation and builds. Do not disable Hyper-V,
+VBS, Memory Integrity, WSL, or other host features without separate permission. We later ran the VVD on an EC2
+instance with nested virtualization (Entry 12) and tested on a physical Fire TV Stick.  
+Suggested improvement: State at the top of the VVD docs that it needs KVM, and that a Windows machine with Hyper-V
+or virtualization-based security on can't provide it to a guest VM. Offer an official cloud recipe (for example an
+EC2 instance type and AMI known to run the VVD) or a hosted VVD for developers without a Linux machine.  
+Evidence/log: VM `Logs/VBox.log`, guest `setup/verify-kvm.sh`, Windows DeviceGuard CIM status.
 
 ## Entry 6 — Documentation SDK version unavailable
 
 Date: 2026-09-22  
-Tool/API: Vega CLI 1.4.2 and the official SDK installer  
+Tool/API: Vega CLI 1.4.2, the official SDK installer, and the getting-started docs  
+Task attempted: Install the Vega SDK version used in the getting-started docs.  
+Steps: Installed Vega CLI 1.4.2, then asked the official installer for the docs' example SDK `0.24.9311`. When that
+failed, listed the available versions with `vega sdk list-remote`.  
+Expected: The documented version installs, or the error says which versions are available.  
 Actual: The documentation's example SDK `0.24.9311` returned `Version not found`.
 The live `vega sdk list-remote` registry lists `0.24.12112` as the latest 0.24 release
 (released September 21). The CLI had installed successfully, but no SDK was installed.  
 Severity: Medium  
-Resolution: Pin the available `0.24.12112` release. Check the installed SDK inventory,
+Workaround: Pin the available `0.24.12112` release. Check the installed SDK inventory,
 not just whether the CLI executable exists, so partial installations are retryable.
 Use a quote-preserving transport for guest scripts under Windows PowerShell 5.1.  
-Evidence: `setup/install-vega.sh`, `setup/windows-common.ps1` and guest installer logs
+Suggested improvement: Keep the version in documentation examples available in the registry (or show "latest"),
+and have `Version not found` list the nearest available versions.  
+Evidence/log: `setup/install-vega.sh`, `setup/windows-common.ps1` and guest installer logs
 under `~/vega/vvm/`.
 
 ## Entry 7 — SDK-generated OS module required
 
 Date: 2026-09-22  
-Tool/API: Vega SDK 0.24.12112 manifest validation  
+Tool/API: Vega SDK 0.24.12112 manifest validation and packaging  
+Task attempted: Package the first Vega build (`.vpkg`) of the TV app.  
+Steps: Built the JavaScript and Hermes bundles with SDK 0.24.12112 from a manifest whose `[os.version]` was set to
+`1.2`, then ran packaging.  
+Expected: Packaging accepts a manifest that targets OS 1.2, or the error says how to fix it.  
 Actual: The JavaScript and Hermes bundles built, but packaging rejected a manifest with
 `[os.version]` set to `1.2` and no matching generated OS module.  
 Severity: Medium  
-Resolution: Ran `vega project update-manifest --os-min 1.2 --os-version 1.2` in the
+Workaround: Ran `vega project update-manifest --os-min 1.2 --os-version 1.2` in the
 Ubuntu workspace, inspected its diff, and mirrored its generated
 `/com.amazon.vega.os@IVega_1_2` required-module entry into the Windows source manifest.
 The SDK version is also pinned in `apps/vega/vega-sdk-requirements.json`.  
-Evidence: `apps/vega/manifest.toml` and the SDK packaging output.
+Suggested improvement: Name the fix in the packaging error (`vega project update-manifest --os-min <version>
+--os-version <version>`), and keep the multi-TV sample's manifest in step with the current SDK (see Entry 1).  
+Evidence/log: `apps/vega/manifest.toml` and the SDK packaging output.
 
 ## Entry 8 — Alexa+ MCP account linking needs a full OAuth 2.1 authorization server
 
@@ -154,6 +180,8 @@ negotiated `2025-11-25`, listed 10 tools, completed `get_today` and `propose_pic
 Date: 2026-09-28  
 Tool/API: Amazon Bedrock Converse (`us.amazon.nova-lite-v1:0`, image input)  
 Task attempted: Measure chore-photo verdicts on 60 labelled synthetic (drawn, non-identifying) photos.  
+Steps: Generated the labelled set with `eval/generate_chore_photos.py`, then ran
+`eval/run_chore_eval.py --provider bedrock`, which sends each photo through the same processing as a real upload.  
 Expected: Clear finished/unfinished scenes classified reliably.  
 Actual: 45% accuracy, 0% false "looks done", 55% "unclear". The model rarely commits on simple drawings. It
 correctly ignored a prompt-injection line printed on a test flyer during photo import.  

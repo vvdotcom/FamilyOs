@@ -20,15 +20,12 @@
     "release": "npm-run-all lint test build:app"
   },
   "dependencies": {
-    "@amazon-devices/kepler-media-controls": "^1.0.0",
-    "@amazon-devices/kepler-media-types": "^1.0.0",
     "@amazon-devices/react-native-async-storage__async-storage": "~2.0.0",
     "@amazon-devices/react-native-gesture-handler": "~2.0.0",
     "@amazon-devices/react-native-kepler": "^2.0.0",
     "@amazon-devices/react-native-reanimated": "~2.0.0",
     "@amazon-devices/react-native-safe-area-context": "*",
     "@amazon-devices/react-native-screens": "*",
-    "@amazon-devices/react-native-w3cmedia": "~2.1.0",
     "@amazon-devices/react-navigation__core": "~7.0.0",
     "@amazon-devices/react-navigation__drawer": "~7.0.0",
     "@amazon-devices/react-navigation__native": "~7.0.0",
@@ -40,7 +37,6 @@
     "react-native": "0.72.0",
     "react-native-keyevent": "*",
     "react-native-pixel-perfect": "*",
-    "react-native-video": "*",
     "react-tv-space-navigation": "*"
   },
   "devDependencies": {
