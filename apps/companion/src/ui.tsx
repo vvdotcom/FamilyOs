@@ -28,6 +28,13 @@ export const themes = {
     ok: '#2E7A3A',
     okBg: '#DDF0DF',
     danger: '#A83E2A',
+    // Navigation (bottom tab bar, desktop sidebar): a deeper shade of the page so it never blends in.
+    nav: '#E7DFD1',
+    navLine: '#D3C8B5',
+    navHover: '#DDD4C4',
+    navMuted: '#544C41',
+    navActive: '#1F1B16',
+    navActiveInk: '#FFFFFF',
   },
   dark: {
     bg: '#1A1714',
@@ -43,6 +50,12 @@ export const themes = {
     ok: '#7CC98A',
     okBg: '#1F3F27',
     danger: '#F08B75',
+    nav: '#110F0C',
+    navLine: '#2B251F',
+    navHover: '#1E1A16',
+    navMuted: '#B8AE9F',
+    navActive: '#F4EEE4',
+    navActiveInk: '#1A1714',
   },
 };
 export const ThemeContext = createContext(themes.light);

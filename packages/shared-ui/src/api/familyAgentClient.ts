@@ -20,7 +20,7 @@ export interface FamilyAgentContext {
   date: string;
   timezone: string;
   members: Array<Pick<FamilyMember, 'id' | 'name' | 'role'>>;
-  events: Array<Pick<CalendarEvent, 'id' | 'title' | 'startAt' | 'endAt' | 'memberIds' | 'responsibleMemberId'>>;
+  events: Array<Pick<CalendarEvent, 'id' | 'title' | 'startAt' | 'endAt' | 'memberIds' | 'responsibleMemberId' | 'category' | 'allDay'>>;
   chores: Array<Pick<Chore, 'id' | 'title' | 'status' | 'assignedToMemberId'>>;
   routines: Array<{
     name: string;
@@ -31,6 +31,10 @@ export interface FamilyAgentContext {
   }>;
   conflicts: Array<Pick<Conflict, 'id' | 'type' | 'title' | 'message' | 'suggestedMemberId'>>;
   weather?: { condition: string; temperatureF: number };
+  /** When the briefing was asked for, so plans that already ended are left out. */
+  now?: string;
+  /** Changes the family confirmed in the last few hours, newest first. */
+  recentChanges?: string[];
 }
 
 interface Envelope<T> {
@@ -115,6 +119,9 @@ export const familyAgentClient = {
     }>('/health'),
   getWeather: () => request<WeatherForecast>('/v1/weather', {}, 12000),
   getHousehold: () => request<HouseholdSnapshot>('/v1/household'),
+  /** The TV's frequent check: a tiny "unchanged" reply when its copy is still at `revision`, else the household. */
+  householdSince: (revision: number) =>
+    request<HouseholdSnapshot | { unchanged: true; revision: number }>(`/v1/household?since=${Math.max(0, Math.floor(revision))}`),
   createPairingChallenge: (deviceName = 'Hometide TV') =>
     request<{ challengeId: string; code: string; pollingToken: string; expiresAt: string; pairUrl?: string }>(
       '/v1/pairing/challenges',
@@ -222,6 +229,8 @@ export function createFamilyAgentContext(
   conflicts: Conflict[],
   now: Date,
   weather?: { condition: string; temperatureF: number },
+  /** Only the events the briefing should talk about (see briefingEvents), and recent decisions. */
+  focus?: { events?: CalendarEvent[]; recentChanges?: string[] },
 ): FamilyAgentContext {
   return {
     date: new Intl.DateTimeFormat('en-CA', {
@@ -232,13 +241,15 @@ export function createFamilyAgentContext(
     }).format(now),
     timezone: household.family.timezone,
     members: household.members.map(({ id, name, role }) => ({ id, name, role })),
-    events: household.events.map(({ id, title, startAt, endAt, memberIds, responsibleMemberId }) => ({
+    events: (focus?.events ?? household.events).slice(0, 250).map(({ id, title, startAt, endAt, memberIds, responsibleMemberId, category, allDay }) => ({
       id,
       title,
       startAt,
       endAt,
       memberIds,
       ...(responsibleMemberId ? { responsibleMemberId } : {}),
+      category,
+      ...(allDay ? { allDay } : {}),
     })),
     chores: household.chores.map(({ id, title, status, assignedToMemberId }) => ({
       id,
@@ -261,5 +272,7 @@ export function createFamilyAgentContext(
       ...(suggestedMemberId ? { suggestedMemberId } : {}),
     })),
     ...(weather ? { weather } : {}),
+    now: now.toISOString(),
+    recentChanges: (focus?.recentChanges ?? []).slice(0, 5),
   };
 }

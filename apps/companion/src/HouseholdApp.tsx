@@ -34,6 +34,7 @@ import {
   type ParentAccount,
 } from './household';
 import { EditorForm, type Editor } from './Editors';
+import { MIC_RAISE, MicButton, VoicePanel, useVoiceCommand } from './VoiceCommand';
 import { CalendarsScreen, PROVIDER_NAMES, SyncedEventSheet } from './CalendarsScreen';
 import {
   ApprovalsScreen,
@@ -141,6 +142,7 @@ function HouseholdScreens({
   const wide = Platform.OS === 'web' && windowWidth >= 900;
   const dialog = wide ? ({ width: '100%', maxWidth: 520, alignSelf: 'center' } as const) : null;
   const [page, setPage] = useState<Page>('today');
+  const [tabBarHeight, setTabBarHeight] = useState(90);
   const [accessMode, setAccessMode] = useState<'parent' | 'child'>('parent');
   const [elevated, setElevated] = useState(false);
   const [chorePhotoId, setChorePhotoId] = useState<string | null>(null);
@@ -303,9 +305,13 @@ function HouseholdScreens({
       listener.remove();
     };
   }, [refresh, editor]);
+  // A spoken change becomes a request: refresh so the Approvals badge shows it.
+  const onVoiceAnswered = useCallback((proposed: boolean) => { if (proposed) void refresh(); }, [refresh]);
+  const voice = useVoiceCommand({ api, preview, onAnswered: onVoiceAnswered });
   const navigate = (next: Page) => {
     setPage(next);
     setNotice('');
+    if (voice.phase !== 'listening') voice.close();
     if (next === 'remote' && api.pairedTVs) {
       void api
         .pairedTVs()
@@ -815,7 +821,12 @@ function HouseholdScreens({
   const pendingApprovals = accessMode === 'parent' ? pendingVoice + pendingPhotos + pendingRewards : 0;
   const choresHeader = (current: 'chores' | 'rewards') => (
     <Segmented
-      options={[{ id: 'chores', label: accessMode === 'child' ? 'My chores' : 'Chores' }, { id: 'rewards', label: accessMode === 'child' ? 'My rewards' : 'Rewards', badge: accessMode === 'parent' ? pendingRewards : 0 }]}
+      options={[
+        { id: 'chores', label: accessMode === 'child' ? 'My chores' : 'Chores' },
+        { id: 'rewards', label: accessMode === 'child' ? 'My rewards' : 'Rewards', badge: accessMode === 'parent' ? pendingRewards : 0 },
+        // Phones have no Lists tab (the mic sits in the middle of the tab bar), so lists and meals open from here.
+        ...(wide ? [] : [{ id: 'lists' as const, label: 'Lists & meals' }]),
+      ]}
       value={current}
       onChange={(id) => navigate(id)}
     />
@@ -1966,6 +1977,8 @@ function HouseholdScreens({
     familyNight: 'more', move: 'more', voice: 'more', calendars: 'more',
   };
   const tabPage = TAB_OF[page] || page;
+  // Hold-to-talk "Ask Hometide" in the phone tab bar. The voice endpoint is for parents, so child mode hides it.
+  const showMic = !wide && accessMode === 'parent';
   const tabs: { page: Page; label: string; icon: IconName; badge?: number }[] = [
     { page: 'today', label: 'Today', icon: 'home', badge: pendingApprovals },
     { page: 'calendar', label: 'Calendar', icon: 'calendar' },
@@ -1973,6 +1986,9 @@ function HouseholdScreens({
     { page: 'lists', label: 'Lists', icon: 'lists' },
     { page: 'more', label: 'Family', icon: 'people' },
   ];
+  // The phone tab bar drops Lists (reached from Chores) so the mic is centred: Today, Calendar, mic, Chores, Family.
+  const phoneTabs = tabs.filter((tab) => tab.page !== 'lists');
+  const phoneTabPage = tabPage === 'lists' ? 'chores' : tabPage;
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: t.bg }}>
       <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor={t.bg} />
@@ -1988,7 +2004,7 @@ function HouseholdScreens({
         {wide ? (
           <View
             accessibilityRole="tablist"
-            style={{ width: 248, paddingHorizontal: 16, paddingTop: 28, paddingBottom: 20, gap: 4, borderRightWidth: 1, borderColor: t.line, backgroundColor: t.card }}
+            style={{ width: 248, paddingHorizontal: 16, paddingTop: 28, paddingBottom: 20, gap: 4, borderRightWidth: 1, borderColor: t.navLine, backgroundColor: t.nav }}
           >
             <View style={[s.row, { paddingHorizontal: 12, marginBottom: 24, gap: 10 }]}>
               <Image source={require('../assets/brand-mark.png')} style={{ width: 32, height: 32 }} accessibilityIgnoresInvertColors />
@@ -2008,12 +2024,12 @@ function HouseholdScreens({
                     s.row,
                     {
                       minHeight: 46, paddingHorizontal: 12, borderRadius: 12,
-                      backgroundColor: selected ? t.soft : (state as { hovered?: boolean }).hovered ? t.bg : 'transparent',
+                      backgroundColor: selected ? t.navActive : (state as { hovered?: boolean }).hovered ? t.navHover : 'transparent',
                     },
                   ]}
                 >
-                  <Icon name={tab.icon} size={22} color={selected ? t.ink : t.muted} />
-                  <Copy size={15} weight={selected ? 800 : 600} color={selected ? t.ink : t.muted} style={{ flex: 1 }}>
+                  <Icon name={tab.icon} size={22} color={selected ? t.navActiveInk : t.navMuted} />
+                  <Copy size={15} weight={selected ? 800 : 600} color={selected ? t.navActiveInk : t.navMuted} style={{ flex: 1 }}>
                     {tab.label}
                   </Copy>
                   {tab.badge ? (
@@ -2025,7 +2041,7 @@ function HouseholdScreens({
               );
             })}
             <View style={{ flex: 1 }} />
-            <Copy size={13} color={t.muted} style={{ paddingHorizontal: 12 }}>
+            <Copy size={13} color={t.navMuted} style={{ paddingHorizontal: 12 }}>
               {account.parentName}
             </Copy>
           </View>
@@ -2073,38 +2089,64 @@ function HouseholdScreens({
           {renderContent()}
         </ScrollView>
         </View>
-        {!wide && <View
+        {!wide && <View style={{ position: 'relative', zIndex: 2 }}>
+        {voice.phase !== 'idle' ? (
+          // Rides on top of the tab bar (so it moves up with the keyboard) and clears the raised mic.
+          <VoicePanel voice={voice} onReview={() => navigate('approvals')} bottom={tabBarHeight + MIC_RAISE + 14} />
+        ) : null}
+        <View
           accessibilityRole="tablist"
+          onLayout={(event) => setTabBarHeight(Math.round(event.nativeEvent.layout.height))}
           style={{
+            position: 'relative',
+            zIndex: 2,
             flexDirection: 'row',
-            gap: 4,
-            paddingHorizontal: 12,
+            gap: showMic ? 0 : 4,
+            paddingHorizontal: showMic ? 6 : 12,
             paddingTop: 8,
             paddingBottom: Math.max(insets.bottom, 24),
             borderTopWidth: 1,
-            borderColor: t.line,
-            backgroundColor: t.card,
+            borderColor: t.navLine,
+            backgroundColor: t.nav,
           }}
         >
-          {tabs.map((tab) => (
+          {phoneTabs.map((tab, index) => {
+            const selected = phoneTabPage === tab.page;
+            return (
+            <React.Fragment key={tab.page}>
+            {showMic && index === 2 ? <MicButton voice={voice} /> : null}
             <Pressable
-              key={tab.page}
               accessibilityRole="tab"
               accessibilityLabel={tab.badge ? `${tab.label}, ${tab.badge} waiting` : tab.label}
-              accessibilityState={{ selected: tabPage === tab.page }}
-              aria-selected={tabPage === tab.page}
+              accessibilityState={{ selected }}
+              aria-selected={selected}
               onPress={() => navigate(tab.page)}
-              style={{ flex: 1, minWidth: 0, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 4 }}
+              style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 58, alignItems: 'center', justifyContent: 'center', opacity: pressed && !selected ? 0.7 : 1 })}
             >
-              <View>
-                <Icon name={tab.icon} color={tabPage === tab.page ? t.ink : t.muted} />
-                {tab.badge ? <View style={{ position: 'absolute', top: -3, right: -6, width: 10, height: 10, borderRadius: 5, backgroundColor: t.danger }} /> : null}
+              {/* The current tab sits on a filled pill so it reads at a glance. */}
+              <View
+                style={{
+                  width: '100%', maxWidth: 78, minHeight: 54, paddingVertical: 6, paddingHorizontal: 4, borderRadius: 16,
+                  alignItems: 'center', justifyContent: 'center', gap: 3,
+                  backgroundColor: selected ? t.navActive : 'transparent',
+                }}
+              >
+                <View>
+                  <Icon name={tab.icon} color={selected ? t.navActiveInk : t.navMuted} />
+                  {tab.badge ? (
+                    <View style={{ position: 'absolute', top: -4, right: -7, width: 12, height: 12, borderRadius: 6, borderWidth: 2,
+                      borderColor: selected ? t.navActive : t.nav, backgroundColor: t.danger }} />
+                  ) : null}
+                </View>
+                <Copy size={11} weight={selected ? 800 : 600} color={selected ? t.navActiveInk : t.navMuted}>
+                  {tab.label}
+                </Copy>
               </View>
-              <Copy size={11} weight={tabPage === tab.page ? 800 : 600} color={tabPage === tab.page ? t.ink : t.muted}>
-                {tab.label}
-              </Copy>
             </Pressable>
-          ))}
+            </React.Fragment>
+            );
+          })}
+        </View>
         </View>}
         <Modal
           visible={!!editor}

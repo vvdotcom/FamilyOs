@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -371,6 +371,8 @@ class BriefingEvent(StrictModel):
     endAt: str
     memberIds: list[str] = Field(max_length=20)
     responsibleMemberId: str | None = None
+    category: str | None = Field(default=None, max_length=40)
+    allDay: bool = False
 
 
 class BriefingChore(StrictModel):
@@ -410,6 +412,10 @@ class HouseholdContext(StrictModel):
     routines: list[BriefingRoutine] = Field(max_length=100)
     conflicts: list[BriefingConflict] = Field(max_length=100)
     weather: BriefingWeather | None = None
+    # When the briefing was asked for, so plans that already ended are left out.
+    now: str | None = Field(default=None, max_length=40)
+    # Changes the family confirmed in the last few hours (a swapped pickup, a routine), newest first.
+    recentChanges: list[Annotated[str, Field(max_length=240)]] = Field(default_factory=list, max_length=5)
 
 
 class FamilyBriefing(StrictModel):

@@ -43,3 +43,21 @@ __pycache__/
 .DS_Store
 
 /*.tgz
+
+# Demo video: raw recordings, renders, stills and edit projects (the video itself is linked from Devpost)
+Video/
+*.mp4
+*.MP4
+*.mov
+*.MOV
+*.m4v
+*.webm
+*.mkv
+*.avi
+*.prproj
+*.aep
+*.fcpxml
+*.drp
+
+# Local scratch
+_to_delete/

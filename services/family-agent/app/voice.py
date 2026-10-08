@@ -499,9 +499,17 @@ class VoiceServer:
             identity = self.current()
             parent_only(identity)
             snapshot = self.snapshot(identity)
-            candidates = [item for item in events_on(snapshot, spoken_date(day, household_today(snapshot))) if item.responsibleMemberId] \
-                or [item for item in snapshot.events if item.responsibleMemberId]
-            target = _match(candidates, event, lambda item: item.title)
+
+            def find(on: date):
+                candidates = [item for item in events_on(snapshot, on) if item.responsibleMemberId] \
+                    or [item for item in snapshot.events if item.responsibleMemberId]
+                return _match(candidates, event, lambda item: item.title)
+
+            when = spoken_date(day, household_today(snapshot))
+            target = find(when)
+            if target is not None and day and parse(target.endAt) <= demo_now():
+                # "Tuesday's pickup" said on Tuesday evening means next Tuesday's, not the one that already happened.
+                target = find(when + timedelta(days=7)) or target
             if target is None:
                 raise ToolError(f"I couldn't find a pickup or drive called {event}.")
             person = _match(snapshot.members, to_member, lambda item: item.name)

@@ -1,35 +1,102 @@
-import { Conflict, FamilyBriefing, FamilyMember, CalendarEvent, Chore } from './types';
+import { Conflict, FamilyBriefing, FamilyMember, CalendarEvent, Chore, HouseholdProposal } from './types';
 
+/** The banner is read from the couch: a short headline and at most three "time · what" lines. */
+const MAX_HIGHLIGHTS = 3;
+const RECENT_HOURS = 6;
+
+const dayKey = (value: Date, timezone: string) =>
+  new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: timezone }).format(value);
+
+/**
+ * What the briefing talks about: today's plans that haven't ended (all-day ones included), or, once today is
+ * done, tomorrow's. Sending only these keeps the AI request small and focused.
+ */
+export function briefingEvents(events: CalendarEvent[], now: Date, timezone = 'UTC'): CalendarEvent[] {
+  const today = dayKey(now, timezone);
+  const tomorrow = dayKey(new Date(now.getTime() + 24 * 60 * 60 * 1000), timezone);
+  const byStart = [...events].sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt));
+  const onToday = (event: CalendarEvent) =>
+    dayKey(new Date(event.startAt), timezone) <= today && today <= dayKey(new Date(Date.parse(event.endAt) - 1), timezone);
+  const remaining = byStart.filter((event) => onToday(event) && (event.allDay || Date.parse(event.endAt) > now.getTime()));
+  if (remaining.some((event) => !event.allDay)) return remaining.slice(0, 16);
+  const next = byStart.filter((event) => !event.allDay && dayKey(new Date(event.startAt), timezone) === tomorrow).slice(0, 6);
+  return [...remaining, ...next].slice(0, 16);
+}
+
+/** Problems that can still be fixed. A clash from earlier today, or from last week's copy of a series, is history. */
+export function openBriefingConflicts(conflicts: Conflict[], events: CalendarEvent[], now: Date): Conflict[] {
+  const ends = new Map(events.map((event) => [event.id, Date.parse(event.endAt)]));
+  return conflicts.filter((item) => item.eventIds.some((id) => (ends.get(id) ?? Number.POSITIVE_INFINITY) > now.getTime()));
+}
+
+/** What the family confirmed in the last few hours (a swapped pickup, a routine), newest first. */
+export function recentDecisions(proposals: HouseholdProposal[], now: Date): string[] {
+  return proposals
+    .filter((item) => item.status === 'confirmed' && item.decidedAt && now.getTime() - Date.parse(item.decidedAt) < RECENT_HOURS * 3600_000)
+    .sort((a, b) => Date.parse(b.decidedAt ?? '') - Date.parse(a.decidedAt ?? ''))
+    .map((item) => (item.kind === 'routine' ? String(item.payload?.learned ?? '') : item.summary).slice(0, 240))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+/** "3:15 PM · Emma pickup · Lindsey" split into the bold time and the words, for the banner. */
+export function splitHighlight(text: string): { time: string; what: string } {
+  const match = /^\s*(All day|\d{1,2}:\d{2}\s?[AP]M)\s*[·•|–-]\s*(.+)$/i.exec(text);
+  return match ? { time: match[1], what: match[2].trim() } : { time: '', what: text.trim() };
+}
+
+/**
+ * The briefing written on the TV itself: shown at once, and kept when the AI briefing isn't available.
+ * Pass the output of briefingEvents and openBriefingConflicts; recent decisions lead a calm banner.
+ */
 export function createDeterministicBriefing(
   members: FamilyMember[],
   events: CalendarEvent[],
-  chores: Chore[],
+  _chores: Chore[],
   conflicts: Conflict[],
   now: Date,
   timezone = 'UTC',
+  recentChanges: string[] = [],
 ): FamilyBriefing {
   const primaryConflict = conflicts.find((item) => item.type === 'responsibility_overlap')
-    ?? conflicts.find((item) => item.type === 'event_overlap');
+    ?? conflicts.find((item) => item.type === 'event_overlap')
+    ?? conflicts[0];
   const suggested = primaryConflict?.suggestedMemberId
     ? members.find((member) => member.id === primaryConflict.suggestedMemberId)
     : undefined;
-  const pending = chores.filter((chore) => chore.status === 'pending').length;
-  const upcoming = events.filter((event) => Date.parse(event.endAt) > now.getTime())
-    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
-  const headline = primaryConflict ? 'Pickup needs a little help' : upcoming.length ? 'Your day is taking shape' : 'You’re all set today';
-  const summary = primaryConflict
-    ? `${primaryConflict.message}${suggested ? ` ${suggested.name} is available to help.` : ''}`
-    : upcoming.length
-      ? `${upcoming.length} plans are coming up, with ${pending} household ${pending === 1 ? 'task' : 'tasks'} still to do.`
-      : 'Enjoy the open time together.';
-  const highlights = [
-    ...conflicts.slice(0, 2).map((item) => item.message),
-    ...upcoming.slice(0, 3).map((event) => `${formatTime(event.startAt, timezone)} · ${event.title}`),
-    ...(pending ? [`${pending} chores still to do`] : []),
-  ].slice(0, 5);
+  const today = dayKey(now, timezone);
+  // A school day is the backdrop, not news; birthdays, appointments and pickups are.
+  const glance = briefingEvents(events, now, timezone).filter((event) => event.category !== 'school');
+  const leftToday = glance.filter((event) => dayKey(new Date(event.startAt), timezone) <= today);
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: timezone }).format(now);
+  let headline: string;
+  let summary: string;
+  if (primaryConflict) {
+    headline = primaryConflict.type === 'responsibility_overlap' ? 'Pickup needs a little help' : 'Two plans overlap';
+    summary = `${primaryConflict.message}${suggested ? ` ${suggested.name} is available to help.` : ''}`;
+  } else if (recentChanges.length) {
+    headline = 'Sorted. You’re all set';
+    summary = recentChanges[0];
+  } else if (leftToday.length) {
+    headline = `All set for ${weekday}`;
+    summary = `${leftToday.length} ${leftToday.length === 1 ? 'plan' : 'plans'} left today.`;
+  } else if (glance.length) {
+    headline = 'Tomorrow at a glance';
+    summary = 'Nothing else today. Here’s how tomorrow starts.';
+  } else {
+    headline = 'You’re all set today';
+    summary = 'Enjoy the open time together.';
+  }
+  const names = new Map(members.map((member) => [member.id, member.name]));
+  const highlights = glance.slice(0, MAX_HIGHLIGHTS).map((event) => {
+    const time = event.allDay ? 'All day' : formatTime(event.startAt, timezone);
+    const who = event.responsibleMemberId && ['pickup', 'dropoff'].includes(event.category) ? names.get(event.responsibleMemberId) : undefined;
+    const tomorrow = dayKey(new Date(event.startAt), timezone) > today ? 'Tomorrow: ' : '';
+    return `${time} · ${tomorrow}${event.title}${who ? ` · ${who}` : ''}`;
+  });
 
   return {
-    date: new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: timezone }).format(now),
+    date: today,
     headline,
     summary,
     highlights,

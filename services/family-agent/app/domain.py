@@ -235,23 +235,46 @@ def overlaps(first: CalendarEvent, second: CalendarEvent) -> bool:
 
 
 def snapshot_context(snapshot: HouseholdSnapshot, now: datetime | None = None) -> HouseholdContext:
+    """The briefing's view of the household: today's and tomorrow's plans, open problems, recent decisions."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
     current = now or demo_now()
-    conflicts = detect_conflicts(snapshot, current)
+    try:
+        zone = ZoneInfo(snapshot.family.timezone)
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = ZoneInfo("UTC")
+    today = current.astimezone(zone).date()
+    window = {today, today + timedelta(days=1)}
+    in_window = [item for item in snapshot.events
+                 if parse(item.startAt).astimezone(zone).date() in window
+                 or parse(item.startAt).astimezone(zone).date() <= today <= parse(item.endAt).astimezone(zone).date()]
+    by_id = {item.id: item for item in snapshot.events}
+    # Only problems that can still be fixed: a clash from earlier today or last week is history.
+    conflicts = [item for item in detect_conflicts(snapshot, current)
+                 if any(item_id in by_id and parse(by_id[item_id].endAt) > current for item_id in item.eventIds)]
     members = [{"id": item.id, "name": item.name, "role": item.role} for item in snapshot.members]
     events = [{
         "id": item.id, "title": item.title, "startAt": item.startAt, "endAt": item.endAt,
         "memberIds": item.memberIds, "responsibleMemberId": item.responsibleMemberId,
-    } for item in snapshot.events]
+        "category": item.category, "allDay": item.allDay,
+    } for item in sorted(in_window, key=lambda event: parse(event.startAt))[:60]]
     chores = [{"id": item.id, "title": item.title, "status": item.status, "assignedToMemberId": item.assignedToMemberId}
-              for item in snapshot.chores]
+              for item in snapshot.chores][:250]
     routines = [{"name": item.name, "period": item.period, "memberId": item.memberId,
                  "completedSteps": sum(step.completed for step in item.steps), "totalSteps": len(item.steps)}
                 for item in snapshot.routines]
     compact_conflicts = [{"id": item.id, "type": item.type, "title": item.title, "message": item.message,
-                          "suggestedMemberId": item.suggestedMemberId} for item in conflicts]
+                          "suggestedMemberId": item.suggestedMemberId} for item in conflicts][:20]
+    recent = []
+    for item in sorted((p for p in snapshot.proposals if p.status == "confirmed" and p.decidedAt),
+                       key=lambda p: p.decidedAt or "", reverse=True):
+        if parse(item.decidedAt or "") < current - timedelta(hours=6):
+            break
+        text = str(item.payload.get("learned") or "") if item.kind == "routine" else item.summary
+        if text:
+            recent.append(text[:240])
     return HouseholdContext.model_validate({
-        "date": current.date().isoformat(), "timezone": snapshot.family.timezone, "members": members,
+        "date": today.isoformat(), "timezone": snapshot.family.timezone, "members": members,
         "events": events, "chores": chores, "routines": routines,
-        "conflicts": compact_conflicts,
-        "weather": {"condition": "Sunny", "temperatureF": 89},
+        "conflicts": compact_conflicts, "now": current.isoformat(), "recentChanges": recent[:3],
     })

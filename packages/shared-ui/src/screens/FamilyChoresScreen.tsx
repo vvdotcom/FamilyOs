@@ -16,6 +16,7 @@ import {
   memberColor,
   useDesignPalette,
 } from '../design/DesignSystem';
+import { pendingApprovals, starBalance } from '@familyos/domain';
 import { FamilyScreenProps } from './familyTypes';
 
 type Task = {
@@ -38,6 +39,8 @@ export default function FamilyChoresScreen({
   const timezone = household.family.timezone;
   const [upcoming, setUpcoming] = useState(false);
   const today = localDateKey(now, timezone);
+  // A chore whose photo is with a parent says so, so nobody ticks it off twice.
+  const awaiting = new Set(pendingApprovals(household).flatMap((item) => (item.kind === 'photo' ? [item.choreId] : [])));
   const tasks: Task[] = household.chores
     .filter((chore) =>
       upcoming
@@ -58,7 +61,12 @@ export default function FamilyChoresScreen({
         member: chore.assignedToMemberId,
         done: chore.status === 'completed',
         period: hour < 12 ? 'Morning' : hour < 18 ? 'After school' : 'Evening',
-        detail: [typeof chore.points === 'number' ? `+${chore.points} points` : '', chore.recurrence]
+        detail: [
+          awaiting.has(chore.id) ? 'Photo waiting for a parent' : '',
+          typeof chore.points === 'number' ? `+${chore.points} points` : '',
+          chore.verifyWithPhoto && !awaiting.has(chore.id) && chore.status !== 'completed' ? 'photo check' : '',
+          chore.recurrence,
+        ]
           .filter(Boolean)
           .join(' · '),
         toggle: () => onCompleteChore(chore.id, chore.status !== 'completed'),
@@ -80,57 +88,88 @@ export default function FamilyChoresScreen({
   return (
     <View style={{ flex: 1, gap: 26 }}>
       <DRow style={{ height: 101, alignItems: 'center', gap: 20 }}>
-        <View style={{ flex: 1, gap: 8 }}>
+        <View style={{ flex: 1, minWidth: 470, gap: 8 }}>
           <DText size={24} weight={700} color={p.muted} style={{ letterSpacing: 1.2 }}>
             {formatDate(now, timezone).toUpperCase()}
           </DText>
-          <DText size={68} weight={800} heading style={{ letterSpacing: -1.36 }}>
+          <DText size={68} weight={800} heading numberOfLines={1} style={{ letterSpacing: -1.36 }}>
             {upcoming ? 'Coming up' : 'Today’s chores'}
           </DText>
         </View>
-        {household.members.map((member) => {
-          const assigned = tasks.filter((task) => task.member === member.id);
-          const done = assigned.filter((task) => task.done).length;
-          return (
-            <View
-              key={member.id}
-              accessibilityLabel={`${member.name}: ${done} of ${assigned.length} complete`}
-              style={{
-                minWidth: 196,
-                height: 70,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                padding: 9,
-                borderRadius: 35,
-                backgroundColor: p.card,
-                borderWidth: 1,
-                borderColor: p.border,
-              }}>
-              <Avatar id={member.id} initials={member.initials} size={52} />
-              <View style={{ flex: 1, gap: 8 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                  <DText size={22} weight={800}>
-                    {member.name}
-                  </DText>
-                  <DText size={18} color={p.muted}>
-                    {done}/{assigned.length}
-                  </DText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 1 }}>
+          {household.members.map((member) => {
+            const assigned = tasks.filter((task) => task.member === member.id);
+            const done = assigned.filter((task) => task.done).length;
+            const child = member.role === 'child';
+            const stars = child ? starBalance(household, member.id) : 0;
+            const gold = p.dark ? '#FFD27A' : '#9A6200';
+            return (
+              <View
+                key={member.id}
+                accessibilityLabel={`${member.name}: ${done} of ${assigned.length} complete${child ? `, ${stars} stars` : ''}`}
+                style={{
+                  flexBasis: child ? 292 : 214,
+                  flexShrink: 1,
+                  height: 76,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingLeft: 10,
+                  paddingRight: child ? 10 : 24,
+                  borderRadius: 38,
+                  backgroundColor: p.card,
+                  borderWidth: 1,
+                  borderColor: p.border,
+                }}>
+                <Avatar id={member.id} initials={member.initials} size={54} />
+                <View style={{ flex: 1, minWidth: 0, gap: 9 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <DText size={22} weight={800} numberOfLines={1} style={{ flex: 1 }}>
+                      {member.name}
+                    </DText>
+                    <DText size={18} weight={700} color={p.muted} style={{ flexShrink: 0 }}>
+                      {`${done}/${assigned.length}`}
+                    </DText>
+                  </View>
+                  <View style={{ height: 7, borderRadius: 4, backgroundColor: p.soft, overflow: 'hidden' }}>
+                    <View
+                      style={{
+                        height: 7,
+                        width: `${assigned.length ? (done / assigned.length) * 100 : 0}%`,
+                        borderRadius: 4,
+                        backgroundColor: memberColor(member.id).accent,
+                      }}
+                    />
+                  </View>
                 </View>
-                <View style={{ height: 7, borderRadius: 4, backgroundColor: p.soft }}>
+                {child ? (
                   <View
                     style={{
-                      height: 7,
-                      width: `${assigned.length ? (done / assigned.length) * 100 : 0}%`,
-                      borderRadius: 4,
-                      backgroundColor: memberColor(member.id).accent,
-                    }}
-                  />
-                </View>
+                      flexShrink: 0,
+                      minWidth: 78,
+                      height: 52,
+                      borderRadius: 26,
+                      paddingHorizontal: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      backgroundColor: p.dark ? 'rgba(255,210,122,0.14)' : '#FFF3D1',
+                      borderWidth: 1,
+                      borderColor: p.dark ? 'rgba(255,210,122,0.38)' : '#EFCB72',
+                    }}>
+                    <DText size={20} weight={800} color={gold}>
+                      ★
+                    </DText>
+                    <DText size={22} weight={800} color={gold}>
+                      {String(stars)}
+                    </DText>
+                  </View>
+                ) : null}
               </View>
-            </View>
-          );
-        })}
+            );
+          })}
+        </View>
       </DRow>
       <DRow style={{ flex: 1, gap: 24 }}>
         {['Morning', 'After school', 'Evening'].map((period, periodIndex) => {

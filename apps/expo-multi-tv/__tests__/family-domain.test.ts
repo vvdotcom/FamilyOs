@@ -1,4 +1,5 @@
 import {
+  briefingEvents,
   CalendarEvent,
   createDemoClock,
   createDemoHousehold,
@@ -9,7 +10,12 @@ import {
   detectConflicts,
   loadCalendarData,
   loadWeatherData,
+  openBriefingConflicts,
+  pendingApprovals,
+  recentDecisions,
   setChoreCompleted,
+  splitHighlight,
+  starBalance,
   suggestReassignment,
   togglePreparationItem,
   toggleRoutineStep,
@@ -231,5 +237,84 @@ describe('Phase 3 household interactions and providers', () => {
     });
     expect(cached.status).toBe('cached');
     expect((await loadWeatherData(offline, 'Tucson, AZ')).status).toBe('unavailable');
+  });
+});
+
+describe('family briefing at a glance', () => {
+  const at = (time: string) => new Date(`2026-10-06T${time}:00-07:00`);
+  const plan = (id: string, title: string, start: string, end: string, extra: Partial<CalendarEvent> = {}) =>
+    event(id, `2026-10-06T${start}:00-07:00`, `2026-10-06T${end}:00-07:00`, ['emma'], { title, ...extra });
+  const day = [
+    plan('drop', 'School drop-off', '07:45', '08:15', { category: 'dropoff', responsibleMemberId: 'alex' }),
+    plan('school', 'School', '08:15', '15:15', { category: 'school' }),
+    plan('pick', 'Emma pickup', '15:15', '15:35', { category: 'pickup', responsibleMemberId: 'alex' }),
+    plan('soccer', 'Soccer practice', '17:30', '18:30', { category: 'sports' }),
+    plan('dinner', 'Family dinner', '18:30', '19:15', { category: 'meal' }),
+    event('tomorrow', '2026-10-07T07:45:00-07:00', '2026-10-07T08:15:00-07:00', ['emma'], { title: 'School drop-off', category: 'dropoff' }),
+  ];
+
+  it('covers what is left today, then tomorrow once today is done', () => {
+    expect(briefingEvents(day, at('14:00'), 'America/Phoenix').map((item) => item.id)).toEqual(['school', 'pick', 'soccer', 'dinner']);
+    expect(briefingEvents(day, at('20:00'), 'America/Phoenix').map((item) => item.id)).toEqual(['tomorrow']);
+  });
+
+  it('turns a calm day into three time-first lines, skipping the school block', () => {
+    const briefing = createDeterministicBriefing(family.members, briefingEvents(day, at('14:00'), 'America/Phoenix'), [], [], at('14:00'), 'America/Phoenix');
+    expect(briefing.headline).toBe('All set for Tuesday');
+    expect(briefing.conflictIds).toEqual([]);
+    expect(briefing.highlights.map(splitHighlight).map((item) => item.what)).toEqual(['Emma pickup · Alex', 'Soccer practice', 'Family dinner']);
+    expect(splitHighlight(briefing.highlights[0]).time).toMatch(/^3:15\sPM$/);
+  });
+
+  it('leads with a fresh decision, and only counts problems that can still be fixed', () => {
+    const lastWeek = event('old', '2026-09-29T15:15:00-07:00', '2026-09-29T15:35:00-07:00', ['emma']);
+    const stale = { id: 'c1', type: 'responsibility_overlap' as const, severity: 'warning' as const, title: 'Pickup', message: 'Old clash',
+      eventIds: ['old'], memberIds: ['alex'], startsAt: lastWeek.startAt, endsAt: lastWeek.endAt };
+    expect(openBriefingConflicts([stale], [lastWeek], at('14:00'))).toEqual([]);
+    const recent = recentDecisions([
+      { id: 'r', source: 'hometide', kind: 'routine', status: 'confirmed', summary: 'Make Alex the usual pickup?',
+        payload: { learned: 'Alex is the usual Emma pickup on Tuesdays and Thursdays.' }, requestedBy: 'hometide',
+        createdAt: '2026-10-06T13:00:00-07:00', expiresAt: '2026-10-07T13:00:00-07:00', decidedAt: '2026-10-06T13:05:00-07:00' },
+      { id: 'old', source: 'voice', kind: 'pickup_swap', status: 'confirmed', summary: 'Long ago', requestedBy: 'voice:parent',
+        createdAt: '2026-10-05T08:00:00-07:00', expiresAt: '2026-10-06T08:00:00-07:00', decidedAt: '2026-10-05T08:05:00-07:00' },
+    ], at('14:00'));
+    expect(recent).toEqual(['Alex is the usual Emma pickup on Tuesdays and Thursdays.']);
+    const briefing = createDeterministicBriefing(family.members, briefingEvents(day, at('14:00'), 'America/Phoenix'), [], [], at('14:00'), 'America/Phoenix', recent);
+    expect(briefing.headline).toBe('Sorted. You’re all set');
+    expect(briefing.summary).toBe(recent[0]);
+  });
+});
+
+describe('chores, approvals and stars', () => {
+  const home = {
+    ...family,
+    chores: [{ ...family.chores[0], id: 'backpack', title: 'Pack your backpack', points: 5, verifyWithPhoto: true, assignedToMemberId: 'leo' }],
+    choreVerifications: [
+      { id: 'v2', choreId: 'backpack', memberId: 'leo', photoId: 'p2', verdict: 'looks_done' as const, reason: 'Zipped by the door.',
+        confidence: 0.9, provider: 'bedrock' as const, status: 'pending' as const, submittedAt: '2026-10-06T07:31:00-07:00' },
+      { id: 'v1', choreId: 'backpack', memberId: 'leo', photoId: null, verdict: 'unclear' as const, reason: '', confidence: 0.4,
+        provider: 'bedrock' as const, status: 'approved' as const, submittedAt: '2026-10-05T07:31:00-07:00' },
+    ],
+    rewards: [{ id: 'movie', title: 'Pick Friday’s movie', stars: 20, available: true }],
+    redemptions: [{ id: 'r1', memberId: 'leo', rewardId: 'movie', stars: 20, status: 'pending' as const, requestedAt: '2026-10-06T07:40:00-07:00' }],
+    starTransactions: [
+      { id: 't1', memberId: 'leo', delta: 30, reason: 'chore_earned' as const, sourceId: 'x', createdAt: '2026-10-01T00:00:00Z' },
+      { id: 't2', memberId: 'leo', delta: -5, reason: 'reward_redeemed' as const, sourceId: 'y', createdAt: '2026-10-02T00:00:00Z' },
+      { id: 't3', memberId: 'emma', delta: 12, reason: 'chore_earned' as const, sourceId: 'z', createdAt: '2026-10-02T00:00:00Z' },
+    ],
+  };
+
+  it('keeps a separate star balance for each child', () => {
+    expect(starBalance(home, 'leo')).toBe(25);
+    expect(starBalance(home, 'emma')).toBe(12);
+    expect(starBalance(home, 'alex')).toBe(0);
+  });
+
+  it('lists only what still waits for a parent, oldest first, with the chore and reward names', () => {
+    const waiting = pendingApprovals(home);
+    expect(waiting.map((item) => [item.kind, item.id, item.title, item.stars])).toEqual([
+      ['photo', 'v2', 'Pack your backpack', 5],
+      ['reward', 'r1', 'Pick Friday’s movie', 20],
+    ]);
   });
 });

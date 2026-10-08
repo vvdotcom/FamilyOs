@@ -178,6 +178,7 @@ export interface HouseholdProposal {
   requestedBy: string;
   createdAt: string;
   expiresAt: string;
+  decidedAt?: string | null;
   resultMessage?: string | null;
 }
 

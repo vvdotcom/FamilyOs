@@ -5,6 +5,7 @@ Run it yourself; the password is read from your terminal and never stored or pri
     python setup/seed-reviewer-household.py                       # asks for email, password and parent code
     python setup/seed-reviewer-household.py --email demo@x.com    # asks only for the password
     python setup/seed-reviewer-household.py --fresh               # wipe this account's household first, then seed
+    python setup/seed-reviewer-household.py --fresh --demo        # for filming: no reward request left waiting
 
 What it adds (repeating weekly for 12 weeks, so the account still looks lived-in whenever it is opened):
   - Family: the account's own parent (shown as Lindsey; change with --parent-name), Jordan (adult),
@@ -106,6 +107,8 @@ def main() -> None:
     parser.add_argument("--code", default=os.getenv("HOMETIDE_SEED_PARENT_CODE"), help="four-digit parent code")
     parser.add_argument("--parent-name", default="Lindsey")
     parser.add_argument("--household-name", default="The Rivera Family")
+    parser.add_argument("--demo", action="store_true",
+                        help="for filming: don't leave a reward request waiting (the child makes one on camera)")
     parser.add_argument("--fresh", action="store_true",
                         help="delete this account's household first and start over (asks you to confirm)")
     args = parser.parse_args()
@@ -288,10 +291,14 @@ def main() -> None:
             except RuntimeError as error:
                 print(f"  stars skipped ({error}); the parent code on this account may differ")
                 break
-    rewards = http("GET", f"{API}/v1/rewards", headers=home.auth)["data"]
-    if not any(item["status"] == "pending" for item in rewards["redemptions"]):
-        http("POST", f"{API}/v1/redemptions/request", {"memberId": leo, "rewardId": "seed-reward-screen"}, home.auth)
-    print("  stars: Emma 18, Leo 12; Leo is asking for extra screen time (approve it on the TV)")
+    if args.demo:
+        # Filming: the only request on screen should be the one Leo makes on camera.
+        print("  stars: Emma 18, Leo 12 (no reward request waiting: Leo makes one on camera)")
+    else:
+        rewards = http("GET", f"{API}/v1/rewards", headers=home.auth)["data"]
+        if not any(item["status"] == "pending" for item in rewards["redemptions"]):
+            http("POST", f"{API}/v1/redemptions/request", {"memberId": leo, "rewardId": "seed-reward-screen"}, home.auth)
+        print("  stars: Emma 18, Leo 12; Leo is asking for extra screen time (approve it on the TV)")
     print(f"\nDone. Open {API}/app/ or pair a TV to see the Rivera family.")
 
 

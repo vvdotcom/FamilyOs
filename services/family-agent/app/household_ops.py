@@ -339,6 +339,12 @@ def _validate_proposal_payload(snapshot: HouseholdSnapshot, kind: str, payload: 
         target = _member(snapshot, payload.get("toMemberId"))
         if target.role != "adult":
             raise DomainError(422, "INVALID_PROPOSAL", "Choose an adult for pickups and driving.")
+        # Say so now, instead of creating a request that can only fail when someone confirms it.
+        if event.responsibleMemberId == target.id:
+            raise DomainError(409, "ALREADY_RESPONSIBLE",
+                              f"{target.name} already has {event.title} then, so there's nothing to change.")
+        if not is_available(snapshot, event, target.id):
+            raise DomainError(409, "MEMBER_BUSY", f"{target.name} is busy during {event.title}, so they can't take it.")
     elif kind == "event":
         start, end = parse(str(payload.get("startAt"))), parse(str(payload.get("endAt")))
         if start.tzinfo is None or end <= start:
@@ -393,6 +399,11 @@ def _op_proposalCreate(snapshot, value, _actor):
     snapshot.proposals = snapshot.proposals[-300:]
 
 
+def _close_stale(proposal, reason: str) -> None:
+    proposal.status = "expired"
+    proposal.resultMessage = f"Nothing was changed: {reason} Ask again if you still need it."[:240]
+
+
 def _op_proposalDecide(snapshot, value, actor):
     _exact_fields(value, {"id", "action"})
     proposal = next((item for item in snapshot.proposals if item.id == _require_id(value)), None)
@@ -414,14 +425,18 @@ def _op_proposalDecide(snapshot, value, actor):
         proposal.resultMessage = "Nothing was changed."
         return
     payload = proposal.payload
+    # A request the schedule has overtaken closes with a message, rather than failing and staying on every
+    # screen (the TV would keep showing it, and asking again would only find the same stuck request).
     try:
         _validate_proposal_payload(snapshot, proposal.kind, payload)
     except DomainError as error:
-        raise DomainError(409, "STALE_PROPOSAL", f"The schedule changed: {error.message}") from error
+        _close_stale(proposal, error.message)
+        return
     if proposal.kind == "pickup_swap":
         event = next(item for item in snapshot.events if item.id == payload["eventId"])
-        if event.responsibleMemberId != payload.get("fromMemberId") or not is_available(snapshot, event, str(payload["toMemberId"])):
-            raise DomainError(409, "STALE_PROPOSAL", "The schedule changed. Ask again for a fresh suggestion.")
+        if event.responsibleMemberId != payload.get("fromMemberId"):
+            _close_stale(proposal, f"{event.title} already changed hands.")
+            return
         event.responsibleMemberId = str(payload["toMemberId"])
     elif proposal.kind == "event":
         member_ids = [str(item) for item in payload.get("memberIds") or []] or [snapshot.members[0].id]

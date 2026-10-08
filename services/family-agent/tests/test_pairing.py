@@ -114,6 +114,12 @@ def test_local_pairing_routes_issue_read_only_tv_sessions(monkeypatch):
     assert any(item["id"] == "phone-list-item" for item in synced["listItems"])
     assert any(item["id"] == "phone-meal" for item in synced["meals"])
 
+    # A TV whose copy is current gets a tiny "unchanged" reply instead of the whole household.
+    current = client.get("/v1/household?since=4", headers=tv_headers).json()["data"]
+    assert current == {"unchanged": True, "revision": 4}
+    stale = client.get("/v1/household?since=3", headers=tv_headers).json()["data"]
+    assert stale["revision"] == 4 and any(item["id"] == "phone-meal" for item in stale["meals"])
+
     assert client.post(
         "/v1/companion/edit",
         json={"expectedRevision": 0, "kind": "member", "value": {"id": "intruder"}},

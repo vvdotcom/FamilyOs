@@ -504,11 +504,14 @@ async def get_local_dev_email(email: str, purpose: Purpose, request: Request):
 # Household reads ---------------------------------------------------------------------------------
 
 @app.get("/v1/household", response_model=APIEnvelope)
-async def get_household(request: Request):
+async def get_household(request: Request, since: int | None = Query(default=None, ge=0)):
     snapshot = household_snapshot(request)
     actor = resolve_actor(request)
     if actor is not None or not IS_PRODUCTION:
         snapshot = learn_rhythm(actor.owner if actor else None, snapshot)
+    if since is not None and since == snapshot.revision:
+        # The TV polls every few seconds: when its copy is current, say so instead of resending the household.
+        return success(request, {"unchanged": True, "revision": snapshot.revision})
     return success(request, snapshot)
 
 

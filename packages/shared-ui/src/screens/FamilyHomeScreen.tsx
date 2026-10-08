@@ -2,7 +2,7 @@ import { WeatherIcon } from '../design/WeatherIcon';
 import React from 'react';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { CalendarEvent, ProposedAction } from '@familyos/domain';
+import { CalendarEvent, pendingApprovals, ProposedAction, splitHighlight, starBalance } from '@familyos/domain';
 import {
   Avatar,
   Check,
@@ -111,6 +111,18 @@ export default function FamilyHomeScreen({
     }
   };
   const open = (event: CalendarEvent) => (onOpenEvent ? onOpenEvent(event.id) : onNavigate('Calendar'));
+  // Chore photos and reward requests waiting for a parent, shown on each child's row in the family panel.
+  const waiting = pendingApprovals(household);
+  // The briefing is rewritten when the day changes; until the new one arrives, never show words about a
+  // problem that's already fixed (or miss one that just appeared).
+  const briefingFits = !!briefing && (conflict ? briefing.conflictIds.includes(conflict.id) : briefing.conflictIds.length === 0);
+  const glance = !conflict && briefingFits ? briefing!.highlights.slice(0, 3).map(splitHighlight) : [];
+  const briefingHeadline = conflict
+    ? (briefingFits ? briefing!.headline : 'One thing needs attention.')
+    : (briefingFits ? briefing!.headline : 'A little more room to breathe.');
+  const briefingSummary = conflict
+    ? (briefingFits ? briefing!.summary : `${conflict.message}${suggested ? ` ${suggested.name} is available to help.` : ''}`)
+    : (briefingFits ? briefing!.summary : `${upcoming.length} plans ahead. Your family’s day, all in one place.`);
   // Not linked to a family yet: Home asks to pair instead of showing a briefing.
   const needsPairing = !SAMPLE_BUILD && !!tvPairing && tvPairing.status !== 'paired' && tvPairing.status !== 'checking';
   const pair = () => {
@@ -140,25 +152,45 @@ export default function FamilyHomeScreen({
             <DText size={20} weight={800} color={p.briefingLabel} style={{ letterSpacing: 3.2 }}>
               {needsPairing ? 'GET STARTED' : 'FAMILY BRIEFING'}
             </DText>
+            {!needsPairing && briefingFits && briefing?.provider === 'ai' ? (
+              <DText size={18} weight={700} color={p.muted} style={{ letterSpacing: 1.4 }}>
+                · SUMMARIZED BY AI ON AMAZON BEDROCK
+              </DText>
+            ) : null}
           </View>
           <DText heading size={56} weight={800} color={p.ink} style={{ letterSpacing: -1.12 }} numberOfLines={1}>
-            {needsPairing
-              ? 'Link this TV to your family.'
-              : (briefing?.headline ?? (conflict ? 'One thing needs attention.' : 'A little more room to breathe.'))}
+            {needsPairing ? 'Link this TV to your family.' : briefingHeadline}
           </DText>
-          <DText
-            size={30}
-            weight={500}
-            color={p.dark ? p.muted : '#34384A'}
-            style={{ lineHeight: 40.5 }}
-            numberOfLines={2}>
-            {needsPairing
-              ? 'Show a pairing code, scan it with the Hometide phone app, and your calendar, chores, and lists appear here.'
-              : briefing?.summary ??
-              (conflict
-                ? `${conflict.message}${suggested ? ` ${suggested.name} is available to help.` : ''}`
-                : `${upcoming.length} plans ahead. Your family’s day, all in one place.`)}
-          </DText>
+          {!needsPairing && glance.length ? (
+            // Today at a glance: up to three plans, each a bold time over a few words, readable from the couch.
+            <View testID="home-briefing-glance" style={{ flexDirection: 'row', gap: 32 }}>
+              {glance.map((item, index) => (
+                <View
+                  key={`${index}-${item.what}`}
+                  style={{ flex: 1, minWidth: 0, paddingLeft: 18, borderLeftWidth: 4, borderColor: p.briefingBorder, gap: 2 }}>
+                  {item.time ? (
+                    <DText size={22} weight={800} color={p.briefingLabel} numberOfLines={1}>
+                      {item.time}
+                    </DText>
+                  ) : null}
+                  <DText size={28} weight={600} color={p.dark ? p.ink : '#34384A'} numberOfLines={1}>
+                    {item.what}
+                  </DText>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <DText
+              size={30}
+              weight={500}
+              color={p.dark ? p.muted : '#34384A'}
+              style={{ lineHeight: 40.5 }}
+              numberOfLines={2}>
+              {needsPairing
+                ? 'Show a pairing code, scan it with the Hometide phone app, and your calendar, chores, and lists appear here.'
+                : briefingSummary}
+            </DText>
+          )}
         </View>
         <DButton
           label={needsPairing ? 'Pair this TV' : conflict ? 'Fix pickup' : 'Open calendar'}
@@ -269,21 +301,49 @@ export default function FamilyHomeScreen({
           </DText>
           {household.members.map((member) => {
             const nextEvent = upcoming.find((event) => event.memberIds.includes(member.id));
-            const status =
-              suggested?.id === member.id
+            // Something this child sent that a parent still has to look at comes first.
+            const request = waiting.find((item) => item.memberId === member.id);
+            const status = request
+              ? request.kind === 'photo' ? `Photo to review: ${request.title}` : `Asks for ${request.title}`
+              : suggested?.id === member.id
                 ? 'Available to help'
                 : nextEvent
                   ? `${nextEvent.title.replace('Emma ', '')} ${formatTime(nextEvent.startAt, timezone, false)}`
                   : 'Free today';
-            return (
-              <View key={member.id} style={{ height: 70, flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+            const row = (
+              <>
                 <Avatar id={member.id} initials={member.initials} size={56} pastel />
                 <DText size={30} weight={700} color={p.ink}>
                   {member.name}
                 </DText>
-                <DText size={24} color={p.muted} numberOfLines={1} style={{ flex: 1, textAlign: 'right' }}>
+                {member.role === 'child' ? (
+                  <DText size={24} weight={800} color={p.dark ? '#FFD27A' : '#B7791F'} accessibilityLabel={`${starBalance(household, member.id)} stars`}>
+                    {`★ ${starBalance(household, member.id)}`}
+                  </DText>
+                ) : null}
+                <DText
+                  size={24}
+                  weight={request ? 700 : 400}
+                  color={request ? (p.dark ? '#FFAA80' : '#C2410C') : p.muted}
+                  numberOfLines={1}
+                  style={{ flex: 1, textAlign: 'right' }}>
                   {status}
                 </DText>
+              </>
+            );
+            return request ? (
+              <DButton
+                key={member.id}
+                label={`Review ${member.name}’s ${request.kind === 'photo' ? 'chore photo' : 'reward request'}`}
+                onPress={() => onNavigate('Approvals')}
+                active={focusActive}
+                radius={16}
+                style={{ height: 70, flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 8, backgroundColor: p.warning }}>
+                {row}
+              </DButton>
+            ) : (
+              <View key={member.id} style={{ height: 70, flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+                {row}
               </View>
             );
           })}

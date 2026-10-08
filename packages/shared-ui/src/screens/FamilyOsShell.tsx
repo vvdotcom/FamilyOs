@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Platform, View, useWindowDimensions } from 'react-native';
+import { AppState, Image, Platform, View, useWindowDimensions } from 'react-native';
 import { SpatialNavigationNode, SpatialNavigationRoot } from 'react-tv-space-navigation';
 import {
+  briefingEvents,
   createDemoCalendarProvider,
   createDeterministicBriefing,
   DEMO_NOW,
@@ -11,13 +12,17 @@ import {
   loadCalendarData,
   loadWeatherData,
   FamilyBriefing,
+  openBriefingConflicts,
+  pendingApprovals,
   ProviderState,
   ProposedAction,
   proposeReassignment,
+  recentDecisions,
   setChoreCompleted,
   togglePreparationItem,
   toggleRoutineStep,
   WeatherForecast,
+  Conflict,
 } from '@familyos/domain';
 import { FamilyThemeProvider } from '../theme';
 import { DButton, DIcon, DRow, DText, IconName, formatTime, registerMemberColors, useDesignPalette } from '../design/DesignSystem';
@@ -31,7 +36,7 @@ import FamilyChoresScreen from './FamilyChoresScreen';
 import FamilyMembersScreen from './FamilyMembersScreen';
 import FamilySettingsScreen from './FamilySettingsScreen';
 import { FamilyMealsScreen, FamilyListsScreen, FamilyPhotosScreen } from './FamilyPlannerScreens';
-import { FamilyApprovalsScreen, FamilyMoveScreen, FamilyNightTVScreen, ProposalOverlay, StarCelebration } from './FamilyTVFeatures';
+import { ApprovalOverlay, FamilyApprovalsScreen, FamilyMoveScreen, FamilyNightTVScreen, ProposalOverlay, StarCelebration } from './FamilyTVFeatures';
 import { FamilyRoute, focusRegionAfterDirection } from '../navigation/familyNavigation';
 import type { TVPairingView } from './familyTypes';
 import {
@@ -47,6 +52,7 @@ import FamilyWallScreen, { WALL_IDLE_MINUTES } from './FamilyWallScreen';
 import RemoteControlManager from '../app/remote-control/RemoteControlManager';
 import { SupportedKeys } from '../app/remote-control/SupportedKeys';
 import { nativeStore } from '../storage/nativeStore';
+import { AppErrorBoundary } from '../app/AppErrorBoundary';
 
 const WALL_KEY = 'familyos.wall-calendar';
 // A movement break keeps its timer, and the photo slideshow is already ambient.
@@ -62,11 +68,65 @@ const tabs: { route: FamilyRoute; icon?: IconName; width: number }[] = [
   { route: 'Settings', width: 160 },
 ];
 
+/** What the family briefing covers right now: today's remaining plans, open problems, recent decisions. */
+function briefingFocusFor(household: HouseholdSnapshot, conflicts: Conflict[], now: Date) {
+  const events = briefingEvents(household.events, now, household.family.timezone);
+  const open = openBriefingConflicts(conflicts, household.events, now);
+  const recent = recentDecisions(household.proposals ?? [], now);
+  const key = JSON.stringify([
+    events.map((event) => [event.id, event.title, event.startAt, event.endAt, event.responsibleMemberId ?? '']),
+    open.map((item) => item.id),
+    recent,
+  ]);
+  return { events, open, recent, key };
+}
+
+/** The briefing written on the TV: shown at once, and kept if the AI briefing can't be reached. */
+function localBriefing(household: HouseholdSnapshot, conflicts: Conflict[], now: Date): FamilyBriefing {
+  const focus = briefingFocusFor(household, conflicts, now);
+  return createDeterministicBriefing(household.members, focus.events, household.chores, focus.open, now,
+    household.family.timezone, focus.recent);
+}
+
+/**
+ * Runs `task` now, then again `delay()` ms after each run finishes (never two at once). Calling a registered waker
+ * runs it straight away, e.g. when the TV comes back from the photo wall. Returns a function that stops it.
+ */
+function startPolling(task: () => Promise<void>, delay: () => number, wakers: Set<() => void>) {
+  let active = true;
+  let running = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const run = async () => {
+    if (timer) clearTimeout(timer);
+    timer = undefined;
+    if (running || !active) return;
+    running = true;
+    try {
+      await task();
+    } catch {
+      // Each task handles its own errors; this only keeps the loop alive if one slips through.
+    } finally {
+      running = false;
+    }
+    if (active) timer = setTimeout(() => void run(), delay());
+  };
+  const wake = () => void run();
+  wakers.add(wake);
+  void run();
+  return () => {
+    active = false;
+    wakers.delete(wake);
+    if (timer) clearTimeout(timer);
+  };
+}
+
 export default function FamilyOsShell() {
   return (
-    <FamilyThemeProvider>
-      <FamilyOsShellContent />
-    </FamilyThemeProvider>
+    <AppErrorBoundary>
+      <FamilyThemeProvider>
+        <FamilyOsShellContent />
+      </FamilyThemeProvider>
+    </AppErrorBoundary>
   );
 }
 
@@ -78,7 +138,10 @@ function FamilyOsShellContent() {
   const [calendarEventId, setCalendarEventId] = useState<string | null>(null);
   const [focusRegion, setFocusRegion] = useState<'navigation' | 'content'>('content');
   const [demoVersion, setDemoVersion] = useState(0);
+  // Bumped by rare events (pairing, unpairing, "Refresh data"): reloads everything. A household change from the
+  // phone bumps changeVersion instead, so it doesn't restart the sync, the calendar, the weather and the briefing.
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [changeVersion, setChangeVersion] = useState(0);
   const [household, setHousehold] = useState<HouseholdSnapshot>(loadHouseholdSnapshot);
   const householdRef = useRef(household);
   householdRef.current = household;
@@ -96,17 +159,14 @@ function FamilyOsShellContent() {
     const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
-  const conflicts = useMemo(() => detectConflicts(household.members, household.events, { now }), [household, now]);
-  const [briefing, setBriefing] = useState<FamilyBriefing>(() =>
-    createDeterministicBriefing(
-      household.members,
-      household.events,
-      household.chores,
-      conflicts,
-      now,
-      household.family.timezone,
-    ),
+  // The clock ticks every 30 seconds; checking hundreds of events for clashes every 5 minutes is plenty.
+  const conflictWindow = Math.floor(now.getTime() / 300_000);
+  const conflicts = useMemo(
+    () => detectConflicts(household.members, household.events, { now: new Date(conflictWindow * 300_000) }),
+    [household, conflictWindow],
   );
+  const briefingFocus = useMemo(() => briefingFocusFor(household, conflicts, now), [household, conflicts, now]);
+  const [briefing, setBriefing] = useState<FamilyBriefing>(() => localBriefing(household, conflicts, now));
   const [agentStatus, setAgentStatus] = useState<'checking' | 'available' | 'unpaired' | 'offline'>('checking');
   const [actionHistory, setActionHistory] = useState<ProposedAction[]>([]);
   const planner = usePlannerData(false, SAMPLE_BUILD);
@@ -114,6 +174,10 @@ function FamilyOsShellContent() {
   const [celebration, setCelebration] = useState<{ memberId: string; stars: number; detail: string } | null>(null);
   const [tvElevated, setTVElevated] = useState(false);
   const [dismissedProposals, setDismissedProposals] = useState<string[]>([]);
+  // Chore photos and reward requests that arrive while the TV is on pop up as a card; ones already waiting
+  // when the TV starts stay in Approvals (and on Home) instead of interrupting.
+  const seenApprovals = useRef<Set<string> | null>(null);
+  const [approvalQueue, setApprovalQueue] = useState<string[]>([]);
   const [wallEnabled, setWallEnabled] = useState(true);
   const [wallMode, setWallMode] = useState(false);
   const lastInputRef = useRef(Date.now());
@@ -121,8 +185,17 @@ function FamilyOsShellContent() {
   const [voiceVisit, setVoiceVisit] = useState(0);
   const commandSeq = useRef(-1);
   const paired = tvPairing.status === 'paired';
-  const briefingInputRef = useRef({ household, conflicts, now });
-  briefingInputRef.current = { household, conflicts, now };
+  const pairedRef = useRef(paired);
+  pairedRef.current = paired;
+  // Polling slows down while the photo wall is up and almost stops in the background; it picks up again at once.
+  const wallModeRef = useRef(wallMode);
+  wallModeRef.current = wallMode;
+  const backgroundRef = useRef(false);
+  const pollWakers = useRef(new Set<() => void>());
+  const pollDelay = (normal: number, idle: number) => (backgroundRef.current ? 60_000 : wallModeRef.current ? idle : normal);
+  const briefingInputRef = useRef({ household, conflicts, now, focus: briefingFocus });
+  briefingInputRef.current = { household, conflicts, now, focus: briefingFocus };
+  const briefingVersionRef = useRef('');
   const briefingRequestId = useRef(0);
   const calendarRequestId = useRef(0);
   const p = useDesignPalette();
@@ -140,25 +213,45 @@ function FamilyOsShellContent() {
   useEffect(() => {
     if (tvPairing.status !== 'paired') return;
     let active = true;
+    let polls = 0;
+    let sessionCheckedAt = 0;
     const syncHousehold = async () => {
       try {
         const token = await familyAgentClient.tvDeviceToken();
-        if (!token) return;
-        const response = await familyAgentClient.getHousehold();
+        if (!token || !active) return;
+        const known = householdRef.current.revision ?? 0;
+        // Most polls only ask whether anything changed since this revision (a tiny reply). The first poll, and one a
+        // minute, take a full copy and compare it, so a change that didn't move the revision still reaches the TV.
+        const first = polls === 0;
+        const full = polls % 12 === 0;
+        polls += 1;
+        const response = full ? await familyAgentClient.getHousehold() : await familyAgentClient.householdSince(known);
         if (!active) return;
-        void familyAgentClient.tvSession().then((session) => active && setTVElevated(session.data.elevated)).catch(() => undefined);
+        if (Date.now() - sessionCheckedAt >= 30_000) {
+          sessionCheckedAt = Date.now();
+          void familyAgentClient.tvSession().then((session) => active && setTVElevated(session.data.elevated)).catch(() => undefined);
+        }
+        if ('unchanged' in response.data) return;
         const next = response.data;
-        const changed = JSON.stringify(next) !== JSON.stringify(householdRef.current);
-        planner.syncHousehold(next);
+        const changed = first || next.revision !== known
+          || ((full || !next.revision) && JSON.stringify(next) !== JSON.stringify(householdRef.current));
         if (!changed) return;
+        const waiting = pendingApprovals(next).map((item) => item.id);
+        if (seenApprovals.current === null) seenApprovals.current = new Set(waiting);
+        else {
+          const fresh = waiting.filter((id) => !seenApprovals.current!.has(id));
+          fresh.forEach((id) => seenApprovals.current!.add(id));
+          if (fresh.length) setApprovalQueue((queue) => [...queue, ...fresh]);
+        }
         householdRef.current = next;
         setHousehold(next);
+        planner.syncHousehold(next);
         setCalendarState({
           status: next.events.length ? 'available' : 'empty',
           data: next.events,
           source: 'Hometide household service',
         });
-        setRefreshVersion((value) => value + 1);
+        setChangeVersion((value) => value + 1);
       } catch (error) {
         if (active && error instanceof FamilyAgentError && error.status === 401) {
           await familyAgentClient.clearTVDeviceToken();
@@ -171,13 +264,33 @@ function FamilyOsShellContent() {
         // Keep the last paired snapshot visible during a temporary connection failure.
       }
     };
-    void syncHousehold();
-    const interval = setInterval(() => void syncHousehold(), 5_000);
+    const stop = startPolling(syncHousehold, () => pollDelay(5_000, 15_000), pollWakers.current);
     return () => {
       active = false;
-      clearInterval(interval);
+      stop();
     };
   }, [tvPairing.status, refreshVersion]);
+
+  // Wake the polling when the TV comes back from the background or from the photo wall.
+  useEffect(() => {
+    let subscription: { remove: () => void } | undefined;
+    try {
+      subscription = AppState.addEventListener('change', (state) => {
+        const background = state === 'background';
+        const returning = backgroundRef.current && !background;
+        backgroundRef.current = background;
+        if (returning) pollWakers.current.forEach((wake) => wake());
+      });
+    } catch {
+      // Some platforms don't report app state; polling then keeps its normal pace.
+    }
+    return () => subscription?.remove();
+  }, []);
+  const wallWasOn = useRef(false);
+  useEffect(() => {
+    if (wallWasOn.current && !wallMode) pollWakers.current.forEach((wake) => wake());
+    wallWasOn.current = wallMode;
+  }, [wallMode]);
 
   // Native storage is async (Vega): restore the saved local household before saving over it.
   const [householdRestored, setHouseholdRestored] = useState(Platform.OS === 'web');
@@ -186,7 +299,8 @@ function FamilyOsShellContent() {
     let active = true;
     void hydrateHouseholdSnapshot().then((stored) => {
       if (!active) return;
-      if (stored) {
+      // A paired TV shows the household from the server, not the copy saved while it was unpaired.
+      if (stored && !pairedRef.current) {
         householdRef.current = stored;
         setHousehold(stored);
         setRefreshVersion((value) => value + 1);
@@ -228,17 +342,28 @@ function FamilyOsShellContent() {
     return () => { active = false; clearInterval(interval); };
   }, [tvPairing.status, tvPairing.challengeId, tvPairing.pollingToken]);
   useEffect(() => {
+    // A paired TV's calendar comes from the household sync above; this loads the TV's own (unpaired) calendar.
+    if (paired) return;
     let active = true;
     // Separate from briefingRequestId: the briefing effect below runs in the same commit and
     // would otherwise invalidate this request, leaving the calendar stuck on "loading".
     const requestId = ++calendarRequestId.current;
     setCalendarState({ status: 'loading' });
-    if (!weatherCacheRef.current) setWeatherState({ status: 'loading' });
     void loadCalendarData(createDemoCalendarProvider(household), household.events).then((result) => {
-      if (!active || requestId !== calendarRequestId.current) return;
+      // Pairing may have finished meanwhile: never put the local calendar over the household from the server.
+      if (!active || requestId !== calendarRequestId.current || pairedRef.current) return;
       setCalendarState(result);
       if (result.data) setHousehold((current) => ({ ...current, events: result.data! }));
     });
+    return () => {
+      active = false;
+    };
+  }, [demoVersion, refreshVersion, paired]);
+
+  const weatherLabel = household.location?.label ?? '';
+  useEffect(() => {
+    let active = true;
+    if (!weatherCacheRef.current) setWeatherState({ status: 'loading' });
     const weatherProvider = {
       name: 'National Weather Service',
       async getForecast() {
@@ -246,7 +371,8 @@ function FamilyOsShellContent() {
       },
     };
     const refreshWeather = () => {
-      void loadWeatherData(weatherProvider, householdRef.current.location?.label ?? '', now.toISOString(), weatherCacheRef.current).then((result) => {
+      const stamp = (SAMPLE_BUILD ? new Date(DEMO_NOW) : new Date()).toISOString();
+      void loadWeatherData(weatherProvider, householdRef.current.location?.label ?? '', stamp, weatherCacheRef.current).then((result) => {
         if (active) setWeatherState(result);
       });
     };
@@ -256,44 +382,59 @@ function FamilyOsShellContent() {
       active = false;
       clearInterval(weatherInterval);
     };
-  }, [demoVersion, refreshVersion]);
+  }, [demoVersion, refreshVersion, paired, weatherLabel]);
 
+  // The briefing is rewritten whenever what it covers changes (a confirmed swap, a routine, a plan that
+  // ended), not only when the app starts. The TV's own version shows at once; the AI version follows.
   useEffect(() => {
     let active = true;
     const requestId = ++briefingRequestId.current;
-    const input = briefingInputRef.current;
-    const fallback = createDeterministicBriefing(
-      input.household.members,
-      input.household.events,
-      input.household.chores,
-      input.conflicts,
-      input.now,
-      input.household.family.timezone,
-    );
-    setBriefing(fallback);
-    setAgentStatus('checking');
-    const health = familyAgentClient.getHealth().then(
-      () => true,
-      () => false,
-    );
-    void Promise.all([
-      health,
-      familyAgentClient.createBriefing(createFamilyAgentContext(input.household, input.conflicts, input.now)),
-    ])
-      .then(([reachable, response]) => {
-        if (!active || requestId !== briefingRequestId.current) return;
-        setBriefing(response.data);
-        setAgentStatus(reachable ? 'available' : 'offline');
-      })
-      .catch(async (error) => {
-        if (!active || requestId !== briefingRequestId.current) return;
-        setBriefing(fallback);
-        // A hosted service answers an unpaired TV with 401/403: it is reachable, the TV just is not paired yet.
-        const refused = error instanceof FamilyAgentError && (error.status === 401 || error.status === 403);
-        const reachable = await health;
-        if (!active || requestId !== briefingRequestId.current) return;
-        setAgentStatus(reachable && refused ? 'unpaired' : 'offline');
-      });
+    // The household sync bumps refreshVersion on every change, so only a first load or a demo reset counts as
+    // a reload; anything else is a change to the day, which waits a moment and keeps the agent status.
+    const version = String(demoVersion);
+    const reload = briefingVersionRef.current !== version;
+    briefingVersionRef.current = version;
+    const first = briefingInputRef.current;
+    setBriefing(localBriefing(first.household, first.conflicts, first.now));
+    if (reload) setAgentStatus('checking');
+    // Wait a moment after a change, so a burst (confirm, then the routine) asks for one briefing, not several.
+    const timer = setTimeout(() => {
+      const input = briefingInputRef.current;
+      const fallback = localBriefing(input.household, input.conflicts, input.now);
+      const health = familyAgentClient.getHealth().then(
+        () => true,
+        () => false,
+      );
+      void Promise.all([
+        health,
+        familyAgentClient.createBriefing(createFamilyAgentContext(input.household, input.focus.open, input.now, undefined, {
+          events: input.focus.events,
+          recentChanges: input.focus.recent,
+        })),
+      ])
+        .then(([reachable, response]) => {
+          if (!active || requestId !== briefingRequestId.current) return;
+          setBriefing(response.data);
+          setAgentStatus(reachable ? 'available' : 'offline');
+        })
+        .catch(async (error) => {
+          if (!active || requestId !== briefingRequestId.current) return;
+          setBriefing(fallback);
+          // A hosted service answers an unpaired TV with 401/403: it is reachable, the TV just is not paired yet.
+          const refused = error instanceof FamilyAgentError && (error.status === 401 || error.status === 403);
+          const reachable = await health;
+          if (!active || requestId !== briefingRequestId.current) return;
+          setAgentStatus(reachable && refused ? 'unpaired' : 'offline');
+        });
+    }, reload ? 0 : 1500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [demoVersion, refreshVersion, briefingFocus.key]);
+
+  useEffect(() => {
+    let active = true;
     void familyAgentClient
       .getActionHistory()
       .then((response) => {
@@ -303,7 +444,7 @@ function FamilyOsShellContent() {
     return () => {
       active = false;
     };
-  }, [demoVersion, refreshVersion]);
+  }, [demoVersion, refreshVersion, changeVersion]);
 
   useEffect(() => {
     if (!toast) return;
@@ -410,6 +551,10 @@ function FamilyOsShellContent() {
   const pendingProposal = paired
     ? (household.proposals || []).find((item) => item.status === 'pending' && !dismissedProposals.includes(item.id))
     : undefined;
+  const activeApproval = paired && !pendingProposal
+    ? pendingApprovals(household).find((item) => approvalQueue.includes(item.id))
+    : undefined;
+  const overlayOpen = !!pendingProposal || !!activeApproval;
   const waitingApprovals = paired
     ? (household.choreVerifications || []).filter((item) => item.status === 'pending').length +
       (household.redemptions || []).filter((item) => item.status === 'pending').length
@@ -440,7 +585,7 @@ function FamilyOsShellContent() {
         setWallMode(false);
         return;
       }
-      if (key === SupportedKeys.Menu && !pendingProposal) setMenuOpen((open) => !open);
+      if (key === SupportedKeys.Menu && !overlayOpen) setMenuOpen((open) => !open);
     };
     RemoteControlManager.addKeydownListener(onKey);
     const onWebKey = () => {
@@ -451,7 +596,7 @@ function FamilyOsShellContent() {
       RemoteControlManager.removeKeydownListener(onKey);
       if (Platform.OS === 'web' && typeof window !== 'undefined') window.removeEventListener('keydown', onWebKey);
     };
-  }, [wallMode, pendingProposal]);
+  }, [wallMode, overlayOpen]);
   // A pairing code must stay readable for its whole 10 minutes, so the wall never covers it.
   const pairingOnScreen = tvPairing.status === 'creating' || tvPairing.status === 'waiting';
   useEffect(() => {
@@ -467,16 +612,13 @@ function FamilyOsShellContent() {
     lastInputRef.current = Date.now();
     setWallMode(false);
   };
-  const showWall = wallMode && !pendingProposal;
+  const showWall = wallMode && !overlayOpen;
   // Voice ("Alexa, ask family o. s. to open the calendar") reaches this TV through the household service.
   useEffect(() => {
     if (!paired) return;
     let active = true;
-    let busy = false;
     commandSeq.current = -1;
     const poll = async () => {
-      if (busy) return;
-      busy = true;
       try {
         const reply = await familyAgentClient.tvCommands(commandSeq.current);
         if (!active) return;
@@ -500,15 +642,13 @@ function FamilyOsShellContent() {
         }
       } catch {
         // Keep the current screen; the next poll retries.
-      } finally {
-        busy = false;
       }
     };
-    void poll();
-    const timer = setInterval(() => void poll(), 1500);
+    // Every 1.5 seconds while someone is watching; voice can still wake the photo wall, just a little slower.
+    const stop = startPolling(poll, () => pollDelay(1_500, 4_000), pollWakers.current);
     return () => {
       active = false;
-      clearInterval(timer);
+      stop();
     };
   }, [paired]);
   useBackToHome(route, setRoute, focusRegion, setFocusRegion, () => {
@@ -577,7 +717,7 @@ function FamilyOsShellContent() {
     tvPairing,
     onStartPairing: startTVPairing,
     onUnpairTV: () => { void unpairTV(); },
-    focusActive: focusRegion === 'content' && !menuOpen && !pendingProposal,
+    focusActive: focusRegion === 'content' && !menuOpen && !overlayOpen,
     tvParentMode: tvElevated,
     onUnlockParentMode: unlockTVParentMode,
     onLockParentMode: lockTVParentMode,
@@ -672,16 +812,7 @@ function FamilyOsShellContent() {
             response.data.action,
             ...current.filter((item) => item.id !== response.data.action.id),
           ]);
-          setBriefing(
-            createDeterministicBriefing(
-              nextHousehold.members,
-              nextHousehold.events,
-              nextHousehold.chores,
-              detectConflicts(nextHousehold.members, nextHousehold.events, { now }),
-              now,
-              nextHousehold.family.timezone,
-            ),
-          );
+          setBriefing(localBriefing(nextHousehold, detectConflicts(nextHousehold.members, nextHousehold.events, { now }), now));
           return;
         } catch (error) {
           if (paired) throw new Error(error instanceof Error ? error.message : 'The pickup change could not be saved.');
@@ -693,16 +824,7 @@ function FamilyOsShellContent() {
       calendarRequestId.current += 1;
       setHousehold(result.household);
       setActionHistory((current) => [result.action, ...current.filter((item) => item.id !== result.action.id)]);
-      setBriefing(
-        createDeterministicBriefing(
-          result.household.members,
-          result.household.events,
-          result.household.chores,
-          detectConflicts(result.household.members, result.household.events, { now }),
-          now,
-          result.household.family.timezone,
-        ),
-      );
+      setBriefing(localBriefing(result.household, detectConflicts(result.household.members, result.household.events, { now }), now));
     },
     onCancelAction: async (action: ProposedAction, remote: boolean) => {
       if (remote) await familyAgentClient.cancelAction(action.id).catch(() => undefined);
@@ -734,7 +856,7 @@ function FamilyOsShellContent() {
         return <FamilyNightTVScreen {...props} />;
     }
   };
-  const navActive = focusRegion === 'navigation' && !menuOpen && !pendingProposal;
+  const navActive = focusRegion === 'navigation' && !menuOpen && !overlayOpen;
   const navButton = (tab: (typeof tabs)[number]) => (
     <DButton
       key={tab.route}
@@ -879,6 +1001,20 @@ function FamilyOsShellContent() {
             onDone={(message) => {
               setDismissedProposals((ids) => [...ids, pendingProposal.id]);
               setToast(message);
+              void familyAgentClient.getHousehold().then((response) => applyServerHousehold(response.data)).catch(() => undefined);
+            }}
+          />
+        ) : null}
+        {activeApproval ? (
+          <ApprovalOverlay
+            key={activeApproval.id}
+            household={household}
+            approval={activeApproval}
+            onDismiss={() => setApprovalQueue((queue) => queue.filter((id) => id !== activeApproval.id))}
+            onDone={(message, celebrate) => {
+              setApprovalQueue((queue) => queue.filter((id) => id !== activeApproval.id));
+              setToast(message);
+              if (celebrate) setCelebration(celebrate);
               void familyAgentClient.getHousehold().then((response) => applyServerHousehold(response.data)).catch(() => undefined);
             }}
           />

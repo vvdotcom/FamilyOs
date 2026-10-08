@@ -5,3 +5,4 @@ export * from './briefing';
 export * from './mutations';
 export * from './providers';
 export * from './move';
+export * from './rewards';

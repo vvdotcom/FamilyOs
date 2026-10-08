@@ -11,6 +11,8 @@ import {
   MOVE_SAFETY_NOTE,
   moveSegments,
   MoveRoutine,
+  PendingApproval,
+  starBalance,
 } from '@familyos/domain';
 import { familyAgentClient, FamilyAgentError } from '../api/familyAgentClient';
 import { DAction, DButton, DIcon, DPanel, DRow, DText, IconName, localDateKey, memberColor, useDesignPalette } from '../design/DesignSystem';
@@ -228,6 +230,9 @@ export function ProposalOverlay({ proposal, onDone, onDismiss }: {
       if (action === 'confirm' && needsCode(failure)) {
         setStage('code');
         if (code) setError('That code is incorrect. Try again.');
+      } else if (failure instanceof FamilyAgentError && (failure.status === 404 || failure.status === 409)) {
+        // Already handled elsewhere, or overtaken by the schedule: close the card (and the code pad) and say why.
+        onDone(failure.message);
       } else setError(failure instanceof Error ? failure.message : 'That did not work. Try again.');
     } finally {
       setBusy(false);
@@ -260,6 +265,106 @@ export function ProposalOverlay({ proposal, onDone, onDismiss }: {
             {proposal.requestedBy.startsWith('voice:child') ? (
               <DText size={24} color="#F4EEE4" style={{ marginTop: 12, textAlign: 'center' }}>Asked by a child’s voice connection.</DText>
             ) : null}
+          </View>
+        )}
+      </SpatialNavigationRoot>
+    </Scrim>
+  );
+}
+
+// Chore photo / reward request card ---------------------------------------------------------------
+
+/**
+ * A chore photo or reward request that just arrived, as a focused card over any screen, with the photo
+ * large enough to judge from the couch. Approving asks for the parent code, like the Approvals screen.
+ */
+export function ApprovalOverlay({ household, approval, onDone, onDismiss }: {
+  household: HouseholdSnapshot;
+  approval: PendingApproval;
+  onDone: (message: string, celebrate?: { memberId: string; stars: number; detail: string }) => void;
+  onDismiss: () => void;
+}) {
+  const p = useDesignPalette(true);
+  const [action, setAction] = useState<'approve' | 'retake' | 'reject' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  usePageBack(() => (action ? setAction(null) : onDismiss()), true);
+  const member = household.members.find((item) => item.id === approval.memberId);
+  const who = member?.name ?? 'Someone';
+  const balance = starBalance(household, approval.memberId);
+  const verdict = approval.kind === 'photo' ? VERDICT[approval.verdict] : undefined;
+  const chip = verdict ? (p.dark ? verdict.dark : verdict.light) : undefined;
+  const submit = async (code: string) => {
+    if (!action) return;
+    setBusy(true);
+    setError('');
+    try {
+      if (approval.kind === 'photo') await familyAgentClient.decideChorePhoto(approval.id, action, code);
+      else await familyAgentClient.decideRedemption(approval.id, action === 'approve' ? 'approve' : 'reject', code);
+      if (action === 'approve' && approval.kind === 'photo') {
+        onDone(`${approval.title} approved for ${who}.`, { memberId: approval.memberId, stars: approval.stars, detail: `${approval.title} is approved.` });
+      } else if (action === 'approve') {
+        onDone(`${who} gets ${approval.title}. ${Math.max(0, balance - approval.stars)} stars left.`);
+      } else onDone(action === 'retake' ? `Asked ${who} for a new photo.` : 'Declined. Nothing else changed.');
+    } catch (failure) {
+      if (failure instanceof FamilyAgentError && (failure.status === 404 || failure.status === 409)) onDone(failure.message);
+      else setError(failure instanceof Error ? failure.message : 'That did not work. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Scrim>
+      <SpatialNavigationRoot isActive>
+        {action ? (
+          <NumberPad
+            title={action === 'approve' ? 'Approve' : action === 'retake' ? 'Ask for a retake' : 'Decline'}
+            detail={`${who} · ${approval.title}`}
+            error={error} busy={busy} onSubmit={(code) => void submit(code)} onCancel={() => setAction(null)} />
+        ) : (
+          <View style={{ width: 1480, flexDirection: 'row', gap: 40, padding: 44, borderRadius: 40, borderWidth: 2, borderColor: p.briefingBorder, backgroundColor: p.briefing }}>
+            {approval.kind === 'photo' && approval.photoId ? (
+              <PrivateImage path={`v1/chores/verifications/${approval.id}/photo?variant=check`} size={460} />
+            ) : (
+              <View style={{ width: 460, height: 460, borderRadius: 24, backgroundColor: p.card, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                <DIcon name="sparkle" size={120} color={GOLD} />
+                <DText heading size={64} weight={800} color={p.ink}>{`${approval.stars}★`}</DText>
+              </View>
+            )}
+            <View style={{ flex: 1, minWidth: 0, gap: 18, justifyContent: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <MemberAvatar member={member} size={52} />
+                <DText size={22} weight={800} color={p.briefingLabel} style={{ letterSpacing: 2.6 }}>
+                  {`${who.toUpperCase()} · ${approval.kind === 'photo' ? 'CHORE PHOTO' : 'REWARD REQUEST'} · NEEDS A PARENT`}
+                </DText>
+              </View>
+              <DText heading size={60} weight={800} color={p.ink} numberOfLines={2} style={{ letterSpacing: -1.2 }}>
+                {approval.title}
+              </DText>
+              {approval.kind === 'photo' ? (
+                <View style={{ gap: 12 }}>
+                  {verdict && chip ? (
+                    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 18, paddingVertical: 8, borderRadius: 16, backgroundColor: chip[0] }}>
+                      <DText size={24} weight={800} color={chip[1]}>{`${verdict.text} · AI check, advice only`}</DText>
+                    </View>
+                  ) : null}
+                  {approval.reason ? <DText size={26} color={p.dark ? p.muted : '#34384A'} numberOfLines={2}>{approval.reason}</DText> : null}
+                  <DText size={26} weight={700} color={p.muted}>{`Approve to give ${who} ${approval.stars} stars (now ${balance}).`}</DText>
+                </View>
+              ) : (
+                <DText size={28} color={p.dark ? p.muted : '#34384A'}>
+                  {`Uses ${approval.stars} of ${who}’s ${balance} stars.`}
+                </DText>
+              )}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
+                <DAction label={`Approve · ${approval.stars}★`} primary defaultFocus onPress={() => { setError(''); setAction('approve'); }} style={{ minWidth: 260 }} />
+                {approval.kind === 'photo' ? (
+                  <DAction label="Ask for a retake" onPress={() => { setError(''); setAction('retake'); }} />
+                ) : null}
+                <DAction label="Decline" onPress={() => { setError(''); setAction('reject'); }} />
+                <DAction label="Not now" onPress={onDismiss} />
+              </View>
+            </View>
           </View>
         )}
       </SpatialNavigationRoot>
@@ -316,7 +421,7 @@ export function FamilyApprovalsScreen({ household, focusActive, onRefreshData, t
       .filter((item) => item.status === 'pending')
       .map((item) => ({ kind: 'reward' as const, id: item.id, memberId: item.memberId, stars: item.stars,
         title: household.rewards?.find((r) => r.id === item.rewardId)?.title ?? 'A reward',
-        detail: `Uses ${item.stars} stars if you approve.` })),
+        detail: `Uses ${item.stars} of ${name(household, item.memberId)}’s ${starBalance(household, item.memberId)} stars if you approve.` })),
   ];
   const submit = async (code: string) => {
     if (!selected) return;
@@ -353,16 +458,16 @@ export function FamilyApprovalsScreen({ household, focusActive, onRefreshData, t
       {items.length ? (
         <SpatialNavigationNode orientation="vertical">
           <View style={{ gap: 18, padding: 8 }}>
-          {items.slice(0, 4).map((item, index) => {
+          {items.slice(0, 3).map((item, index) => {
             const member = household.members.find((m) => m.id === item.memberId);
             const verdict = item.kind === 'photo' ? VERDICT[item.verdict] : undefined;
             const chip = verdict ? (p.dark ? verdict.dark : verdict.light) : undefined;
             return (
               <DPanel key={item.id} home style={{ flexDirection: 'row', alignItems: 'center', gap: 28, paddingVertical: 24, paddingHorizontal: 32 }}>
                 {item.kind === 'photo' && item.photoId ? (
-                  <PrivateImage path={`v1/chores/verifications/${item.id}/photo?variant=thumb`} size={168} />
+                  <PrivateImage path={`v1/chores/verifications/${item.id}/photo?variant=check`} size={220} />
                 ) : (
-                  <View style={{ width: 168, height: 168, borderRadius: 24, backgroundColor: p.briefing, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: 220, height: 220, borderRadius: 24, backgroundColor: p.briefing, alignItems: 'center', justifyContent: 'center' }}>
                     <DIcon name="sparkle" size={72} color={p.briefingLabel} />
                   </View>
                 )}
@@ -394,7 +499,7 @@ export function FamilyApprovalsScreen({ household, focusActive, onRefreshData, t
               </DPanel>
             );
           })}
-          {items.length > 4 ? <DText size={24} color={p.muted}>{`${items.length - 4} more after these`}</DText> : null}
+          {items.length > 3 ? <DText size={24} color={p.muted}>{`${items.length - 3} more after these`}</DText> : null}
           </View>
         </SpatialNavigationNode>
       ) : (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, Share, Switch, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, Share, Switch, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import {
   nextFamilyNight,
@@ -14,6 +14,7 @@ import {
   type VoiceConnection,
 } from './household';
 import { PermissionDeniedError, pickDocument, pickPhoto, type PickedImage } from './media';
+import { imageFailureText, loadWebImage } from './privateImage';
 import { Button, Card, Copy, Heading, Input, Label, layout as s, memberTint, useTheme } from './ui';
 import { DateField, TimeField } from './Pickers';
 
@@ -78,21 +79,36 @@ export function CodeInput({ value, onChange, label = 'Parent code · four digits
 export function AuthImage({ api, path, style, rotation = 0 }: { api: HouseholdAPI; path: string; style: object; rotation?: number }) {
   const t = useTheme();
   const [source, setSource] = useState<{ uri: string; headers?: Record<string, string> } | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState('');
   useEffect(() => {
     let active = true;
-    setFailed(false);
-    void api.imageSource?.(path).then((value) => active && setSource(value)).catch(() => active && setFailed(true));
+    let objectUrl = '';
+    setFailed('');
+    setSource(null);
+    void (async () => {
+      try {
+        const value = await api.imageSource!(path);
+        if (Platform.OS === 'web') {
+          // A browser image can't carry the session header, so download it and show a local copy.
+          objectUrl = await loadWebImage(value.uri, value.headers);
+          if (active) setSource({ uri: objectUrl });
+          else URL.revokeObjectURL(objectUrl);
+        } else if (active) setSource(value);
+      } catch (error) {
+        if (active) setFailed(imageFailureText(error));
+      }
+    })();
     return () => {
       active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [api, path]);
-  if (failed) return <View style={[style, { backgroundColor: t.soft, alignItems: 'center', justifyContent: 'center' }]}><Copy size={12} color={t.muted}>Unavailable</Copy></View>;
+  if (failed) return <View style={[style, { backgroundColor: t.soft, alignItems: 'center', justifyContent: 'center', padding: 6 }]}><Copy size={12} color={t.muted} style={{ textAlign: 'center' }}>{failed}</Copy></View>;
   if (!source) return <View style={[style, { backgroundColor: t.soft, alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicator color={t.muted} /></View>;
   return (
     <Image
       source={source}
-      onError={() => setFailed(true)}
+      onError={() => setFailed('Unavailable')}
       accessibilityIgnoresInvertColors
       style={[style, { transform: [{ rotate: `${rotation}deg` }] }]}
       resizeMode="cover"
@@ -132,7 +148,15 @@ export function ApprovalsScreen(ctx: ScreenContext) {
     }
   };
   const decideProposal = async (id: string, action: 'confirm' | 'reject') => {
-    const result = await ctx.run(() => api.decideProposal!(id, action), action === 'confirm' ? 'Confirmed. Every screen will update.' : 'Rejected. Nothing changed.');
+    const result = await ctx.run(async () => {
+      const decided = await api.decideProposal!(id, action);
+      if (decided.proposal.status === 'expired') {
+        // The schedule overtook the request: the server closed it without changing anything.
+        ctx.replace(decided.household);
+        throw new Error(decided.proposal.resultMessage || 'The schedule changed, so nothing was changed.');
+      }
+      return decided;
+    }, action === 'confirm' ? 'Confirmed. Every screen will update.' : 'Rejected. Nothing changed.');
     if (result) ctx.replace(result.household);
   };
   const nothing = !proposals.length && !checks.length && !rewards.length;
