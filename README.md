@@ -18,10 +18,6 @@ This README has the product, how to test it, how it's built, and the evidence. T
 testing, evals in detail, measurements, the permission matrix) are in [`docs/`](./docs), next to the
 [product feedback](./docs/PRODUCT_FEEDBACK.md) and the [friction log and feature requests](./docs/FRICTION_LOG.md).
 
-## Contents
-
-[Who it's for](#the-problem-and-who-its-for) · [What families said](#what-families-said) · [Measured](#measured-not-just-demoed) · [Why the TV](#why-the-tv) · [Testing it as a judge](#testing-it-as-a-judge) · [Screenshots](#screenshots) · [What it does](#what-it-does) · [Fire TV integration](#fire-tv-integration) · [Architecture](#architecture) · [AWS services](#aws-services-used) · [Safety](#safety-and-privacy) · [Evals](#evals) · [Honest scope](#honest-scope) · [Judging criteria](#how-hometide-maps-to-the-judging-criteria) · [Run it locally](#run-it-locally) · [Built during the hackathon](#built-during-the-hackathon) · [More detail](#product-feedback-friction-log-and-more-detail) · [License](#license)
-
 ## The problem, and who it's for
 
 **Who it's for:** two working parents with school-age kids, splitting pickups, practices and appointments between
@@ -99,12 +95,12 @@ Hometide uses that screen instead, with a phone app for parents and kids, and vo
 | Screen | 10" $149.99 · 15" $299.99 · 27" $569.99 | The Fire TV you already own |
 | Import, meals, rewards, photo screensaver | Calendar Plus, $79.99/year | Included |
 | AI assistant | $14.99/month or $119.99/year | Included: Amazon Bedrock, measured at about $0.13–$0.51 per household per month |
-| First year, 15" screen with Plus | $379.98 | $0 in new hardware |
+| First year, 15" screen with Plus | $379.98 | **$0: Hometide is free**, on the Fire TV you already own |
 
 Skylight prices as of 2026-09-29 ([models](https://myskylight.com/compare-calendars),
-[subscriptions](https://skylight.zendesk.com/hc/en-us/articles/51833126965019-Subscription)). Hometide has no price
-yet; the comparison covers hardware and subscriptions only, and a family without a Fire TV would need one (a Fire TV
-Stick costs far less than a Skylight screen).
+[subscriptions](https://skylight.zendesk.com/hc/en-us/articles/51833126965019-Subscription)). **Hometide is free:** no
+subscription, and we cover the AI cost. A family without a Fire TV would need one (a Fire TV Stick costs far less than
+a Skylight screen).
 
 ## Testing it as a judge
 
@@ -231,22 +227,25 @@ Launcher, transport controls for a show, DRM); the sample's declarations for tho
   [FR-2](./docs/FRICTION_LOG.md#fr-2--let-a-user-keep-a-dashboard-app-on-screen)).
 - **No timed notice over another app,** so a reminder can't appear over a show
   ([FR-1](./docs/FRICTION_LOG.md#fr-1--timed-household-notifications-during-other-apps-playback)).
-- **Vega-specific bugs found and fixed:** weekday labels from the Vega JavaScript engine
-  ([entry 10](./docs/FRICTION_LOG.md#entry-10--vega-js-engine-pads-weekday-only-date-labels)), a dead D-pad
-  ([entry 11](./docs/FRICTION_LOG.md#entry-11--remote-configured-after-the-first-render-left-the-d-pad-dead)) and
-  overlays without remote focus ([entry 13](./docs/FRICTION_LOG.md#entry-13--overlays-inside-a-screen-did-not-receive-remote-focus)).
 
 ### On a real Fire TV
 
-| | |
-|---|---|
-| Device | Fire TV Stick 4K Select, Vega OS 2.0, with the remote that came with it |
-| Build | Release `armv7` `.vpkg` (`com.hometide.tv`), sideloaded in Developer Mode; first installed 2026-10-03; [download v1.0.0](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) |
-| Demo path | **12 checks pass on the Stick**, filmed with the real remote: install and launch, QR pairing, calendar sync, the clash flagged on Home, a voice request confirmed on the TV, *Hometide noticed*, flyer import, an AI recipe, chore approval with stars, the wall calendar, its weather loop through Vega's media player, and the screensaver staying away |
-| Didn't work | Alexa from the Fire TV remote (the in-development skill wasn't reached) |
-| Not yet checked | Amazon's required device scenarios (exit and relaunch, reboot, HDMI, Bluetooth audio) and performance on the Stick |
-| Vega Virtual Device | A full remote-only regression on 2026-09-28: 12 problems found and fixed |
+A Fire TV Stick 4K Select with Vega OS 2.0 and its own remote, running the release `armv7` build
+([download v1.0.0](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0)), sideloaded in Developer Mode. Checked by filming the TV with a camera while using the
+real remote, with the phone app alongside.
 
+| On the Stick | Result | Evidence |
+|---|---|---|
+| Install and launch | Pass, 2026-10-03 | Install log |
+| QR pairing, then a connected calendar's events on the TV | Pass | Demo video, "Set up by scanning the TV" |
+| The Tuesday clash flagged on Home; a voice request confirmed with the remote | Pass | Demo video, "It spots the snags" and "Just ask" |
+| *Hometide noticed*: the routine accepted with one press, later weeks change | Pass | Demo video; photo above |
+| Flyer photo → event; chore photo → approval with the parent code → stars | Pass | Demo video, "Snap a flyer" and "Chores and rewards" |
+| Wall calendar with its weather loop through Vega's media player; the screensaver stays away | Pass, 2026-10-08 and 09 | Demo video, "A living wall"; [entry 14](./docs/FRICTION_LOG.md#entry-14--vega-os-cannot-keep-the-display-on-for-a-non-media-app) |
+| Alexa from the Fire TV remote | Didn't work: the in-development skill wasn't reached | — |
+| Amazon's device scenarios (exit and relaunch, reboot, HDMI, Bluetooth audio), launch time, memory | Not yet checked | — |
+
+Before the Stick, a remote-only regression on the Vega Virtual Device (2026-09-28) found and fixed 12 problems.
 Every row, with its evidence, is in [docs/DEVICE_TESTING.md](./docs/DEVICE_TESTING.md).
 
 ## Architecture
@@ -392,7 +391,7 @@ What is real today, and what isn't yet:
 |---|---|
 | Technical implementation | A native Vega OS app on a real Stick ([device test record](./docs/DEVICE_TESTING.md#fire-tv-device-test-record)); one write path with permissions and audit; a Strands agent on Bedrock over our MCP server (2025-11-25); AgentCore Memory; CDK with tests; 200+ API tests and [reproducible evals](#evals) |
 | Design and user experience | Remote-only screens with focus on the likely action, QR pairing, one voice → TV → remote → phone flow, the living wall calendar ([screenshots](#screenshots)) |
-| Potential impact | Most families with kids have two working parents ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)); $0 in new hardware against $380–$785 for a wall calendar's first year; AI at $0.13–$0.51 per household per month ([measurements](./docs/MEASUREMENTS.md#measurements)); three households tried it and both of their requests are built ([what families said](#what-families-said)) |
+| Potential impact | Most families with kids have two working parents ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)); free, with $0 in new hardware, against $380–$785 for a wall calendar's first year; AI at $0.13–$0.51 per household per month ([measurements](./docs/MEASUREMENTS.md#measurements)); three households tried it and both of their requests are built ([what families said](#what-families-said)) |
 | Quality of the idea | "Hometide noticed" learns routines from the family's own fixes and asks before changing anything; the rules' two Fire TV creative examples (adapts to household patterns; voice, D-pad and visuals in one flow) are both on screen |
 | Product feedback and AWS services (AWS Builder) | [Product feedback](./docs/PRODUCT_FEEDBACK.md) for each of the 10 tools, and [AWS services used](#aws-services-used) |
 | Friction log and feature requests | [21 entries and 2 feature requests](./docs/FRICTION_LOG.md), each in the full format |
