@@ -18,13 +18,13 @@ measured. The [product feedback](./docs/PRODUCT_FEEDBACK.md) for each tool and t
 
 ## Contents
 
-- [The problem, and who it's for](#the-problem-and-who-its-for) · [Measured, not just demoed](#measured-not-just-demoed) · [What families said](#what-families-said) and [fixes](#fixes-from-family-feedback) · [Why the TV](#why-the-tv)
+- [The problem, and who it's for](#the-problem-and-who-its-for) · [Measured, not just demoed](#measured-not-just-demoed) · [Why the TV](#why-the-tv)
 - [Testing it as a judge](#testing-it-as-a-judge) · [Screenshots](#screenshots) · [What it does](#what-it-does) · [Fire TV integration](#fire-tv-integration)
 - [Architecture](#architecture) (the learning loop, trust rules, [AWS services used](#aws-services-used)) · [Safety and privacy](#safety-and-privacy)
 - [Evals](#evals) · [Measurements](#measurements) · [Status and device testing](#status-and-device-testing) · [Honest scope](#honest-scope)
 - [How Hometide maps to the judging criteria](#how-hometide-maps-to-the-judging-criteria) · [Run it locally](#run-it-locally)
 - [Built during the hackathon](#built-during-the-hackathon) · [Repository map](#repository-map) · [Developing on Windows](#developing-on-windows-vega-sdk)
-- [Product feedback and friction log](#product-feedback-and-friction-log) · [References](#references) · [License](#license)
+- [Product feedback and friction log](#product-feedback-and-friction-log) · [References](#references) · [What families said, and the fixes](#what-families-said) · [License](#license)
 
 ## The problem, and who it's for
 
@@ -54,45 +54,6 @@ From [the evals](#evals), which anyone can rerun with one command:
   we then fixed.
 - AI costs about **$0.13–$0.51 per household per month**, from measured per-request costs
   ([measurements](#amazon-bedrock-tokens-and-cost-per-household)).
-
-## What families said
-
-Three households of family and friends (8 people) tried Hometide on 2026-10-15. Their words, lightly edited for
-spelling:
-
-| Household | People | What worked for them | What they asked for |
-|---|---|---|---|
-| Tammy family | 3 | "It's easy to keep track of what's going on, and the AI feature is nice for deconflicting schedules." | "I wish there was a way to set when idle mode happens, at least in the phone companion app." |
-| Johnny family | 4 | "The points and stars are a nice feature to encourage kids to do what they're supposed to do." | "Some kind of reminder or notification to tell us when an important appointment is coming up." |
-| Christian family | 1 | "The calendar is well designed, especially the dark mode. Snapping a picture of an event and having it show on the calendar is really useful, since it makes creating events way easier." | — |
-
-This is informal feedback from people we know, not a pilot with usage numbers. Both requests are now built:
-
-### Fixes from family feedback
-
-**1. Choose when the wall calendar starts** (the Tammy family). A parent picks it in the phone app under Family → TV:
-after 1, 5, 10 or 30 minutes without the remote, or off (it then opens only when someone chooses it). Every TV in the
-household picks up the change on its next sync, within a few seconds, and the TV's Settings screen says where to change it.
-
-<!-- Screenshot: the phone app's Family → TV screen with the two new settings -->
-![The phone app's Family → TV screen: "Wall calendar after" 1, 5, 10 or 30 minutes or Off, and "Reminder on the TV" 10, 15 or 30 minutes or Off](./docs/images/readme/feedback-phone-tv-settings.jpg)
-
-**2. A reminder before each event** (the Johnny family). While Hometide is on the TV, including the wall calendar, a
-card appears 15 minutes before each timed event (10 or 30 minutes, or off, in the same phone setting), once per event:
-what it is, when, who's on it and where.
-
-<!-- Screenshot: the reminder card on the TV (sample mode: Jordan's 2:45 PM dentist appointment at 2:30 PM) -->
-![A reminder on the TV: "In 15 minutes · Dentist · 2:45 PM · Jordan · Desert Dental"](./docs/images/readme/feedback-tv-reminder.jpg)
-
-Vega OS has no supported way for a household app to show a notice while another app is playing, so the reminder
-can't appear over a show ([FR-1](./docs/FRICTION_LOG.md#fr-1--timed-household-notifications-during-other-apps-playback));
-it appears whenever Hometide is open, which on a family's living-room TV is most of the day thanks to the wall calendar.
-
-How it's built: the setting is one more household change (`tvSettings`) through the same write path, parent-only in the
-[permission matrix](#permission-matrix), with tests in
-[`test_tv_settings.py`](./services/family-agent/tests/test_tv_settings.py); the TV picks the next due event in
-[`ReminderToast.tsx`](./packages/shared-ui/src/components/ReminderToast.tsx), tested in
-[`family-feedback.test.ts`](./apps/expo-multi-tv/__tests__/family-feedback.test.ts).
 
 ## Why the TV
 
@@ -987,6 +948,45 @@ Amazon documentation used for the Vega build (checked 2026-09-22):
 - [Unattended Vega SDK installation](https://developer.amazon.com/docs/vega/0.24/continuous-integration)
 - [Ubuntu autoinstall configuration](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html)
 - [VirtualBox Windows installation](https://docs.oracle.com/en/virtualization/virtualbox/7.2/user/installation.html)
+
+## What families said
+
+Three households of family and friends (8 people) tried Hometide on 2026-10-15. Their words, lightly edited for
+spelling:
+
+| Household | People | What worked for them | What they asked for |
+|---|---|---|---|
+| Tammy family | 3 | "It's easy to keep track of what's going on, and the AI feature is nice for deconflicting schedules." | "I wish there was a way to set when idle mode happens, at least in the phone companion app." |
+| Johnny family | 4 | "The points and stars are a nice feature to encourage kids to do what they're supposed to do." | "Some kind of reminder or notification to tell us when an important appointment is coming up." |
+| Christian family | 1 | "The calendar is well designed, especially the dark mode. Snapping a picture of an event and having it show on the calendar is really useful, since it makes creating events way easier." | — |
+
+This is informal feedback from people we know, not a pilot with usage numbers. Both requests are now built:
+
+### Fixes from family feedback
+
+**1. Choose when the wall calendar starts** (the Tammy family). A parent picks it in the phone app under Family → TV:
+after 1, 5, 10 or 30 minutes without the remote, or off (it then opens only when someone chooses it). Every TV in the
+household picks up the change on its next sync, within a few seconds, and the TV's Settings screen says where to change it.
+
+<!-- Screenshot: the phone app's Family → TV screen with the two new settings -->
+![The phone app's Family → TV screen: "Wall calendar after" 1, 5, 10 or 30 minutes or Off, and "Reminder on the TV" 10, 15 or 30 minutes or Off](./docs/images/readme/feedback-phone-tv-settings.jpg)
+
+**2. A reminder before each event** (the Johnny family). While Hometide is on the TV, including the wall calendar, a
+card appears 15 minutes before each timed event (10 or 30 minutes, or off, in the same phone setting), once per event:
+what it is, when, who's on it and where.
+
+<!-- Screenshot: the reminder card on the TV (sample mode: Jordan's 2:45 PM dentist appointment at 2:30 PM) -->
+![A reminder on the TV: "In 15 minutes · Dentist · 2:45 PM · Jordan · Desert Dental"](./docs/images/readme/feedback-tv-reminder.jpg)
+
+Vega OS has no supported way for a household app to show a notice while another app is playing, so the reminder
+can't appear over a show ([FR-1](./docs/FRICTION_LOG.md#fr-1--timed-household-notifications-during-other-apps-playback));
+it appears whenever Hometide is open, which on a family's living-room TV is most of the day thanks to the wall calendar.
+
+How it's built: the setting is one more household change (`tvSettings`) through the same write path, parent-only in the
+[permission matrix](#permission-matrix), with tests in
+[`test_tv_settings.py`](./services/family-agent/tests/test_tv_settings.py); the TV picks the next due event in
+[`ReminderToast.tsx`](./packages/shared-ui/src/components/ReminderToast.tsx), tested in
+[`family-feedback.test.ts`](./apps/expo-multi-tv/__tests__/family-feedback.test.ts).
 
 ## License
 
