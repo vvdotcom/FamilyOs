@@ -12,7 +12,7 @@ It catches the clash nobody spotted, learns from your fixes, and changes nothing
 
 Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track · AWS Builder mini-challenge
 
-[![CI](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml/badge.svg)](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml) [![runs on](https://img.shields.io/badge/runs%20on-Fire%20TV%20Stick%20%C2%B7%20Vega%20OS-2F7F7A)](#on-a-real-fire-tv) [![AI](https://img.shields.io/badge/AI-Amazon%20Bedrock%20%C2%B7%20Strands%20%C2%B7%20AgentCore-F2A65A)](#aws-services-used) [![evals](https://img.shields.io/badge/evals-reproducible-2F7F7A)](#evals) [![price](https://img.shields.io/badge/price-free-2F7F7A)](#why-the-tv) [![licence](https://img.shields.io/badge/licence-MIT-1D2B36)](./LICENSE)
+[![CI](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml/badge.svg)](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml) [![runs on](https://img.shields.io/badge/runs%20on-Fire%20TV%20Stick%20%C2%B7%20Vega%20OS-2F7F7A)](#on-a-real-fire-tv) [![AI](https://img.shields.io/badge/AI-Amazon%20Bedrock%20%C2%B7%20Strands%20%C2%B7%20AgentCore-F2A65A)](#aws-services-used) [![evals](https://img.shields.io/badge/evals-reproducible-2F7F7A)](#evals) [![price](https://img.shields.io/badge/price-free%20%C2%B7%20Premium%20%241.99%2Fmo-2F7F7A)](#why-the-tv) [![licence](https://img.shields.io/badge/licence-MIT-1D2B36)](./LICENSE)
 
 [▶️ Demo video (2:57)](https://www.youtube.com/watch?v=3_nuN0lfFT0) · [Live demo](https://hometide.up.railway.app/app/) · [Install on a Fire TV](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) · [Test it as a judge](#testing-it-as-a-judge) · [What families said](#what-families-said) · [On a real Fire TV](#on-a-real-fire-tv) · [Evals](#evals) · [Run it locally](#run-it-locally) · [Honest scope](#honest-scope)
 
@@ -24,7 +24,7 @@ Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track �
 
 - **Live demo:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/), with a demo family's week already loaded (judge login on the Devpost form).
 - **Install it on a Fire TV:** [hometide_armv7.vpkg](https://github.com/vvdotcom/FamilyOs/releases/download/v1.0.0/hometide_armv7.vpkg) from the [v1.0.0 release](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0), for a Fire TV Stick on Vega OS, sideloaded in Developer Mode ([install steps](./docs/DEVELOPMENT.md#install-the-release-build)).
-- **Tried by real families:** three households of family and friends (8 people) tried Hometide on 2026-10-15, and both of the things they asked for are now built. [What they said, and the fixes](#what-families-said).
+- **Tried by real families:** three households of family and friends (8 people) tried Hometide on 2026-10-15, both of their requests are now built, and two of the households now use it on their own calendars. [What they said, and the fixes](#what-families-said).
 
 ## The problem, and who it's for
 
@@ -34,7 +34,16 @@ so a phone or a voice proposes it, and a parent confirms it on the shared screen
 
 **Who it's for:** two working parents with school-age kids, splitting pickups, practices and appointments between
 them. That's most families with kids: in 2025, both parents had jobs in 66.3% of U.S. married-couple families with
-children under 18 ([U.S. Bureau of Labor Statistics](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)).
+children under 18 ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)). The clashes cost them: about 1 in 3 parents of school-age kids have
+missed work over getting them to and from school (4 in 10 in homes earning under $100k), and 11% say it cost them a
+job ([AP-NORC with HopSkipDrive, 2025](https://apnorc.org/projects/2025-state-of-school-transportation/)). Parents spend 30.4
+hours a week coordinating schedules and household tasks, and 61% say it cut their time with their partner
+([The Harris Poll for Skylight, 2024](https://myskylight.com/mental-load-report/); paid for by Skylight, the product
+we compare against below). The clash Hometide catches is the one that costs a parent a missed shift.
+
+**Who else it serves:** the same loop (spot the clash, propose a fix, a parent says yes) fits co-parents in two
+homes swapping custody days, families caring for a grandparent (appointments, pharmacy pickups), and shift-working
+parents whose schedules change every week. That's where Hometide goes next.
 
 **A week with the Rivera family** (the demo family a judge can open): every Tuesday and Thursday, Jordan's team
 meeting runs from 2:45 to 4:00, and it's Jordan's turn to pick up Emma (9) from school at 3:15. Nobody has spotted
@@ -63,7 +72,8 @@ spelling:
 | Johnny family | 4 | "The points and stars are a nice feature to encourage kids to do what they're supposed to do." | "Some kind of reminder or notification to tell us when an important appointment is coming up." |
 | Christian family | 1 | "The calendar is well designed, especially the dark mode. Snapping a picture of an event and having it show on the calendar is really useful, since it makes creating events way easier." | — |
 
-This is informal feedback from people we know, not a pilot with usage numbers. Both requests are now built:
+This is informal feedback from people we know. Two of these households now use Hometide on their own synced
+calendars. Both requests are now built:
 
 ### Fixes from family feedback
 
@@ -76,7 +86,7 @@ This is informal feedback from people we know, not a pilot with usage numbers. B
 
 | | |
 |---|---|
-| ![The phone app's Family → TV screen: "Wall calendar after" 1, 5, 10 or 30 minutes or Off, and "Reminder on the TV" 10, 15 or 30 minutes or Off](./docs/images/readme/feedback-phone-tv-settings.jpg) | ![A reminder on the TV: "In 15 minutes · Dentist · 2:45 PM · Jordan · Desert Dental"](./docs/images/readme/feedback-tv-reminder.jpg) |
+| ![The phone app's Family → TV screen with the wall calendar and reminder settings](./docs/images/readme/feedback-phone-tv-settings.jpg) | ![A reminder card on the TV, 15 minutes before a dentist appointment](./docs/images/readme/feedback-tv-reminder.jpg) |
 | The new setting in the phone app | The reminder card on the TV |
 
 Both go through the same parent-only write path, with tests in
@@ -92,26 +102,29 @@ From [the evals](#evals), which anyone can rerun with one command:
 - **64 of 64** voice requests waited for a parent's yes, and **600 of 600** random tool calls with hostile arguments
   changed nothing. The model proposes; Hometide's code checks; a parent decides.
 - AI costs about **$0.13–$0.51 per household per month**, from measured per-request costs
-  ([measurements](./docs/MEASUREMENTS.md#amazon-bedrock-tokens-and-cost-per-household)).
+  ([measurements](./docs/MEASUREMENTS.md#amazon-bedrock-tokens-and-cost-per-household)); Premium's planned $1.99 a month
+  covers that 4 to 15 times.
 
 ## Why the TV
 
-Smart family calendars like Skylight cost $150–$570 for the screen, plus $79.99 a year for meal planning, rewards,
-and Magic Import, and $14.99 a month for the AI assistant. Most families already have a large screen in the living
+Smart family calendars like Skylight need their own screen and subscriptions (below). Most families already have a large screen in the living
 room: Amazon has sold [more than 250 million Fire TV devices](https://www.tvtechnology.com/news/amazon-passes-250-million-fire-devices-sold-expands-fire-tv-lineup).
 Hometide uses that screen instead, with a phone app for parents and kids, and voice through the same app.
 
 | | Skylight Calendar | Hometide |
 |---|---|---|
 | Screen | 10" $149.99 · 15" $299.99 · 27" $569.99 | The Fire TV you already own |
-| Import, meals, rewards, photo screensaver | Calendar Plus, $79.99/year | Included |
-| AI assistant | $14.99/month or $119.99/year | Included: Amazon Bedrock, measured at about $0.13–$0.51 per household per month |
-| First year, 15" screen with Plus | $379.98 | **$0: Hometide is free**, on the Fire TV you already own |
+| Import, meals, rewards, photo screensaver | Calendar Plus, $79.99/year | Chores and rewards free; the rest in Premium |
+| AI assistant | $14.99/month or $119.99/year | In Premium: Amazon Bedrock, measured at about $0.13–$0.51 per household per month |
+| First year, 15" screen with Plus | $379.98 | **$0** on Free, **$23.88** with Premium, on the Fire TV you already own |
 
 Skylight prices as of 2026-09-29 ([models](https://myskylight.com/compare-calendars),
-[subscriptions](https://skylight.zendesk.com/hc/en-us/articles/51833126965019-Subscription)). **Hometide is free:** no
-subscription, and we cover the AI cost. A family without a Fire TV would need one (a Fire TV Stick costs far less than
-a Skylight screen).
+[subscriptions](https://skylight.zendesk.com/hc/en-us/articles/51833126965019-Subscription)). **Pricing:** in the Amazon Appstore
+(submitting the week of 19 Oct 2026), **Free** is the calendar, to-do lists, chores and rewards, no AI; **Premium**
+adds every AI feature for $1.99 a month, and households on a low income can apply for free Premium with proof of
+income. Only Premium uses AI, and $1.99 is 4 to 15 times its measured cost: at 10,000 Premium households, AI costs
+about $1,300–$5,100 a month against up to $19,900 in subscriptions. A family without a Fire TV would need a Stick, still far
+cheaper than a Skylight screen.
 
 ## Testing it as a judge
 
@@ -134,7 +147,7 @@ The quickest way is the hosted demo family; nothing to install.
    and its ingredients go to Groceries.
 7. **Try what families asked for:** in the web app, Family → TV → **On the TV**, set "Wall calendar after" to
    **1 min**; leave the TV alone for a minute and the wall calendar appears. A reminder card shows on the TV 15
-   minutes before each event (see [Fixes from family feedback](#fixes-from-family-feedback)).
+   minutes before each event.
 8. **Check our numbers:** with the API's Python environment from [Run it locally](#run-it-locally), run
    `python eval/run_agent_evals.py` in `services/family-agent`. It needs no AWS account and prints the numbers in
    [Evals](#evals) in about 40 seconds.
@@ -149,9 +162,9 @@ Filmed with a camera on a Fire TV Stick running Vega OS, with the real remote (n
 
 | | |
 |---|---|
-| ![TV home screen: an AI family briefing flags a pickup conflict, with today's timeline and who is free](./docs/images/readme/tv-home.jpg) | ![TV week calendar: every family member's events for the week, color-coded by person](./docs/images/readme/tv-week.jpg) |
+| ![TV home screen flagging a pickup conflict](./docs/images/readme/tv-home.jpg) | ![TV week calendar, color-coded by person](./docs/images/readme/tv-week.jpg) |
 | **Home:** the family briefing (Amazon Bedrock) spots the pickup conflict, with today's timeline, who's free and when to leave | **Calendar:** the whole week from every connected calendar, color-coded by person |
-| ![Hometide noticed: the TV offers to make Lindsey the usual Emma pickup on Tuesdays and Thursdays](./docs/images/readme/tv-hometide-noticed.jpg) | ![Chore photo approval on the TV: a child's photo of a backpack with an advisory AI check and Approve button](./docs/images/readme/tv-chore-approval.jpg) |
+| ![Hometide noticed: the TV offers to make Lindsey the usual Emma pickup on Tuesdays and Thursdays](./docs/images/readme/tv-hometide-noticed.jpg) | ![Chore photo approval on the TV](./docs/images/readme/tv-chore-approval.jpg) |
 | **Hometide noticed:** a clash the family keeps fixing by hand becomes a one-press routine | **Chore approval:** a child's proof photo pops up on the TV; the AI check is advice, a parent decides |
 
 ### The companion app (web app shown; the same code builds the iOS app)
@@ -187,10 +200,8 @@ Filmed with a camera on a Fire TV Stick running Vega OS, with the real remote (n
 **By voice**
 - Tap the mic in the phone or web app and ask; any change waits for a parent to confirm on the TV or phone. The demo
   video plays a real request spoken into the phone app.
-- The voice agent runs on the Strands Agents SDK and Amazon Bedrock, using the tools of our MCP server (Streamable
-  HTTP, protocol 2025-11-25), which other MCP hosts can use too. An Alexa skill ("home tide") reaches the same agent:
-  it works in the Alexa developer console's simulator, but on our Stick the remote's Alexa button didn't reach the
-  in-development skill.
+- The voice agent runs on the Strands Agents SDK and Amazon Bedrock over our MCP server (Streamable HTTP,
+  2025-11-25). An Alexa skill ("home tide") reaches the same agent in the simulator ([limits](#honest-scope)).
 
 Every feature in more detail: [docs/FEATURES.md](./docs/FEATURES.md).
 
@@ -208,9 +219,9 @@ open to any MCP host:
 | `get_reward_balance` | Star balance for a child, or every child | No |
 | `get_weather` | Today's weather where the family lives | No |
 | `show_on_tv` | Switches the family's TV to a screen (home, calendar, chores, meals, lists, photos, family night) | Only what the TV shows |
-| `propose_pickup_swap` | Proposes a different adult for a pickup or drive | No: creates a request a parent confirms |
-| `propose_event` | Proposes a new calendar event | No: creates a request a parent confirms |
-| `propose_reschedule` | Proposes moving an event to a new time | No: creates a request a parent confirms |
+| `propose_pickup_swap` | Proposes a different adult for a pickup or drive | No: a parent confirms it |
+| `propose_event` | Proposes a new calendar event | No: a parent confirms it |
+| `propose_reschedule` | Proposes moving an event to a new time | No: a parent confirms it |
 | `mark_chore_done_request` | Tells the family a chore is finished | No: a family member confirms; stars follow the family's rules |
 
 ## Fire TV integration
@@ -228,10 +239,10 @@ physical Fire TV Stick 4K Select ([on a real Fire TV](#on-a-real-fire-tv)).
 | Accessibility settings (`com.amazon.devconf.privilege.accessibility`) | Reads the system reduce-motion setting for celebrations, focus animation and movement breaks. Buttons, the pairing QR code and the wall calendar have screen-reader labels | [`useReducedMotion.ts`](./packages/shared-ui/src/hooks/useReducedMotion.ts) |
 | Vega ports of React Navigation, AsyncStorage, Gesture Handler and Reanimated | Screen navigation, and a TV that keeps its pairing, theme and offline household across restarts | [`apps/vega/src`](./apps/vega/src), [`nativeStore.vega.ts`](./packages/shared-ui/src/storage/nativeStore.vega.ts) |
 | Vega media player (`@amazon-devices/react-native-w3cmedia`: `VideoPlayer` on a `KeplerVideoSurfaceView`) | The wall calendar's weather landscapes: muted 8-second 1080p loops, decoded by the Stick's video hardware so they stay smooth, with a bundled poster until the first frame and when reduce-motion is on | [`WeatherScene.vega.tsx`](./packages/shared-ui/src/components/WeatherScene.vega.tsx), [`brand/wall-scenes`](./brand/wall-scenes) |
-| Voice to the TV | A voice request (from the phone app's mic, or the "home tide" Alexa skill in the simulator) goes through Hometide's MCP server, and the TV picks up the result: it opens the calendar, or shows the change to confirm with focus already on Confirm. Alexa from the Fire TV remote itself didn't reach the in-development skill on our Stick | [`alexa-skill`](./alexa-skill), [`services/family-agent`](./services/family-agent) |
+| Voice to the TV | A voice request (from the phone app's mic, or the "home tide" Alexa skill in the simulator) goes through Hometide's MCP server, and the TV picks up the result: it opens the calendar, or shows the change to confirm with focus already on Confirm | [`alexa-skill`](./alexa-skill), [`services/family-agent`](./services/family-agent) |
 
-Hometide's only media is its own artwork, so it doesn't use the features made for streaming services (Content
-Launcher, transport controls for a show, DRM); the sample's declarations for those were removed from the manifest.
+Hometide plays only its own artwork, so streaming features (Content Launcher, DRM) aren't used; the sample's
+declarations for them were removed.
 
 **Platform gaps we hit** (each in the [friction log](./docs/FRICTION_LOG.md)):
 - **The screen couldn't stay on** for an app that isn't playing media. The wall now plays its weather loop through
@@ -263,7 +274,7 @@ Every row, with its evidence, is in [docs/DEVICE_TESTING.md](./docs/DEVICE_TESTI
 
 ## Architecture
 
-![Hometide architecture: the Fire TV app, the phone and web app, and voice talk to one Hometide service (FastAPI on Railway with Postgres and an MCP server), which calls Amazon Bedrock (Nova), AgentCore Memory and Cognito in AWS, set up with the AWS CDK](./docs/images/architecture-overview.png)
+![Hometide architecture: the TV, phone and voice talk to one service, which calls Amazon Bedrock, AgentCore Memory and Cognito](./docs/images/architecture-overview.png)
 
 - **Clients:** the Fire TV app (Vega OS, React Native), the companion app (Expo: web and iOS) and voice (the app's mic,
   or Alexa through the MCP server). Clients never talk to AWS directly and hold no AWS credentials.
@@ -278,7 +289,7 @@ Every row, with its evidence, is in [docs/DEVICE_TESTING.md](./docs/DEVICE_TESTI
 <details>
 <summary>The TV app's layers on Vega OS, and the detailed request-flow diagram</summary>
 
-![Hometide on Vega OS: app, shared TV code, React Native for Vega, Vega OS services, Fire TV device](./docs/images/vega-architecture.png)
+![Hometide's layers on Vega OS](./docs/images/vega-architecture.png)
 
 ![Hometide architecture in AWS style, with the numbered request flow](./docs/images/architecture.png)
 
@@ -388,8 +399,8 @@ What is real today, and what isn't yet:
   the routines the family confirmed still live in the household's own record, and "what has Hometide learned" reads
   them from there.
 - **Families:** three households of family and friends (8 people) tried it on 2026-10-15 and gave the
-  [feedback above](#what-families-said). That's informal feedback, not a pilot with usage numbers, and there's no
-  hallway test with timings.
+  [feedback above](#what-families-said). That's informal feedback. Two households now use it on their own
+  calendars, and we don't have their usage numbers yet. There's no hallway test with timings.
 - **The evals use generated households**, not real families' calendars (see [known limits](./docs/EVALS.md#known-limits)).
 
 ## How Hometide maps to the judging criteria
@@ -398,7 +409,7 @@ What is real today, and what isn't yet:
 |---|---|
 | Technical implementation | A native Vega OS app on a real Stick ([device test record](./docs/DEVICE_TESTING.md#fire-tv-device-test-record)); one write path with permissions and audit; a Strands agent on Bedrock over our MCP server (2025-11-25); AgentCore Memory; CDK with tests; 200+ API tests and [reproducible evals](#evals) |
 | Design and user experience | Remote-only screens with focus on the likely action, QR pairing, one voice → TV → remote → phone flow, the living wall calendar ([screenshots](#screenshots)) |
-| Potential impact | Most families with kids have two working parents ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)); free, with $0 in new hardware, against $380–$785 for a wall calendar's first year; AI at $0.13–$0.51 per household per month ([measurements](./docs/MEASUREMENTS.md#measurements)); three households tried it and both of their requests are built ([what families said](#what-families-said)) |
+| Potential impact | Most families with kids have two working parents, and 1 in 3 parents have missed work over school pickups ([sources](#the-problem-and-who-its-for)); next: co-parents, caregivers, shift workers; a free calendar, to-dos and chores, Premium with AI at $1.99 a month (free on a low income), $0 in new hardware, against $380–$785 for a wall calendar's first year; AI at $0.13–$0.51 per household per month ([measurements](./docs/MEASUREMENTS.md#measurements)); three households tried it, both requests are built, and two use it on their own calendars ([what families said](#what-families-said)) |
 | Quality of the idea | "Hometide noticed" learns routines from the family's own fixes and asks before changing anything. Of the rules' Fire TV creative examples, voice, D-pad and visuals in one flow is on screen as-is; the other applies household patterns to viewing, and Hometide applies them to the family's week on the shared TV |
 | Product feedback and AWS services (AWS Builder) | [Product feedback](./docs/PRODUCT_FEEDBACK.md) for each of the 10 tools, and [AWS services used](#aws-services-used) |
 | Friction log and feature requests | [21 entries and 2 feature requests](./docs/FRICTION_LOG.md), each in the full format |
@@ -463,12 +474,7 @@ the demo family in memory and resets it on restart.
 **AI features without AWS:** with no Bedrock settings, every flow still works through deterministic stand-ins; to
 turn Amazon Bedrock on, see [AI features with or without AWS](./docs/DEVELOPMENT.md#ai-features-with-or-without-aws).
 
-**Run the tests**
-
-```bash
-npx -y corepack@0.34.0 yarn test                 # TV app tests (Fire OS / web build and Vega)
-cd services/family-agent && python -m pytest     # API tests (with the virtual environment active)
-```
+**Tests:** `npx -y corepack@0.34.0 yarn test` from the root (TV app), and `python -m pytest` in `services/family-agent` (API).
 
 **On a Fire TV:** see [Running it on a Fire TV](./docs/DEVELOPMENT.md#running-it-on-a-fire-tv). A browser run is not
 Fire TV validation; the device results are in [docs/DEVICE_TESTING.md](./docs/DEVICE_TESTING.md).
@@ -489,12 +495,10 @@ Everything else was built for this project:
 
 ## Product feedback, friction log and more detail
 
-- [Product feedback](./docs/PRODUCT_FEEDBACK.md): what we used, what worked and what needs work for each of the
-  10 Amazon and AWS tools behind Hometide (the same text is in the Devpost form), and how AWS services are used.
-- [Friction log and feature requests](./docs/FRICTION_LOG.md): 21 entries and 2 feature requests, each with the task,
-  steps, expected and actual results, severity, workaround and suggested improvement.
-- [Device testing](./docs/DEVICE_TESTING.md): the status of every part, the Fire TV Stick test record, and the Vega
-  Virtual Device regression with the 12 problems it found.
+- [Product feedback](./docs/PRODUCT_FEEDBACK.md): what worked and what needs work for each of the 10 Amazon and
+  AWS tools behind Hometide (also in the Devpost form).
+- [Friction log and feature requests](./docs/FRICTION_LOG.md): 21 entries and 2 feature requests, in the full format.
+- [Device testing](./docs/DEVICE_TESTING.md): the Fire TV Stick test record and the Vega Virtual Device regression.
 - [Every feature in detail](./docs/FEATURES.md).
 - [Evals in detail](./docs/EVALS.md): how each part is scored, and the known limits.
 - [Measurements](./docs/MEASUREMENTS.md): AI tokens and cost per household, phone-to-TV speed, calendar sync.
