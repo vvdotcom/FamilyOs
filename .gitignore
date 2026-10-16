@@ -63,3 +63,6 @@ Video/
 
 # Local scratch
 _to_delete/
+
+# Maintainers' working notes (Devpost draft, Appstore kit, deployment and setup guides), kept out of the repository
+/_notes/

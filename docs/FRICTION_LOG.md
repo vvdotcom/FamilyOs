@@ -8,7 +8,7 @@ development, so older entries use that name.
 Date: 2026-09-22  
 Tool/API: Amazon React Native multi-TV sample  
 Task attempted: Establish the official FamilyOS starter baseline.  
-Steps: Compared our build specification (`docs/process/build-spec.md`) against the current default branch and current Vega 0.24 docs.  
+Steps: Compared our build specification against the current default branch and current Vega 0.24 docs.  
 Expected: Starter commands and manifest would already align with current Vega naming and
 requirements.  
 Actual: The starter still uses `build-kepler` naming and did not declare the SDK 0.24
@@ -18,7 +18,7 @@ Workaround: Preserve starter build commands, add OS 1.2 manifest targeting, and 
 `vega` commands only in orchestration scripts.  
 Suggested improvement: Update the sample manifest and README when the supported SDK changes.  
 Evidence/log: `apps/vega/package.json`, `apps/vega/manifest.toml`, and
-`docs/REFERENCES.md`.
+[the README's references](../README.md#references).
 
 ## Entry 2 — Builder Tools `init-context` ignores the output path in Other/Custom mode
 
@@ -33,7 +33,7 @@ Actual: Other/Custom mode printed the context instead of saving it, installed Am
 device skills under the user-level `.agents/skills` directory, and reported Codex context
 and MCP as unconfigured.  
 Severity: Medium  
-Workaround: Keep current Amazon docs in `docs/REFERENCES.md`; rerun configuration in the
+Workaround: Keep current Amazon docs in [the README's references](../README.md#references); rerun configuration in the
 supported Ubuntu environment when Vega installation proceeds.  
 Suggested improvement: Honor the context output path in Other/Custom mode and make global
 skill installation separately opt-in.  
@@ -208,7 +208,7 @@ Workaround: Derive the label from `getUTCDay()` with a fixed `SUN`–`SAT` table
 `FamilyCalendarScreen.tsx`).  
 Suggested improvement: Follow ECMA-402 `ToDateTimeOptions` (a `weekday` option alone must not add
 year, month, and day), or document the difference.  
-Evidence/log: VVD screenshots from the 2026-09-28 regression; `docs/VEGA_VVD_TEST_REPORT.md`.
+Evidence/log: VVD screenshots from the 2026-09-28 regression; [the VVD regression in the README](../README.md#vega-virtual-device-regression-2026-09-28).
 
 ## Entry 11 — Remote configured after the first render left the D-pad dead
 
@@ -244,7 +244,7 @@ Severity: Medium
 Workaround: `vega device run-cmd -c "inputd-cli button_press KEY_<NAME>"` for keys and ImageMagick
 `import` of the VVD window for 960x540 captures.  
 Suggested improvement: Add `vega device send-key` and `vega device screenshot` commands and document them.  
-Evidence/log: `docs/VEGA_VVD_TEST_REPORT.md`.
+Evidence/log: [the VVD regression in the README](../README.md#vega-virtual-device-regression-2026-09-28).
 
 ## Entry 13 — Overlays inside a screen did not receive remote focus
 
@@ -260,7 +260,7 @@ Severity: High
 Workaround: `ModalFocusRoot` locks the page's navigation with `useLockSpatialNavigation` and gives the
 overlay its own root (the same pattern as the Lists and Meals editor).  
 Suggested improvement: A documented modal or focus-trap primitive in the library.  
-Evidence/log: `docs/VEGA_VVD_TEST_REPORT.md`.
+Evidence/log: [the VVD regression in the README](../README.md#vega-virtual-device-regression-2026-09-28).
 
 ## Entry 14 — Vega OS cannot keep the display on for a non-media app
 
@@ -342,7 +342,7 @@ Actual: The build only starts after a confirmation dialog; when it was missed, t
 Severity: Low  
 Workaround: Confirm the dialog and wait for the "Build successful" status before testing.  
 Suggested improvement: Start the build from the first click, or show "model not built" in the simulator.  
-Evidence/log: `docs/ALEXA_SETUP.md`.
+Evidence/log: the skill package in [`alexa-skill`](../alexa-skill).
 
 ## Entry 19 — Alexa+ answers "ask home tide what's on today" from its own empty calendar
 

@@ -99,15 +99,14 @@ authorization-code + PKCE flow, validates Cognito ID tokens, and stores househol
 snapshots and hashed FamilyOS sessions in Railway PostgreSQL. Production fails closed
 unless `FAMILYOS_AUTH_MODE=cognito`, `FAMILYOS_DEMO_MODE=false`, secure cookies, Cognito
 issuer/client ID, and `DATABASE_URL` are configured. Local demo auth, reset, and email-code
-routes are unavailable in production. See
-[`docs/RAILWAY_DEPLOYMENT.md`](../../docs/RAILWAY_DEPLOYMENT.md) for the AWS identifiers,
-Railway variables, callback URL, deployment process, and remaining end-to-end checks.
+routes are unavailable in production. The AWS identifiers and Railway variables are kept with the
+maintainers' deployment notes, outside this repository.
 
 ## Phases 7-14 additions
 
 Every household write goes through one path (`app/service.py`): the actor (parent, child profile, paired TV,
 TV unlocked with the parent code, or voice) is authorized against the Phase 9 matrix
-([`docs/PERMISSIONS.md`](../../docs/PERMISSIONS.md)), the change is applied with the revision check, and an audit
+([permission matrix](../../README.md#permission-matrix)), the change is applied with the revision check, and an audit
 entry records who made it. Code-protected steps (reward approval, star corrections, chore-photo approval) are only
 reachable through their own endpoints; the generic `/v1/companion/edit` route rejects them.
 
@@ -174,7 +173,7 @@ python eval/measure_bedrock_cost.py      # real Bedrock token usage per feature 
 python eval/measure_sync_latency.py      # phone-to-TV latency (needs this API and `yarn dev:web` running, plus Playwright)
 ```
 
-Results and the per-household cost estimate are in [`docs/MEASUREMENTS.md`](../../docs/MEASUREMENTS.md).
+Results and the per-household cost estimate are in the [root README](../../README.md#measurements).
 
 ### Voice (MCP) quick test
 
@@ -183,7 +182,7 @@ client at `http://127.0.0.1:8787/mcp` with `Authorization: Bearer <token>`. Tool
 `list_conflicts`, `get_member_schedule`, `get_chores`, `get_reward_balance`, `propose_pickup_swap`,
 `propose_event`, `propose_reschedule`, `mark_chore_done_request`. Proposal tools only create a pending request;
 it is applied once, after someone confirms on the TV or phone. Live Alexa+ linking needs a public HTTPS URL and
-an OAuth 2.1 authorization server; see `docs/FRICTION_LOG.md` entry 8.
+an OAuth 2.1 authorization server; see [friction log entry 8](../../docs/FRICTION_LOG.md#entry-8--alexa-mcp-account-linking-needs-a-full-oauth-21-authorization-server).
 
 ### Chore photo evaluation (Phase 13)
 

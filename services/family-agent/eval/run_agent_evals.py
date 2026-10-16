@@ -6,7 +6,7 @@
                                                       # voice requests the rules can't resolve go to Nova on Bedrock
 
 Nothing here calls AWS unless asked to. Every household is generated from a fixed seed, so a rerun gives the same
-numbers. Results are written to eval/results/agent_evals.json and summarized in docs/EVALS.md.
+numbers. Results are written to eval/results/agent_evals.json and summarized in the Evals section of README.md.
 
 What "correct" means is strict on purpose:
 * voice: the request became exactly the proposal a parent would expect (right kind, right event or chore, right

@@ -63,8 +63,8 @@ server, stop it with Ctrl+C and run `npx.cmd -y corepack@0.34.0 yarn dev:compani
 ## Web app (iPhone, Android, desktop browsers)
 
 The same app also builds for the browser: `yarn build:web-app` writes it to
-`services/family-agent/app/webapp`, and the API serves it at `/app` on its own origin. See
-[docs/WEB_APP.md](../../docs/WEB_APP.md) for deployment, sessions, and what differs from the phone.
+`services/family-agent/app/webapp`, and the API serves it at `/app` on its own origin. The hosted copy is at
+[hometide.up.railway.app/app](https://hometide.up.railway.app/app/); see the [root README](../../README.md#run-it-locally) to run it locally.
 
 ## Local API setup
 
