@@ -9,7 +9,8 @@ Built for the Build, Ship, Shape: Amazon Developer Hackathon (Fire TV track, plu
 ![Hometide running on a real Fire TV, with the companion web app on a phone](./docs/images/readme/hero.jpg)
 
 - **Demo video (2:57):** https://www.youtube.com/watch?v=3_nuN0lfFT0
-- **Try it now:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) (judge login on the Devpost form). See [Testing it as a judge](#testing-it-as-a-judge).
+- **Live demo:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/), with a demo family's week already loaded (judge login on the Devpost form). See [Testing it as a judge](#testing-it-as-a-judge).
+- **Tried by real families:** three households of family and friends (8 people) tried Hometide on 2026-10-15, and both of the things they asked for are now built. [What they said, and the fixes](#what-families-said).
 - **Run it on your own computer:** [Run it locally](#run-it-locally), about 10 minutes, no AWS account needed.
 
 Everything a judge needs is in this README: the product, how to test it, how it's built, and how it was tested and
@@ -31,6 +32,13 @@ measured. The [product feedback](./docs/PRODUCT_FEEDBACK.md) for each tool and t
 **Who it's for:** two working parents with school-age kids, splitting pickups, practices and appointments between
 them. That's most families with kids: in 2025, both parents had jobs in 66.3% of U.S. married-couple families with
 children under 18 ([U.S. Bureau of Labor Statistics](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)).
+
+**A week with the Rivera family** (the demo family a judge can open): every Tuesday and Thursday, Jordan's team
+meeting runs from 2:45 to 4:00, and it's Jordan's turn to pick up Emma (9) from school at 3:15. Nobody has spotted
+the overlap. On the living-room TV, the family briefing flags it and says Lindsey is free. Lindsey says "Swap
+Tuesday's Emma pickup to Lindsey" into the phone, and the swap waits on the TV until a parent confirms it with the
+remote. Because the same clash comes back every week, the TV then says *Hometide noticed*: make Lindsey the usual
+Tuesday and Thursday pickup? One press fixes every later week, and Hometide remembers the answer.
 
 Hometide turns the Fire TV in the living room into the household's command center. It catches the clash nobody
 spotted (Jordan's meeting runs into Emma's pickup) and says who is free. The fix can come by voice, remote or
@@ -165,6 +173,25 @@ Filmed with a camera on a Fire TV Stick running Vega OS, with the real remote (n
   (Streamable HTTP, protocol 2025-11-25), which other MCP hosts can also use (Alexa+ access for MCP servers wasn't
   open to us yet); hosts with MCP Apps get a day card. Voice can only *suggest* changes: nothing changes until a
   person confirms on the TV or phone.
+
+**The 13 tools our MCP server defines** (`services/family-agent/app/voice.py`), used by the Strands voice agent and
+open to any MCP host:
+
+| Tool | What it does | Changes anything? |
+|---|---|---|
+| `get_today` | What's happening today or on a given day: events, conflicts, sports reminders, family night | No |
+| `get_week` | The family's week, day by day | No |
+| `get_member_schedule` | One family member's schedule for a day | No |
+| `list_conflicts` | Clashes to resolve, like double-booked drivers or tight travel time | No |
+| `get_learned_routines` | Routines Hometide learned and the family confirmed | No |
+| `get_chores` | Chores still to do, for everyone or one person | No |
+| `get_reward_balance` | Star balance for a child, or every child | No |
+| `get_weather` | Today's weather where the family lives | No |
+| `show_on_tv` | Switches the family's TV to a screen (home, calendar, chores, meals, lists, photos, family night) | Only what the TV shows |
+| `propose_pickup_swap` | Proposes a different adult for a pickup or drive | No: creates a request a parent confirms |
+| `propose_event` | Proposes a new calendar event | No: creates a request a parent confirms |
+| `propose_reschedule` | Proposes moving an event to a new time | No: creates a request a parent confirms |
+| `mark_chore_done_request` | Tells the family a chore is finished | No: a family member confirms; stars follow the family's rules |
 
 ## Fire TV integration
 
