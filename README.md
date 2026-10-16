@@ -22,11 +22,15 @@ Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track �
 
 </div>
 
-- **Live demo:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/), with a demo family's week already loaded (judge login on the Devpost form). See [Testing it as a judge](#testing-it-as-a-judge).
+- **Live demo:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/), with a demo family's week already loaded (judge login on the Devpost form).
 - **Install it on a Fire TV:** [hometide_armv7.vpkg](https://github.com/vvdotcom/FamilyOs/releases/download/v1.0.0/hometide_armv7.vpkg) from the [v1.0.0 release](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0), for a Fire TV Stick on Vega OS, sideloaded in Developer Mode ([install steps](./docs/DEVELOPMENT.md#install-the-release-build)).
 - **Tried by real families:** three households of family and friends (8 people) tried Hometide on 2026-10-15, and both of the things they asked for are now built. [What they said, and the fixes](#what-families-said).
 
 ## The problem, and who it's for
+
+**What Hometide is:** a household agent that learns how your family actually runs, and the living-room TV is where
+the family says yes. Calendars are what it reads, not what it is. A change to the week affects everyone in the house,
+so a phone or a voice proposes it, and a parent confirms it on the shared screen everyone can see (or on their phone).
 
 **Who it's for:** two working parents with school-age kids, splitting pickups, practices and appointments between
 them. That's most families with kids: in 2025, both parents had jobs in 66.3% of U.S. married-couple families with
@@ -39,13 +43,14 @@ Tuesday's Emma pickup to Lindsey" into the phone, and the swap waits on the TV u
 remote. Because the same clash comes back every week, the TV then says *Hometide noticed*: make Lindsey the usual
 Tuesday and Thursday pickup? One press fixes every later week, and Hometide remembers the answer.
 
-Hometide turns the Fire TV in the living room into the household's command center: it catches the clash nobody
-spotted, the fix can come by voice, remote or phone, and nothing changes until a parent confirms it on the shared
-screen.
+**What's new:** Skylight shows the schedule; Fire TV's Ambient Experience and Alexa+ can show a linked calendar and
+add events from emails or photos. Hometide learns the fixes your family keeps making and offers to turn them into
+routines, and nothing changes without a parent's yes.
 
-Fire TV's Ambient Experience and Alexa+ can already show a linked calendar and add events from emails or photos.
-Hometide doesn't stop at showing the schedule: it resolves clashes, learns from the family's own fixes, and keeps
-a parent in control of every change.
+**Built on Amazon:** a native Vega OS app on a real Fire TV Stick; a Strands agent on Amazon Bedrock that works
+through Hometide's own 13-tool MCP server, which any MCP host can use (Alexa+ access for MCP servers wasn't open to us
+yet); AgentCore Memory for what the family confirmed; and an Alexa skill that answers "what has Hometide learned about
+us?" in the Alexa developer console's simulator.
 
 ## What families said
 
@@ -82,12 +87,10 @@ Both go through the same parent-only write path, with tests in
 
 From [the evals](#evals), which anyone can rerun with one command:
 
-- **64 of 64** voice requests waited for a parent's yes, and **600 of 600** random tool calls with hostile arguments
-  changed nothing. The model proposes; Hometide's code checks; a parent decides.
 - "Hometide noticed" found **181 of 181** patterns planted in 60 generated households and left **177 of 177**
   look-alikes alone, asking about **0.8 questions per family per week**, never the same one twice.
-- The wall note kept **1,573 of 1,573** made-up times off the screen, after the eval caught a gap in its check that
-  we then fixed.
+- **64 of 64** voice requests waited for a parent's yes, and **600 of 600** random tool calls with hostile arguments
+  changed nothing. The model proposes; Hometide's code checks; a parent decides.
 - AI costs about **$0.13–$0.51 per household per month**, from measured per-request costs
   ([measurements](./docs/MEASUREMENTS.md#amazon-bedrock-tokens-and-cost-per-household)).
 
@@ -358,7 +361,6 @@ python eval/run_agent_evals.py           # offline, no AWS, fixed seeds: same nu
 | Does it stay quiet when it should? | **177 of 177** look-alikes left alone (a clash nobody fixed, a one-off clash, a 50/50 driver split, events added twice, a calendar feed, and others) |
 | How often does it interrupt? | Over 4 weeks of nightly checks: **0.8 questions per household per week** (at most 4), **1 question waiting at most**, **never asked twice**. 7 of 188 questions were unwanted (see the known limits) |
 | Does the wall note keep made-up times off the screen? | **880 of 880** made-up clock times kept off, and **693 of 693** times written another way ("16:00", "5 o'clock", "half past 5", "noon"), all of which got through before the fix below. **1,010 of 1,010** faithful notes shown |
-| Does the AI call a messy chore "done"? (earlier, with Amazon Nova Lite) | **Never:** none of the unfinished chores in 60 photos was called done; 55% were "unclear". A parent approves every photo |
 
 How each part is scored, and the known limits (including the one we haven't fixed), are in [docs/EVALS.md](./docs/EVALS.md).
 
@@ -397,7 +399,7 @@ What is real today, and what isn't yet:
 | Technical implementation | A native Vega OS app on a real Stick ([device test record](./docs/DEVICE_TESTING.md#fire-tv-device-test-record)); one write path with permissions and audit; a Strands agent on Bedrock over our MCP server (2025-11-25); AgentCore Memory; CDK with tests; 200+ API tests and [reproducible evals](#evals) |
 | Design and user experience | Remote-only screens with focus on the likely action, QR pairing, one voice → TV → remote → phone flow, the living wall calendar ([screenshots](#screenshots)) |
 | Potential impact | Most families with kids have two working parents ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)); free, with $0 in new hardware, against $380–$785 for a wall calendar's first year; AI at $0.13–$0.51 per household per month ([measurements](./docs/MEASUREMENTS.md#measurements)); three households tried it and both of their requests are built ([what families said](#what-families-said)) |
-| Quality of the idea | "Hometide noticed" learns routines from the family's own fixes and asks before changing anything; the rules' two Fire TV creative examples (adapts to household patterns; voice, D-pad and visuals in one flow) are both on screen |
+| Quality of the idea | "Hometide noticed" learns routines from the family's own fixes and asks before changing anything. Of the rules' Fire TV creative examples, voice, D-pad and visuals in one flow is on screen as-is; the other applies household patterns to viewing, and Hometide applies them to the family's week on the shared TV |
 | Product feedback and AWS services (AWS Builder) | [Product feedback](./docs/PRODUCT_FEEDBACK.md) for each of the 10 tools, and [AWS services used](#aws-services-used) |
 | Friction log and feature requests | [21 entries and 2 feature requests](./docs/FRICTION_LOG.md), each in the full format |
 
