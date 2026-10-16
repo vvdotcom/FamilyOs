@@ -60,7 +60,29 @@ Amazon documentation used for the Vega build (checked 2026-09-22):
 
 ## Running it on a Fire TV
 
-build the Vega app with `npx -y corepack@0.34.0 yarn build:vega` on a Vega SDK host and
+### Install the release build
+
+The [v1.0.0 release](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) has `hometide_armv7.vpkg`, a release build for a Fire TV Stick on Vega OS that talks
+to the hosted demo service (`https://hometide.up.railway.app`). It isn't on the Appstore yet, so it is sideloaded:
+
+1. Turn on Developer Mode on the Fire TV Stick (what we ran into is in [friction log](./FRICTION_LOG.md) entries 20
+   and 21).
+2. On a computer on the same Wi-Fi, install the [Vega SDK](https://developer.amazon.com/docs/vega/0.24/install-vega-sdk)
+   and download [`hometide_armv7.vpkg`](https://github.com/vvdotcom/FamilyOs/releases/download/v1.0.0/hometide_armv7.vpkg).
+3. Install and launch it:
+
+   ```bash
+   vega exec vda connect <tv-ip>:5555
+   vega device install-app --packagePath hometide_armv7.vpkg
+   vega device launch-app --appName com.hometide.tv.main
+   ```
+
+4. Pair it with the demo family: on the TV, Settings → **Show pairing code**; in the web app (judge login), Family →
+   TV → **Pair a TV**, type the code and tap **Approve TV**.
+
+### Build it yourself
+
+Build the Vega app with `npx -y corepack@0.34.0 yarn build:vega` on a Vega SDK host and
 install it with `vega device install-app`; on Windows, `.\familyos.ps1 tv` does both through the managed Ubuntu VM
 (see [Developing on Windows](#developing-on-windows-vega-sdk)). Point the TV at your computer with
 `EXPO_PUBLIC_FAMILYOS_API_URL` set to an address the TV can reach. The Fire OS build is in

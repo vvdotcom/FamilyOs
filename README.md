@@ -10,6 +10,7 @@ Built for the Build, Ship, Shape: Amazon Developer Hackathon (Fire TV track, plu
 
 - **Demo video (2:57):** https://www.youtube.com/watch?v=3_nuN0lfFT0
 - **Live demo:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/), with a demo family's week already loaded (judge login on the Devpost form). See [Testing it as a judge](#testing-it-as-a-judge).
+- **Install it on a Fire TV:** [hometide_armv7.vpkg](https://github.com/vvdotcom/FamilyOs/releases/download/v1.0.0/hometide_armv7.vpkg) from the [v1.0.0 release](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0), for a Fire TV Stick on Vega OS, sideloaded in Developer Mode ([install steps](./docs/DEVELOPMENT.md#install-the-release-build)).
 - **Tried by real families:** three households of family and friends (8 people) tried Hometide on 2026-10-15, and both of the things they asked for are now built. [What they said, and the fixes](#what-families-said).
 - **Run it on your own computer:** [Run it locally](#run-it-locally), about 10 minutes, no AWS account needed.
 
@@ -112,7 +113,7 @@ The quickest way is the hosted demo family; nothing to install.
 1. Open the web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) (a phone or a desktop
    browser) and sign in with the judge login from the Devpost form. The parent code for approvals is **2468**.
    The family's week is ready: every Tuesday and Thursday, Jordan's meeting clashes with Emma's pickup.
-2. **Open the TV app:** on a Fire TV (Vega OS), or in a browser on your computer (step 4 of
+2. **Open the TV app:** on a Fire TV (Vega OS; [install the release build](./docs/DEVELOPMENT.md#install-the-release-build)), or in a browser on your computer (step 4 of
    [Run it locally](#run-it-locally), with `EXPO_PUBLIC_FAMILYOS_API_URL=https://hometide.up.railway.app` in
    `apps/expo-multi-tv/.env`). Arrow keys and Enter act as the remote.
 3. **Pair it:** on the TV, Settings → **Show pairing code**. Scan the QR code with the phone, or in the web app go to
@@ -240,7 +241,7 @@ Launcher, transport controls for a show, DRM); the sample's declarations for tho
 | | |
 |---|---|
 | Device | Fire TV Stick 4K Select, Vega OS 2.0, with the remote that came with it |
-| Build | Release `armv7` `.vpkg` (`com.hometide.tv`), sideloaded in Developer Mode; first installed 2026-10-03 |
+| Build | Release `armv7` `.vpkg` (`com.hometide.tv`), sideloaded in Developer Mode; first installed 2026-10-03; [download v1.0.0](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) |
 | Demo path | **12 checks pass on the Stick**, filmed with the real remote: install and launch, QR pairing, calendar sync, the clash flagged on Home, a voice request confirmed on the TV, *Hometide noticed*, flyer import, an AI recipe, chore approval with stars, the wall calendar, its weather loop through Vega's media player, and the screensaver staying away |
 | Didn't work | Alexa from the Fire TV remote (the in-development skill wasn't reached) |
 | Not yet checked | Amazon's required device scenarios (exit and relaunch, reboot, HDMI, Bluetooth audio) and performance on the Stick |
