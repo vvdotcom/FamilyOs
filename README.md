@@ -8,7 +8,7 @@ Built for the Build, Ship, Shape: Amazon Developer Hackathon (Fire TV track, plu
 
 ![Hometide running on a real Fire TV, with the companion web app on a phone](./docs/images/readme/hero.jpg)
 
-- **Demo video (2:57):** <!-- TODO: paste the YouTube or Vimeo link before submitting --> _link added at submission_
+- **Demo video (2:57):** https://www.youtube.com/watch?v=3_nuN0lfFT0
 - **Try it now:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) (judge login on the Devpost form). See [Testing it as a judge](#testing-it-as-a-judge).
 - **Run it on your own computer:** [Run it locally](#run-it-locally), about 10 minutes, no AWS account needed.
 
