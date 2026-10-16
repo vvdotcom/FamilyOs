@@ -1,22 +1,30 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/readme/mark-dark.png">
+  <img src="./docs/images/readme/mark-light.png" alt="Hometide logo" width="88">
+</picture>
+
 # Hometide
 
-**The family TV that learns your family's rhythm.**
+**The family TV that learns your family's rhythm.**<br>
+It catches the clash nobody spotted, learns from your fixes, and changes nothing until a parent says yes.
 
-Built for the Build, Ship, Shape: Amazon Developer Hackathon (Fire TV track, plus the AWS Builder mini-challenge).
+Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track · AWS Builder mini-challenge
 
-[![CI](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml/badge.svg)](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml)
+[![CI](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml/badge.svg)](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml) [![runs on](https://img.shields.io/badge/runs%20on-Fire%20TV%20Stick%20%C2%B7%20Vega%20OS-2F7F7A)](#on-a-real-fire-tv) [![AI](https://img.shields.io/badge/AI-Amazon%20Bedrock%20%C2%B7%20Strands%20%C2%B7%20AgentCore-F2A65A)](#aws-services-used) [![evals](https://img.shields.io/badge/evals-reproducible-2F7F7A)](#evals) [![price](https://img.shields.io/badge/price-free-2F7F7A)](#why-the-tv) [![licence](https://img.shields.io/badge/licence-MIT-1D2B36)](./LICENSE)
 
-![Hometide running on a real Fire TV, with the companion web app on a phone](./docs/images/readme/hero.jpg)
+[▶️ Demo video (2:57)](https://www.youtube.com/watch?v=3_nuN0lfFT0) · [Live demo](https://hometide.up.railway.app/app/) · [Install on a Fire TV](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) · [Test it as a judge](#testing-it-as-a-judge) · [What families said](#what-families-said) · [On a real Fire TV](#on-a-real-fire-tv) · [Evals](#evals) · [Run it locally](#run-it-locally) · [Honest scope](#honest-scope)
 
-- **Demo video (2:57):** https://www.youtube.com/watch?v=3_nuN0lfFT0
+<a href="https://www.youtube.com/watch?v=3_nuN0lfFT0"><img src="./docs/images/readme/banner.jpg" alt="Hometide on a real Fire TV Stick: a pickup conflict, and 'Hometide noticed: make Lindsey the usual Emma pickup?'" width="100%"></a>
+
+[**Watch the three-minute demo**](https://www.youtube.com/watch?v=3_nuN0lfFT0)
+
+</div>
+
 - **Live demo:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/), with a demo family's week already loaded (judge login on the Devpost form). See [Testing it as a judge](#testing-it-as-a-judge).
 - **Install it on a Fire TV:** [hometide_armv7.vpkg](https://github.com/vvdotcom/FamilyOs/releases/download/v1.0.0/hometide_armv7.vpkg) from the [v1.0.0 release](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0), for a Fire TV Stick on Vega OS, sideloaded in Developer Mode ([install steps](./docs/DEVELOPMENT.md#install-the-release-build)).
 - **Tried by real families:** three households of family and friends (8 people) tried Hometide on 2026-10-15, and both of the things they asked for are now built. [What they said, and the fixes](#what-families-said).
-- **Run it on your own computer:** [Run it locally](#run-it-locally), about 10 minutes, no AWS account needed.
-
-This README has the product, how to test it, how it's built, and the evidence. The longer records (device
-testing, evals in detail, measurements, the permission matrix) are in [`docs/`](./docs), next to the
-[product feedback](./docs/PRODUCT_FEEDBACK.md) and the [friction log and feature requests](./docs/FRICTION_LOG.md).
 
 ## The problem, and who it's for
 
@@ -133,6 +141,8 @@ The quickest way is the hosted demo family; nothing to install.
 ### The TV app on a real Fire TV
 
 Filmed with a camera on a Fire TV Stick running Vega OS, with the real remote (not a screen capture or emulator).
+
+![Hometide running on a real Fire TV, with the companion web app on a phone](./docs/images/readme/hero.jpg)
 
 | | |
 |---|---|
@@ -323,8 +333,6 @@ Postgres); only the AWS pieces live in `infra/` (see [`infra/README.md`](./infra
   unavailable, deterministic fallbacks take over.
 - **Few interruptions.** Hometide raises at most one routine question at a time, says why it's asking, and never asks
   the same one twice after an answer.
-- **Calendar links:** encrypted at rest and never sent to any client. They're fetched only over HTTPS from a public
-  address that is checked and pinned for the connection, which blocks server-side request forgery (SSRF).
 - **Family photos** (the wall-calendar slideshow): re-encoded to strip location and camera data, private to the
   household, and never sent to AI. Chore and flyer photos go to Amazon Bedrock only for a suggestion a parent reviews.
   The weather location is rounded to about 1 km.
@@ -339,9 +347,6 @@ What we measured about Hometide's agent features, how, and where it falls short.
 cd services/family-agent
 python eval/run_agent_evals.py           # offline, no AWS, fixed seeds: same numbers every run (about 40 s)
 ```
-
-The script is [`eval/run_agent_evals.py`](./services/family-agent/eval/run_agent_evals.py), and every row it
-scored is in [`eval/results/agent_evals.json`](./services/family-agent/eval/results/agent_evals.json).
 
 | Question | Result |
 |---|---|
