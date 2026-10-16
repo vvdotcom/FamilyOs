@@ -213,14 +213,42 @@ def _build_forecast(
         condition = "Forecast available"
     if not isinstance(summary, str):
         summary = ""
-    return {
+    result: dict[str, object] = {
         "location": location,
         "condition": condition.strip()[:80],
         "temperatureF": temperature,
         "highF": high,
         "lowF": low,
         "summary": summary.strip()[:320],
+        "hourly": _next_hours(hourly, current_start),
     }
+    if isinstance(current.get("isDaytime"), bool):
+        result["isDaytime"] = current["isDaytime"]
+    return result
+
+
+def _next_hours(hourly: list[dict[str, Any]], start: datetime, count: int = 12) -> list[dict[str, object]]:
+    """The current hour and the ones after it, for the wall calendar's "rain from 3 PM" note."""
+    hours: list[dict[str, object]] = []
+    for period in hourly:
+        try:
+            if _period_time(period, "startTime") < start:
+                continue
+            temperature = _fahrenheit(period)
+        except WeatherUnavailable:
+            continue
+        condition = period.get("shortForecast")
+        chance = period.get("probabilityOfPrecipitation")
+        value = chance.get("value") if isinstance(chance, dict) else None
+        hours.append({
+            "startTime": str(period.get("startTime")),
+            "condition": condition.strip()[:60] if isinstance(condition, str) else "",
+            "temperatureF": temperature,
+            "precipChance": round(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None,
+        })
+        if len(hours) >= count:
+            break
+    return hours
 
 
 def _periods(payload: dict[str, Any]) -> list[dict[str, Any]]:

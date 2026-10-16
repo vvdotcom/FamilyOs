@@ -1,4 +1,6 @@
-# FamilyOS measurements
+# Hometide measurements
+
+The agent evals (voice requests, guard rails, "Hometide noticed" and the wall note) are in [EVALS.md](./EVALS.md).
 
 Numbers measured on 2026-09-29 unless noted. Each section lists how it was measured and what it does
 **not** cover. Raw results live in [`services/family-agent/eval/results/`](../services/family-agent/eval/results/),
@@ -54,14 +56,14 @@ non-AI version, and nothing fails silently.
 Prices checked 2026-09-29 on [Skylight's comparison page](https://myskylight.com/compare-calendars) and its
 [subscription help article](https://skylight.zendesk.com/hc/en-us/articles/51833126965019-Subscription) (updated 2026-09-10).
 
-| | Skylight Calendar | FamilyOS |
+| | Skylight Calendar | Hometide |
 |---|---|---|
 | Screen | 10" $149.99 · 15" $299.99 · 27" $569.99 | The Fire TV the family already owns |
 | Magic Import, meal planning, rewards, photo screensaver | Calendar Plus, $79.99/year | Included: flyer/PDF/email import, meals, stars and rewards, TV photo slideshow |
-| AI assistant | Skylight Assistant, $14.99/month or $119.99/year | Alexa+ through MCP; Bedrock AI costs about $0.13–$0.51 per household per month |
+| AI assistant | Skylight Assistant, $14.99/month or $119.99/year | Hometide's voice agent in the phone app (Strands on Bedrock); Bedrock AI costs about $0.13–$0.51 per household per month |
 | First year, 15" screen with Plus | $379.98 | $0 in new hardware |
 
-FamilyOS has no price yet. The comparison covers hardware and subscriptions only, and a family without a Fire TV
+Hometide has no price yet. The comparison covers hardware and subscriptions only, and a family without a Fire TV
 would need one (a Fire TV Stick is far cheaper than a Skylight screen).
 
 ## Calendar sync (Google, iCloud, Outlook)

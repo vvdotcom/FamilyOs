@@ -19,6 +19,15 @@ export interface CalendarProvider {
   listEvents(range?: EventRange): Promise<CalendarEvent[]>;
 }
 
+export interface WeatherHour {
+  /** ISO start of the hour, with the forecast office's UTC offset. */
+  startTime: string;
+  condition: string;
+  temperatureF: number;
+  /** Chance of precipitation in percent, when the forecast gives one. */
+  precipChance?: number | null;
+}
+
 export interface WeatherForecast {
   location: string;
   condition: string;
@@ -26,6 +35,10 @@ export interface WeatherForecast {
   highF: number;
   lowF: number;
   summary: string;
+  /** Sunrise-to-sunset flag for the current hour (NWS). */
+  isDaytime?: boolean;
+  /** The next hours, for "rain from 3 PM" style notes. */
+  hourly?: WeatherHour[];
 }
 
 export interface WeatherProvider {

@@ -48,7 +48,7 @@ import {
 } from './householdStorage';
 import { usePlannerData } from './plannerData';
 import { voiceTVAction } from '../navigation/voiceCommands';
-import FamilyWallScreen, { WALL_IDLE_MINUTES } from './FamilyWallScreen';
+import FamilyWallScreen, { WALL_IDLE_SECONDS } from './FamilyWallScreen';
 import RemoteControlManager from '../app/remote-control/RemoteControlManager';
 import { SupportedKeys } from '../app/remote-control/SupportedKeys';
 import { nativeStore } from '../storage/nativeStore';
@@ -602,10 +602,10 @@ function FamilyOsShellContent() {
   useEffect(() => {
     if (!wallEnabled || wallMode) return;
     const timer = setInterval(() => {
-      if (Date.now() - lastInputRef.current >= WALL_IDLE_MINUTES * 60_000 && !WALL_EXEMPT.includes(route) && !menuOpen && !celebration && !pairingOnScreen) {
+      if (Date.now() - lastInputRef.current >= WALL_IDLE_SECONDS * 1000 && !WALL_EXEMPT.includes(route) && !menuOpen && !celebration && !pairingOnScreen) {
         setWallMode(true);
       }
-    }, 10_000);
+    }, WALL_IDLE_SECONDS <= 60 ? 2_000 : 10_000);
     return () => clearInterval(timer);
   }, [wallEnabled, wallMode, route, menuOpen, celebration, pairingOnScreen]);
   const leaveWall = () => {
@@ -723,7 +723,7 @@ function FamilyOsShellContent() {
     onLockParentMode: lockTVParentMode,
     wallCalendar: {
       enabled: wallEnabled,
-      idleMinutes: WALL_IDLE_MINUTES,
+      idleSeconds: WALL_IDLE_SECONDS,
       onToggle: toggleWall,
       onShowNow: () => {
         setMenuOpen(false);

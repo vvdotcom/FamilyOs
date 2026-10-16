@@ -6,3 +6,4 @@ export * from './mutations';
 export * from './providers';
 export * from './move';
 export * from './rewards';
+export * from './weatherScene';

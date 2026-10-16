@@ -56,7 +56,31 @@ def test_forecast_uses_current_conditions_and_daily_high_low():
         "highF": 96,
         "lowF": 67,
         "summary": "A local NWS summary for sunny.",
+        "hourly": [
+            {"startTime": "2026-06-10T13:00:00-07:00", "condition": "Sunny", "temperatureF": 88, "precipChance": None},
+            {"startTime": "2026-06-10T14:00:00-07:00", "condition": "Mostly Sunny", "temperatureF": 90, "precipChance": None},
+        ],
     }
+
+
+def test_forecast_lists_the_next_hours_with_rain_chances_and_daylight():
+    def hour(start: str, end: str, temperature: int, condition: str, chance: int | None):
+        value = _period(start, end, temperature, condition, daytime=True)
+        value["probabilityOfPrecipitation"] = {"unitCode": "wmoUnit:percent", "value": chance}
+        return value
+
+    hourly = {"properties": {"periods": [
+        hour("2026-10-08T13:00:00-07:00", "2026-10-08T14:00:00-07:00", 64, "Cloudy", 10),
+        hour("2026-10-08T14:00:00-07:00", "2026-10-08T15:00:00-07:00", 63, "Mostly Cloudy", 30),
+        hour("2026-10-08T15:00:00-07:00", "2026-10-08T16:00:00-07:00", 60, "Rain Showers Likely", 70),
+    ]}}
+    result = _build_forecast("Tucson, AZ", hourly, {"properties": {"periods": []}},
+                             datetime.fromisoformat("2026-10-08T14:20:00-07:00"))
+
+    assert result["isDaytime"] is True
+    assert [item["precipChance"] for item in result["hourly"]] == [30, 70]
+    assert result["hourly"][1] == {"startTime": "2026-10-08T15:00:00-07:00", "condition": "Rain Showers Likely",
+                                   "temperatureF": 60, "precipChance": 70}
 
 
 def test_weather_requires_a_valid_configured_location():

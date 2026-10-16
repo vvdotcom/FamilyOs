@@ -12,3 +12,6 @@ __pycache__/
 build/
 dist/
 tests/
+
+# The wall scene loops must ship with the API (the root .gitignore drops *.mp4 otherwise).
+!app/scenes/*.mp4

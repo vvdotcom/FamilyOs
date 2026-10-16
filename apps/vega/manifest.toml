@@ -1,7 +1,8 @@
 #
 # Hometide for Fire TV (Vega OS).
-# Started from the Amazon Vega sample manifest (MIT-0). The sample's video, DRM, audio and Content
-# Launcher declarations were removed: Hometide shows a family calendar and plays no media.
+# Started from the Amazon Vega sample manifest (MIT-0). Hometide plays one kind of media: the wall
+# calendar's muted, looping weather landscapes, through Vega's media player (W3C Media). The sample's DRM
+# and Content Launcher declarations were removed: there is no protected content and no catalog to search.
 #
 schema-version = 1
 
@@ -51,12 +52,45 @@ id = "com.amazon.devconf.privilege.accessibility"
 [[wants.service]]
 id = "com.amazon.network.service"
 
+# Wall-calendar weather loops: Vega's media player and the services it runs on
+[[wants.service]]
+id = "com.amazon.media.server"
+
+[[wants.service]]
+id = "com.amazon.mediametrics.service"
+
+[[wants.service]]
+id = "com.amazon.media.playersession.service"
+
+[[wants.service]]
+id = "com.amazon.mediabuffer.service"
+
+[[wants.service]]
+id = "com.amazon.mediatransform.service"
+
+[[wants.service]]
+id = "com.amazon.audio.stream"
+
+[[wants.service]]
+id = "com.amazon.audio.control"
+
+[[wants.service]]
+id = "com.amazon.audio.system"
+
+# Required by the media player's IPC (GIPC SR)
+[[wants.service]]
+id = "com.amazon.gipc.uuid.*"
+
 ## ------------------------------------------------------------------------------
 ## Needs - Required capabilities
 ## ------------------------------------------------------------------------------
 [needs]
 [[needs.privilege]]
 id = "com.amazon.network.privilege.net-info"
+
+# Media playback (the wall-calendar loops)
+[[needs.privilege]]
+id = "com.amazon.media.secureplayback"
 
 [[needs.module]]
 id = "/com.amazon.vega.os@IVega_1_2"
@@ -65,6 +99,10 @@ id = "/com.amazon.vega.os@IVega_1_2"
 ## Offers
 ## ------------------------------------------------------------------------------
 [offers]
+# Required by the media player's IPC (GIPC SR)
+[[offers.service]]
+id = "com.amazon.gipc.uuid.*"
+
 [[offers.interaction]]
 id = "com.hometide.tv.main"
 

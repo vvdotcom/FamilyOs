@@ -61,6 +61,16 @@ export function FamilyThemeProvider({ children }: { children: React.ReactNode })
   return <FamilyThemeContext.Provider value={value}>{children}</FamilyThemeContext.Provider>;
 }
 
+/** Shows its children in a fixed theme (the wall calendar is always dark glass over its weather scene). */
+export function ForcedFamilyTheme({ mode, children }: { mode: ThemeMode; children: React.ReactNode }) {
+  const parent = useContext(FamilyThemeContext);
+  const value = useMemo<FamilyThemeValue>(
+    () => ({ mode, colors: themePalettes[mode], setMode: parent?.setMode ?? (() => undefined) }),
+    [mode, parent?.setMode],
+  );
+  return <FamilyThemeContext.Provider value={value}>{children}</FamilyThemeContext.Provider>;
+}
+
 export function useFamilyTheme(): FamilyThemeValue {
   const value = useContext(FamilyThemeContext);
   if (!value) throw new Error('useFamilyTheme must be used inside FamilyThemeProvider');

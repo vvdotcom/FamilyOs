@@ -9,12 +9,12 @@ emulator; this record covers the real Stick and remote. Every row says how it wa
 | Item | Value |
 | --- | --- |
 | Device | Fire TV Stick 4K Select (Vega OS) |
-| Vega OS version | _To record: Settings → My Fire TV → About_ |
+| Vega OS version | 2.0 |
 | Remote | The remote that came with the Stick |
 | Package | Release `armv7` `.vpkg` from `yarn build:vega` (`apps/vega/build/armv7-release`), app `com.hometide.tv`, component `com.hometide.tv.main`, version 1.0.0 |
 | Vega SDK / CLI | 0.24.12112 (pinned in `apps/vega/vega-sdk-requirements.json`) / 1.4.2, target OS 1.2 |
-| Built from | _To record: the commit (`git rev-parse --short HEAD`), and "plus local changes" if the build VM had uncommitted work_ |
-| API the build points to | _To record: the `EXPO_PUBLIC_FAMILYOS_API_URL` baked into the build_ |
+| Built from | Commit `eab78c2` (2026-10-07) |
+| API the build points to | `https://hometide.up.railway.app` (the hosted Hometide API on Railway) |
 | Install | Sideloaded over Wi-Fi with `.\familyos.ps1 tv`: Developer Mode on the Stick ([friction log](./FRICTION_LOG.md) entries 20 and 21), then `vega exec vda connect <tv-ip>:5555`, `vega device install-app` and `vega device launch-app --appName com.hometide.tv.main` |
 | Dates | First install 2026-10-03. Demo footage filmed on the Stick 2026-10-07 |
 
@@ -34,8 +34,11 @@ Checked by filming the TV screen with a camera while using the real remote, with
 | Flyer photo on the phone → reviewed draft → event on the TV calendar | Pass | Demo video, "Snap a flyer" |
 | AI recipe → tonight's dinner on the TV's Meals screen | Pass | Demo video, "Dinner, sorted" |
 | Chore photo → approval on the TV with the parent code → stars and rewards | Pass | `images/readme/tv-chore-approval.jpg`; demo video, "Chores and rewards" |
-| Alexa ("Alexa, open home tide") changing what the TV shows | Not yet recorded | — |
-| Wall calendar after 5 idle minutes, and the night clock | Not yet checked | — |
+| Alexa ("Alexa, open home tide") changing what the TV shows | Didn't work: the remote's Alexa button didn't reach the in-development "home tide" skill. The skill works in the Alexa developer console's simulator | — |
+| Wall calendar after the idle time (30-second demo build), with the weather scene and the Hometide note | Pass (2026-10-09) | `Video/IdleMode.MOV`; demo video V6, "A living wall" |
+| Night clock (10 pm to 6 am) | Not yet checked | — |
+| Wall weather scene plays through Vega's media player | Pass (2026-10-08 heat scene; 2026-10-09 clear night) | Photo of the TV; `Video/IdleMode.MOV` |
+| Wall weather scene: the system screensaver stays away while the loop plays | Pass (2026-10-08) | [Friction log entry 14](./FRICTION_LOG.md#entry-14--vega-os-cannot-keep-the-display-on-for-a-non-media-app) |
 | Remote-only pass over every screen: focus always visible, Back never traps | Demo path only; full pass not yet done | — |
 
 ## Amazon's required device scenarios

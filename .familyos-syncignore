@@ -17,4 +17,7 @@ logs/
 *.vmdk
 *.vpkg
 *.log
-
+Video/
+web-build/
+_to_delete/
+.codex-*/

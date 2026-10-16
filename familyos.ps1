@@ -1,10 +1,16 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('setup','status','start','stop','sync','test','build','simulator','reset-simulator','tv','package')]
+    [ValidateSet('setup','status','start','stop','sync','test','build','simulator','reset-simulator','tv','tv-logs','package')]
     [string]$Command = 'status',
     # tv / package: the API the TV app talks to (baked into the build).
-    [string]$ApiUrl = 'https://hometide.up.railway.app'
+    [string]$ApiUrl = 'https://hometide.up.railway.app',
+    # tv / package: seconds without the remote before the wall calendar appears (baked into the build).
+    # 300 (5 minutes) for families; 30 for filming the demo: .\familyos.ps1 tv -IdleSeconds 30
+    [ValidateRange(10, 3600)]
+    [int]$IdleSeconds = 300,
+    # tv / package: show the wall calendar's still posters instead of the looping weather videos.
+    [switch]$NoWallVideo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -130,8 +136,9 @@ switch ($Command) {
         }
         Start-FamilyVm
         & (Join-Path $root 'setup\sync-repo.ps1')
-        Write-Host "Building the TV app for $ApiUrl ..." -ForegroundColor Cyan
-        Invoke-Guest ("cd ~/projects/familyos && [ ! -f ~/vega/env ] || . ~/vega/env; yarn install --immutable && rm -rf apps/vega/build /tmp/metro-* /tmp/haste-map-* && EXPO_PUBLIC_FAMILYOS_API_URL=$ApiUrl yarn build:vega")
+        $wallVideo = if ($NoWallVideo) { '0' } else { '1' }
+        Write-Host "Building the TV app for $ApiUrl (wall calendar after $IdleSeconds seconds, wall video $(if ($NoWallVideo) { 'off' } else { 'on' })) ..." -ForegroundColor Cyan
+        Invoke-Guest ("cd ~/projects/familyos && [ ! -f ~/vega/env ] || . ~/vega/env; yarn install --immutable && rm -rf apps/vega/build /tmp/metro-* /tmp/haste-map-* && EXPO_PUBLIC_FAMILYOS_API_URL=$ApiUrl EXPO_PUBLIC_FAMILYOS_WALL_IDLE_SECONDS=$IdleSeconds EXPO_PUBLIC_FAMILYOS_WALL_VIDEO=$wallVideo yarn build:vega")
         Write-Host ''
         Write-Host 'On the TV: Settings > My Fire TV > About, select the device name 7 times, then Back >' -ForegroundColor Yellow
         Write-Host 'Developer options. Turn on Developer Mode (it shows a 6-character code of letters and numbers) and set Connection Mode to TCP/IP.' -ForegroundColor Yellow
@@ -179,6 +186,40 @@ echo 'Hometide is on the TV. Next: Settings > Show pairing code, and scan it wit
         & ssh @sshOptions -t familyos@127.0.0.1 "printf %s $encoded | base64 --decode > /tmp/hometide-tv.sh && TV_IP=$tvIp TV_CODE=$code bash /tmp/hometide-tv.sh"
         if ($LASTEXITCODE -ne 0) { throw 'Installing on the TV failed; the messages above say where.' }
     }
+    'tv-logs' {
+        # Saves the Fire TV's newest crash report and Hometide's recent log lines to logs\ (git-ignored),
+        # for debugging a crash on the Stick. Uses Vega's loggingctl through the build VM.
+        if (-not (Test-FamilyVmReady)) { throw 'The build VM is not set up yet. Run .\familyos.ps1 setup first.' }
+        Start-FamilyVm
+        $tvIp = (Read-Host 'TV IP address (Settings > My Fire TV > About > Network)').Trim()
+        if ($tvIp -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { throw 'That is not an IPv4 address.' }
+        $logScript = @'
+set -uo pipefail
+[ ! -f "$HOME/vega/env" ] || . "$HOME/vega/env"
+vega exec vda connect "$TV_IP:5555" >/dev/null 2>&1 || true
+echo "=== Hometide app log, today (all priorities) ==="
+vega exec vda shell loggingctl log -v com.hometide.tv -S today -o short_precise 2>&1 | tail -n 600
+echo
+echo "=== Today's log lines about Hometide, the wall scene and the media player ==="
+vega exec vda shell loggingctl log -S today 2>&1 | grep -i -E "hometide|WeatherScene|w3cmedia|videoplayer|mediaplayer|media.server|tombstone|crash|abort|signal" | tail -n 800
+echo
+echo "=== Crash reports on the TV (newest last) ==="
+vega exec vda shell loggingctl vault --ls SYSTEM_TOMBSTONE/acr 2>&1 | tail -n 25
+# The index is the number before "#" in the newest listed report (--last-index returns a different counter).
+last=$(vega exec vda shell loggingctl vault --ls SYSTEM_TOMBSTONE/acr 2>/dev/null | grep -oE '[0-9]+#crash_[^"]*hometide[^"]*' | tail -n 1 | cut -d'#' -f1)
+if [ -n "$last" ]; then
+  echo
+  echo "=== Newest crash report (index $last) ==="
+  vega exec vda shell loggingctl vault --cat SYSTEM_TOMBSTONE "$last" 2>&1 | head -c 400000
+fi
+'@
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($logScript.Replace("`r", '')))
+        $logDir = Join-Path $root 'logs'
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+        $out = Join-Path $logDir ("tv-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".txt")
+        & ssh @sshOptions familyos@127.0.0.1 "printf %s $encoded | base64 --decode > /tmp/hometide-tv-logs.sh && TV_IP=$tvIp bash /tmp/hometide-tv-logs.sh" | Out-File -FilePath $out -Encoding utf8
+        Write-Host "Saved the TV's logs to $out" -ForegroundColor Green
+    }
     'package' {
         # Builds the Fire TV (Vega) store package and copies it to dist\ on this PC, ready for the Amazon Developer
         # Console. No TV needed. Bump the version (yarn version:tv) before every upload after the first.
@@ -186,8 +227,10 @@ echo 'Hometide is on the TV. Next: Settings > Show pairing code, and scan it wit
         if (-not (Test-FamilyVmReady)) { throw 'The build VM is not set up yet. Run .\familyos.ps1 setup first.' }
         Start-FamilyVm
         & (Join-Path $root 'setup\sync-repo.ps1')
-        Write-Host "Building the store package for $ApiUrl ..." -ForegroundColor Cyan
-        Invoke-Guest ("cd ~/projects/familyos && [ ! -f ~/vega/env ] || . ~/vega/env; yarn install --immutable && rm -rf apps/vega/build /tmp/metro-* /tmp/haste-map-* && EXPO_PUBLIC_FAMILYOS_API_URL=$ApiUrl yarn build:vega")
+        if ($IdleSeconds -ne 300) { Write-Warning "This store package shows the wall calendar after $IdleSeconds seconds, not the usual 5 minutes." }
+        $wallVideo = if ($NoWallVideo) { '0' } else { '1' }
+        Write-Host "Building the store package for $ApiUrl (wall calendar after $IdleSeconds seconds, wall video $(if ($NoWallVideo) { 'off' } else { 'on' })) ..." -ForegroundColor Cyan
+        Invoke-Guest ("cd ~/projects/familyos && [ ! -f ~/vega/env ] || . ~/vega/env; yarn install --immutable && rm -rf apps/vega/build /tmp/metro-* /tmp/haste-map-* && EXPO_PUBLIC_FAMILYOS_API_URL=$ApiUrl EXPO_PUBLIC_FAMILYOS_WALL_IDLE_SECONDS=$IdleSeconds EXPO_PUBLIC_FAMILYOS_WALL_VIDEO=$wallVideo yarn build:vega")
         $found = & ssh @sshOptions familyos@127.0.0.1 "find -L ~/projects/familyos/apps/vega/build/armv7-release -maxdepth 1 -type f -name '*.vpkg' -print -quit"
         $remote = $found | Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1
         if (-not $remote) { throw 'No armv7 package was built.' }

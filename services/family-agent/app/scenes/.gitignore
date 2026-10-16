@@ -1,0 +1,2 @@
+# The wall scene loops are app files, not footage: keep them in uploads and Git despite the root *.mp4 rule.
+!*.mp4

@@ -58,6 +58,8 @@ Video/
 *.aep
 *.fcpxml
 *.drp
+# ...except the wall calendar's weather loops, which the Hometide API serves to the TV
+!services/family-agent/app/scenes/*.mp4
 
 # Local scratch
 _to_delete/

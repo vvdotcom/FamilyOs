@@ -20,6 +20,7 @@ from starlette.routing import Route
 from . import alexa, calendars
 from .auth import EmailBody, EmailCodeBody, LocalAuthStore, ResetPasswordBody, SignInBody, SignUpBody, Purpose, SESSION_DAYS
 from .briefing import SafeBriefingService
+from .wall_note import SafeWallNoteService
 from .companion import CompanionMutation
 from .demo import demo_now
 from .domain import DemoRepository, DomainError, snapshot_context, sports_reminders
@@ -68,6 +69,7 @@ if os.getenv("RAILWAY_ENVIRONMENT") and not IS_PRODUCTION:
     )
 
 briefings = SafeBriefingService()
+wall_notes = SafeWallNoteService()
 weather_provider = NWSWeatherProvider.from_environment()
 cognito_issuer = os.getenv("FAMILYOS_COGNITO_ISSUER", "").strip().rstrip("/")
 cognito_access_verifier = None
@@ -635,6 +637,27 @@ async def create_briefing(context: HouseholdContext, request: Request):
     """Brief the app's minimized local snapshot; never accept notes or photo content."""
     household_snapshot(request)
     return await build_briefing(request, context)
+
+
+@app.get("/v1/wall-note", response_model=APIEnvelope)
+async def get_wall_note(request: Request, response: Response):
+    """The wall calendar's note: the forecast joined with the family's plans ("rain from 3 PM, soccer at 4")."""
+    snapshot = household_snapshot(request)
+    response.headers["Cache-Control"] = "no-store"
+    forecast = None
+    place = snapshot.location
+    try:
+        if place is not None:
+            forecast = await weather_provider.forecast_for(place.latitude, place.longitude, place.label)
+        elif weather_provider.configured:
+            forecast = await weather_provider.get_forecast()
+    except (WeatherNotConfigured, WeatherUnavailable):
+        forecast = None  # The note still covers the family's plans.
+    actor = resolve_actor(request)
+    owner = actor.owner if actor else None
+    note, provider, fallback = await wall_notes.generate(snapshot_context(snapshot, demo_now()), forecast,
+                                                         may_use_ai=lambda: take_ai_call(owner))
+    return success(request, {"note": note, "provider": provider}, fallback=fallback, provider=provider)
 
 
 # Pairing and TV parent mode ------------------------------------------------------------------------
@@ -1360,8 +1383,17 @@ async def web_app_headers(request: Request, call_next):
         # Bundles have content hashes in their names; the page itself must always be fresh.
         immutable = "/_expo/static/" in path or "/assets/" in path
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+    elif path.startswith("/scenes/") and response.status_code in (200, 206):
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
+
+# The wall calendar's looping weather landscapes (8-second H.264 loops, see brand/wall-scenes/render.py).
+# They are artwork only, so they are public; the TV streams them with Vega's media player.
+SCENES_DIR = Path(__file__).with_name("scenes")
+if SCENES_DIR.is_dir():
+    app.mount("/scenes", StaticFiles(directory=SCENES_DIR), name="wall-scenes")
 
 if WEB_APP_DIR.is_dir():
     app.mount("/app", StaticFiles(directory=WEB_APP_DIR, html=True), name="web-app")

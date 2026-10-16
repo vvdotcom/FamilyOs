@@ -8,6 +8,7 @@ import { ModalFocusRoot } from '../components/ModalFocusRoot';
 import { CANVAS_COVER, NumberPad } from './FamilyTVFeatures';
 import { QRCode } from '../components/QRCode';
 import { FamilyScreenProps } from './familyTypes';
+import { idleLabel } from './FamilyWallScreen';
 
 export default function FamilySettingsScreen({
   household,
@@ -178,7 +179,7 @@ export default function FamilySettingsScreen({
                 <SwitchPill on={wallCalendar.enabled} />
               </DButton>
               <DText size={22} color={p.muted}>
-                {`After ${wallCalendar.idleMinutes} idle minutes, show today in large type. For longer, raise the Fire TV screensaver wait: Settings → Display & Sounds → Ambient Experience.`}
+                {`After ${idleLabel(wallCalendar.idleSeconds)} without the remote, show today in large type. For longer, raise the Fire TV screensaver wait: Settings → Display & Sounds → Ambient Experience.`}
               </DText>
               <DAction label="Show wall calendar now" onPress={wallCalendar.onShowNow} active={focusActive && !confirmUnpair} style={{ alignSelf: 'flex-start' }} />
             </>

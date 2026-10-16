@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render} from '@testing-library/react-native';
+import {act, fireEvent, render} from '@testing-library/react-native';
 import {
   createDemoHousehold,
   DEMO_NOW,
@@ -12,7 +12,8 @@ import FamilyCalendarScreen from '../../../packages/shared-ui/src/screens/Family
 import FamilyChoresScreen from '../../../packages/shared-ui/src/screens/FamilyChoresScreen';
 import FamilyHomeScreen from '../../../packages/shared-ui/src/screens/FamilyHomeScreen';
 import FamilySettingsScreen from '../../../packages/shared-ui/src/screens/FamilySettingsScreen';
-import FamilyWallScreen from '../../../packages/shared-ui/src/screens/FamilyWallScreen';
+import FamilyWallScreen, {idleLabel, wallIdleSeconds} from '../../../packages/shared-ui/src/screens/FamilyWallScreen';
+import {familyAgentClient} from '../../../packages/shared-ui/src/api/familyAgentClient';
 import {FamilyScreenProps} from '../../../packages/shared-ui/src/screens/familyTypes';
 import {memberColor, registerMemberColors} from '../../../packages/shared-ui/src/design/DesignSystem';
 import {voiceTVAction} from '../../../packages/shared-ui/src/navigation/voiceCommands';
@@ -241,7 +242,7 @@ describe('Wall calendar and TV settings', () => {
     const screen = themed(<FamilyWallScreen household={household} now={now} weatherState={weatherState} paired={false}
       onExit={onExit} conflicts={conflicts} />);
     expect(screen.getByTestId('wall-calendar')).toBeTruthy();
-    expect(screen.getByText('Needs a driver')).toBeTruthy();
+    expect(screen.getAllByText('Needs a driver').length).toBeGreaterThan(0);
     expect(screen.getByText('TODAY')).toBeTruthy();
     expect(screen.getByTestId('wall-next-up')).toBeTruthy();
     expect(screen.getByText(/H 94° L 68°/)).toBeTruthy();
@@ -255,6 +256,44 @@ describe('Wall calendar and TV settings', () => {
     const screen = themed(<FamilyWallScreen household={household} now={late} weatherState={weatherState} paired={false} onExit={jest.fn()} />);
     expect(screen.getByTestId('wall-calendar-night')).toBeTruthy();
     expect(screen.queryByText('TODAY')).toBeNull();
+    // A clear night shows tonight's constellation (one per day) instead of a black screen.
+    expect(screen.getByTestId('weather-scene-clear-night-cassiopeia')).toBeTruthy();
+  });
+
+  it('waits 5 minutes before the wall, unless the build sets a demo idle time', () => {
+    expect(wallIdleSeconds(undefined)).toBe(300);
+    expect(wallIdleSeconds('30')).toBe(30);
+    expect(wallIdleSeconds('5')).toBe(300);
+    expect(wallIdleSeconds('forever')).toBe(300);
+    expect([30, 60, 90, 300].map(idleLabel)).toEqual(['30 seconds', '1 minute', '1 minute 30 seconds', '5 minutes']);
+  });
+
+  it('puts the calendar on glass over the landscape for the current weather', () => {
+    const sunny = themed(<FamilyWallScreen household={household} now={now} weatherState={weatherState} paired={false} onExit={jest.fn()} />);
+    expect(sunny.getByTestId('weather-scene-clear-day')).toBeTruthy();
+    const rainy: ProviderState<WeatherForecast> = {
+      status: 'available',
+      data: {...weatherState.data!, condition: 'Rain Showers Likely', temperatureF: 58},
+    };
+    const wet = themed(<FamilyWallScreen household={household} now={now} weatherState={rainy} paired={false} onExit={jest.fn()} />);
+    expect(wet.getByTestId('weather-scene-rain-day')).toBeTruthy();
+  });
+
+  it("shows Hometide's weather-aware note on a paired TV", async () => {
+    const note = "Rain from about 3 PM. Emma's soccer is at 4:00 PM, so pack rain jackets. Lindsey is driving.";
+    const spy = jest.spyOn(familyAgentClient, 'getWallNote').mockResolvedValue({
+      data: {note, provider: 'deterministic'},
+      meta: {request_id: 'test'},
+    } as Awaited<ReturnType<typeof familyAgentClient.getWallNote>>);
+    const screen = themed(<FamilyWallScreen household={household} now={now} weatherState={weatherState} paired onExit={jest.fn()} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(spy).toHaveBeenCalled();
+    expect(screen.getByText(note)).toBeTruthy();
+    expect(screen.getByText('HOMETIDE · TODAY')).toBeTruthy();
+    screen.unmount();
+    spy.mockRestore();
   });
 
   it('asks before unpairing and labels live weather', () => {
@@ -264,7 +303,7 @@ describe('Wall calendar and TV settings', () => {
       tvPairing: {status: 'paired'},
       onUnpairTV,
       weatherState: {...weatherState, source: 'National Weather Service'},
-      wallCalendar: {enabled: true, idleMinutes: 2, onToggle, onShowNow: jest.fn()},
+      wallCalendar: {enabled: true, idleSeconds: 120, onToggle, onShowNow: jest.fn()},
     });
     const screen = themed(<FamilySettingsScreen {...props} onResetDemo={jest.fn()} />);
     expect(screen.getByText('Live · Tucson, AZ')).toBeTruthy();

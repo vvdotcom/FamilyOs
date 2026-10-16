@@ -153,6 +153,10 @@ export const familyAgentClient = {
   getConflicts: () => request<Conflict[]>('/v1/conflicts'),
   getActionHistory: () => request<ProposedAction[]>('/v1/actions/history'),
   getBriefing: () => request<FamilyBriefing>('/v1/briefing'),
+  /** The wall calendar's note: today's weather joined with the family's plans. */
+  getWallNote: () => request<{ note: string; provider: 'ai' | 'deterministic' }>('/v1/wall-note', {}, 20000),
+  /** Address of a wall-calendar weather loop (public artwork served by the Hometide API). */
+  sceneUrl: (name: string) => `${apiBase}/scenes/${encodeURIComponent(name)}.mp4`,
   createBriefing: (context: FamilyAgentContext) =>
     request<FamilyBriefing>('/v1/briefing', { method: 'POST', body: JSON.stringify(context) }, 20000),
   proposeAction: (body: { conflictId: string; eventId: string; targetMemberId: string }) =>

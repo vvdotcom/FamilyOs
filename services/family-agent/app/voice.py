@@ -510,6 +510,13 @@ class VoiceServer:
             if target is not None and day and parse(target.endAt) <= demo_now():
                 # "Tuesday's pickup" said on Tuesday evening means next Tuesday's, not the one that already happened.
                 target = find(when + timedelta(days=7)) or target
+            if target is None and not day:
+                # "Switch the swim drive" with no day means the next one coming up this week.
+                for ahead in range(1, 8):
+                    upcoming = [item for item in events_on(snapshot, when + timedelta(days=ahead)) if item.responsibleMemberId]
+                    target = _match(upcoming, event, lambda item: item.title)
+                    if target is not None:
+                        break
             if target is None:
                 raise ToolError(f"I couldn't find a pickup or drive called {event}.")
             person = _match(snapshot.members, to_member, lambda item: item.name)
@@ -549,6 +556,12 @@ class VoiceServer:
             start = spoken_time(start_time)
             if start is None:
                 raise ToolError("What time should it move to?")
+            if not re.search(r"(?<![a-z])[ap]\.?m\.?(?![a-z])", start_time, re.IGNORECASE) and 1 <= int(start[:2]) <= 12:
+                # "Move family dinner to 7:30" means 7:30 in the evening: pick the reading nearest the event's time now.
+                hour, minute = int(start[:2]) % 12, int(start[3:])
+                was = parse(target.startAt).astimezone(household_zone(snapshot))
+                start = min((f"{hour:02d}:{minute:02d}", f"{hour + 12:02d}:{minute:02d}"),
+                            key=lambda value: abs(int(value[:2]) * 60 + minute - was.hour * 60 - was.minute))
             current_day = parse(target.startAt).astimezone(household_zone(snapshot)).date()
             new_day = spoken_date(day, household_today(snapshot)) if day else current_day
             start_at = local_iso(snapshot, new_day.isoformat(), start)
@@ -653,12 +666,22 @@ class VoiceServer:
             day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if re.search(rf"\b{word}(?:'s)?\b", event)), None)
             if day:  # "Swap Tuesday's Emma pickup to Alex"
                 event = re.sub(rf"\b(?:on\s+)?(?:next\s+)?{day}(?:'s)?\b", " ", event).strip() or event
+            event = re.sub(r"'s\b", "", event)  # "Switch Emma's pickup to Alex"
             calls.append(("propose_pickup_swap", {"event": " ".join(event.split()), "to_member": m.group(2),
                                                   **({"day": day} if day else {})}))
-        elif m := re.search(r"(?:move|reschedule)\s+(.+?)\s+to\s+(.+)", low):
+        elif (m := re.search(r"\b(?:can|could|have|let)\s+(\w+)\s+(?:take|do)\s+(.+)", low)) and \
+                (duty := re.search(r"(?:the\s+)?([\w' ]*?\b(?:pickup|pick up|drive|drop ?off))\b", m.group(2))):
+            # "Have Alex take Emma pickup", "Can Alex do the Emma pickup today?"
+            day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if re.search(rf"\b{word}(?:'s)?\b", m.group(2))), None)
+            event = re.sub(r"'s\b", "", duty.group(1))
+            if day:
+                event = re.sub(rf"\b(?:on\s+)?(?:next\s+)?{day}(?:'s)?\b", " ", event)
+            calls.append(("propose_pickup_swap", {"event": " ".join(event.split()), "to_member": m.group(1),
+                                                  **({"day": day} if day else {})}))
+        elif m := re.search(r"\b(?:move|reschedule|push)\s+(.+?)(?:\s+back)?\s+to\s+(.+)", low):
             day = next((word for word in ["today", "tomorrow", *WEEKDAYS] if word in m.group(2)), None)
             calls.append(("propose_reschedule", {"event": m.group(1), "start_time": m.group(2), **({"day": day} if day else {})}))
-        elif m := re.search(r"(?:add|schedule|put)\s+(.+?)\s+(?:on\s+)?(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(.+)", low):
+        elif m := re.search(r"\b(?:add|schedule|put)\s+(.+?)\s+(?:on\s+)?(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(.+)", low):
             calls.append(("propose_event", {"title": m.group(1).title(), "day": m.group(2), "start_time": m.group(3)}))
         elif m := re.search(r"(?:i|we|(\w+))\s+(?:finished|did|completed|done with)\s+(?:the\s+|my\s+)?(.+)", low):
             member = m.group(1) if m.group(1) not in (None, "i", "we") else None

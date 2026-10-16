@@ -6,7 +6,9 @@
 // process.env.EXPO_PUBLIC_FAMILYOS_API_URL is undefined at runtime and every build talks to
 // http://127.0.0.1:8787. Set it at build time: EXPO_PUBLIC_FAMILYOS_API_URL=https://... yarn build:vega
 // (run with --reset-cache or clear Metro's cache after changing the value).
-const INLINE_ENV = ['EXPO_PUBLIC_FAMILYOS_API_URL'];
+// EXPO_PUBLIC_FAMILYOS_WALL_IDLE_SECONDS: seconds before the wall calendar (default 300; 30 for filming).
+// EXPO_PUBLIC_FAMILYOS_WALL_VIDEO: 0 shows the wall's still posters instead of the weather loops.
+const INLINE_ENV = ['EXPO_PUBLIC_FAMILYOS_API_URL', 'EXPO_PUBLIC_FAMILYOS_WALL_IDLE_SECONDS', 'EXPO_PUBLIC_FAMILYOS_WALL_VIDEO'];
 function inlinePublicEnv({ types: t }) {
   return {
     visitor: {

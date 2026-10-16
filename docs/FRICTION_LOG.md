@@ -276,8 +276,10 @@ near-term roadmap. Fire OS (Android-based) devices still allow `FLAG_KEEP_SCREEN
 Severity: High (for this product category)  
 Workaround: FamilyOS shows its wall calendar after 5 idle minutes. That matches the system screensaver's default
 wait, so families should lengthen the screensaver wait for the wall calendar to stay up. The TV's Settings screen tells families where to lengthen the wait (Settings → Display &
-Sounds → Ambient Experience). Pairing and household state survive the app being closed, as Amazon recommends.  
-Suggested improvement: See FR-2.  
+Sounds → Ambient Experience). Pairing and household state survive the app being closed, as Amazon recommends.
+Update: while the wall calendar plays its muted weather loop through Vega's media player (W3C Media `VideoPlayer`), the system screensaver does not start (Fire TV Stick 4K Select, Vega OS 2.0, 2026-10-08). The wall now stays up as long as it's showing, with no change to the family's settings.  
+Suggested improvement: See FR-2. Media playback being the only way to keep a dashboard visible should be documented,
+or replaced by an explicit, user-granted "keep screen on" for dashboard apps.  
 Evidence/log: [Vega OS: no API or device setting to keep the display awake](https://community.amazondeveloper.com/t/vega-os-no-api-or-device-setting-to-keep-the-display-awake-for-non-media-signage-kiosk-apps-screensaver-engages-despite-foreground-app/28610),
 [Vega ambient mode / idle behavior](https://community.amazondeveloper.com/t/vega-ambient-mode-idle-behavior/28788).
 
@@ -430,7 +432,7 @@ content to the Ambient Experience screensaver.
 Why it matters: A family calendar is only useful when it's visible. Skylight sells a dedicated always-on screen for
 $150–$570; the Fire TV already in the living room could replace it if it were allowed to stay on.  
 Priority: Important  
-Status: Open. Workaround in Entry 14.
+Status: Worked around for Hometide by the wall's video loop (Entry 14, 2026-10-08); a documented, user-granted setting is still the right fix.
 
 ## Entry template
 

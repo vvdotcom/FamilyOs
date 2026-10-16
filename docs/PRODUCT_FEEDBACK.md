@@ -21,7 +21,8 @@ regression runs on an EC2 host.
 - The AsyncStorage port made it straightforward to keep pairing and state across restarts, which Amazon recommends
   now that apps can be closed when the display sleeps.
 - On a physical Fire TV Stick (Vega OS, 3 October 2026), the same release `.vpkg` installed and launched from our
-  Linux build VM, and the app ran with the real remote and Alexa.
+  Linux build VM, and the app ran with the real remote. Alexa from the remote didn't reach our in-development skill
+  there; the skill works in the Alexa developer console's simulator.
 
 **What needs work?**
 - **No way to keep the display on for a non-media app [14].** This is the biggest gap for a Skylight-style family
@@ -50,8 +51,8 @@ would matter most.
 **What was used and why?** A Hometide MCP server using Streamable HTTP and protocol 2025-11-25. It is built with the
 official Python SDK, publishes RFC 9728 protected-resource metadata, and exposes 13 tools plus an MCP Apps card
 (`ui://hometide/today.html`). A custom Alexa skill ("home tide") with account linking through Cognito reaches the
-same tools as an MCP client, and adds an APL card on Echo Show. Through that skill, Alexa+ can read the
-family schedule and chores and *propose* changes; a person confirms each one on the TV or phone.
+same tools as an MCP client, and adds an APL card on Echo Show. Through that skill (tested in the developer console's
+simulator), Alexa+ can read the family schedule and chores and *propose* changes; a person confirms each one on the TV or phone.
 
 **What worked well?** MCP maps cleanly onto a safe "propose, then confirm" design. The official MCP client negotiated
 `2025-11-25`, listed all tools, and ran read and propose calls end to end. The same tools also drive a labelled
@@ -66,15 +67,16 @@ HTTP app mounts at the root and its session manager can't restart, which needed 
 **How was onboarding?** The Alexa+ MCP QuickStart was clear about the protocol, but less clear about which
 authorization-server setups are accepted.
 
-**Would we use it again, and why?** Yes. One MCP server serves Alexa+ and any other assistant, and the
-permission model stays on our server.
+**Would we use it again, and why?** Yes. One MCP server can serve Alexa+ once access opens, and any other
+assistant today, and the permission model stays on our server.
 
 ## Alexa Skills Kit (custom skill "home tide")
 
 **What was used and why?** A custom skill with the invocation name "home tide", account linking through Amazon
 Cognito (authorization-code grant), and APL for a Hometide card on Echo Show. Its endpoint (`/alexa` on our API)
 verifies Alexa's signed requests and reaches the household through our MCP server with the parent's linked token.
-It is how a family talks to Hometide today, from an Echo or the Fire TV remote.
+It works in the Alexa developer console's simulator. From our Fire TV remote it didn't reach the in-development
+skill, so the Hometide phone app is how a family talks to Hometide today.
 
 **What worked well?** Account linking worked with a Cognito confidential client and the three regional redirect URLs
 the console lists. The developer console's simulator made it quick to test utterances, and APL gave Echo Show a
@@ -87,8 +89,8 @@ never reached the skill [19]; opening the skill first works.
 **How was onboarding?** Clear for a basic custom skill. Account linking took longer: the redirect URLs and the
 authorization-code settings had to match the Cognito client exactly (`docs/ALEXA_SETUP.md`).
 
-**Would we use it again, and why?** Yes. It puts Hometide on every Echo and Fire TV remote in the house today, and
-it is the bridge until Alexa+ add-ons for MCP servers open up.
+**Would we use it again, and why?** Yes. Once published, it would put Hometide on every Echo and Fire TV remote in the house,
+and it is the bridge until Alexa+ add-ons for MCP servers open up.
 
 ## Amazon Devices Builder Tools
 
