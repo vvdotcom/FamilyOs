@@ -12,8 +12,19 @@ config.watchFolders = [
   path.resolve(__dirname, '../..'),
 ];
 
+// The TV app only imports packages/shared-ui and packages/domain, but the repository root is watched for the
+// hoisted node_modules. Skip the large folders it never uses (the demo video, other apps, the API), so Metro
+// starts quickly and never sees a second copy of React Native from apps/vega.
+const repoRoot = path.resolve(__dirname, '../..');
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const skippedFolders = ['Video', 'Competitor', 'web-build', '_notes', '_to_delete', 'artifacts', 'logs', 'services',
+  'infra', 'alexa-skill', 'setup', 'store-listing', 'brand', 'docs', path.join('apps', 'vega'), path.join('apps', 'companion')]
+  .map((folder) => new RegExp(`^${escapeRegExp(path.join(repoRoot, folder))}[\\\\/].*`));
+const existingBlockList = config.resolver.blockList;
+
 config.resolver = {
   ...config.resolver,
+  blockList: [...(Array.isArray(existingBlockList) ? existingBlockList : existingBlockList ? [existingBlockList] : []), ...skippedFolders],
   unstable_enableSymlinks: true,
   nodeModulesPaths: [
     path.resolve(__dirname, 'node_modules'),

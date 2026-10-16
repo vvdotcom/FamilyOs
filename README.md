@@ -12,19 +12,19 @@ Built for the Build, Ship, Shape: Amazon Developer Hackathon (Fire TV track, plu
 - **Try it now:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) (judge login on the Devpost form). See [Testing it as a judge](#testing-it-as-a-judge).
 - **Run it on your own computer:** [Run it locally](#run-it-locally), about 10 minutes, no AWS account needed.
 
-Everything a judge needs is in this README: the product, how it's built, how it was tested and measured, and the
-[product feedback](#product-feedback) for each tool. The [friction log and feature requests](#friction-log-and-feature-requests)
-are summarized here, with every entry in full in [docs/FRICTION_LOG.md](./docs/FRICTION_LOG.md).
+Everything a judge needs is in this README: the product, how to test it, how it's built, and how it was tested and
+measured. The [product feedback](./docs/PRODUCT_FEEDBACK.md) for each tool and the
+[friction log and feature requests](./docs/FRICTION_LOG.md) each have their own document.
 
 ## Contents
 
-- [The problem, and who it's for](#the-problem-and-who-its-for) · [Measured, not just demoed](#measured-not-just-demoed) · [Why the TV](#why-the-tv)
-- [Screenshots](#screenshots) · [What it does](#what-it-does) · [Fire TV integration](#fire-tv-integration)
+- [The problem, and who it's for](#the-problem-and-who-its-for) · [Measured, not just demoed](#measured-not-just-demoed) · [What families said](#what-families-said) and [fixes](#fixes-from-family-feedback) · [Why the TV](#why-the-tv)
+- [Testing it as a judge](#testing-it-as-a-judge) · [Screenshots](#screenshots) · [What it does](#what-it-does) · [Fire TV integration](#fire-tv-integration)
 - [Architecture](#architecture) (the learning loop, trust rules, [AWS services used](#aws-services-used)) · [Safety and privacy](#safety-and-privacy)
 - [Evals](#evals) · [Measurements](#measurements) · [Status and device testing](#status-and-device-testing) · [Honest scope](#honest-scope)
-- [How Hometide maps to the judging criteria](#how-hometide-maps-to-the-judging-criteria) · [Testing it as a judge](#testing-it-as-a-judge) · [Run it locally](#run-it-locally)
+- [How Hometide maps to the judging criteria](#how-hometide-maps-to-the-judging-criteria) · [Run it locally](#run-it-locally)
 - [Built during the hackathon](#built-during-the-hackathon) · [Repository map](#repository-map) · [Developing on Windows](#developing-on-windows-vega-sdk)
-- [Product feedback](#product-feedback) · [Friction log and feature requests](#friction-log-and-feature-requests) · [References](#references) · [License](#license)
+- [Product feedback and friction log](#product-feedback-and-friction-log) · [References](#references) · [License](#license)
 
 ## The problem, and who it's for
 
@@ -55,6 +55,45 @@ From [the evals](#evals), which anyone can rerun with one command:
 - AI costs about **$0.13–$0.51 per household per month**, from measured per-request costs
   ([measurements](#amazon-bedrock-tokens-and-cost-per-household)).
 
+## What families said
+
+Three households of family and friends (8 people) tried Hometide on 2026-10-15. Their words, lightly edited for
+spelling:
+
+| Household | People | What worked for them | What they asked for |
+|---|---|---|---|
+| Tammy family | 3 | "It's easy to keep track of what's going on, and the AI feature is nice for deconflicting schedules." | "I wish there was a way to set when idle mode happens, at least in the phone companion app." |
+| Johnny family | 4 | "The points and stars are a nice feature to encourage kids to do what they're supposed to do." | "Some kind of reminder or notification to tell us when an important appointment is coming up." |
+| Christian family | 1 | "The calendar is well designed, especially the dark mode. Snapping a picture of an event and having it show on the calendar is really useful, since it makes creating events way easier." | — |
+
+This is informal feedback from people we know, not a pilot with usage numbers. Both requests are now built:
+
+### Fixes from family feedback
+
+**1. Choose when the wall calendar starts** (the Tammy family). A parent picks it in the phone app under Family → TV:
+after 1, 5, 10 or 30 minutes without the remote, or off (it then opens only when someone chooses it). Every TV in the
+household picks up the change on its next sync, within a few seconds, and the TV's Settings screen says where to change it.
+
+<!-- Screenshot: the phone app's Family → TV screen with the two new settings -->
+![The phone app's Family → TV screen: "Wall calendar after" 1, 5, 10 or 30 minutes or Off, and "Reminder on the TV" 10, 15 or 30 minutes or Off](./docs/images/readme/feedback-phone-tv-settings.jpg)
+
+**2. A reminder before each event** (the Johnny family). While Hometide is on the TV, including the wall calendar, a
+card appears 15 minutes before each timed event (10 or 30 minutes, or off, in the same phone setting), once per event:
+what it is, when, who's on it and where.
+
+<!-- Screenshot: the reminder card on the TV (sample mode: Jordan's 2:45 PM dentist appointment at 2:30 PM) -->
+![A reminder on the TV: "In 15 minutes · Dentist · 2:45 PM · Jordan · Desert Dental"](./docs/images/readme/feedback-tv-reminder.jpg)
+
+Vega OS has no supported way for a household app to show a notice while another app is playing, so the reminder
+can't appear over a show ([FR-1](./docs/FRICTION_LOG.md#fr-1--timed-household-notifications-during-other-apps-playback));
+it appears whenever Hometide is open, which on a family's living-room TV is most of the day thanks to the wall calendar.
+
+How it's built: the setting is one more household change (`tvSettings`) through the same write path, parent-only in the
+[permission matrix](#permission-matrix), with tests in
+[`test_tv_settings.py`](./services/family-agent/tests/test_tv_settings.py); the TV picks the next due event in
+[`ReminderToast.tsx`](./packages/shared-ui/src/components/ReminderToast.tsx), tested in
+[`family-feedback.test.ts`](./apps/expo-multi-tv/__tests__/family-feedback.test.ts).
+
 ## Why the TV
 
 Smart family calendars like Skylight cost $150–$570 for the screen, plus $79.99 a year for meal planning, rewards,
@@ -73,6 +112,32 @@ Skylight prices as of 2026-09-29 ([models](https://myskylight.com/compare-calend
 [subscriptions](https://skylight.zendesk.com/hc/en-us/articles/51833126965019-Subscription)). Hometide has no price
 yet; the comparison covers hardware and subscriptions only, and a family without a Fire TV would need one (a Fire TV
 Stick costs far less than a Skylight screen).
+
+## Testing it as a judge
+
+The quickest way is the hosted demo family; nothing to install.
+
+1. Open the web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) (a phone or a desktop
+   browser) and sign in with the judge login from the Devpost form. The parent code for approvals is **2468**.
+   The family's week is ready: every Tuesday and Thursday, Jordan's meeting clashes with Emma's pickup.
+2. **Open the TV app:** on a Fire TV (Vega OS), or in a browser on your computer (step 4 of
+   [Run it locally](#run-it-locally), with `EXPO_PUBLIC_FAMILYOS_API_URL=https://hometide.up.railway.app` in
+   `apps/expo-multi-tv/.env`). Arrow keys and Enter act as the remote.
+3. **Pair it:** on the TV, Settings → **Show pairing code**. Scan the QR code with the phone, or in the web app go to
+   Family → TV → **Pair a TV**, type the code and tap **Approve TV**.
+4. **Fix a clash by voice:** in the web app, tap the mic (or Family → Voice) and say or type "Swap Tuesday's Emma
+   pickup to Lindsey". Confirm it on the TV with code 2468.
+5. **Watch it learn:** the TV shows *Hometide noticed* with the reason. Confirm it, and every later Tuesday and
+   Thursday pickup moves to Lindsey. Then ask "What has Hometide learned about us?".
+6. **Create a recipe:** open Meals (Lists → Meals; on a phone, Chores → Lists & meals), pick a day, describe a meal
+   ("easy salmon dinner, 25 minutes") and tap **Create recipe**. It appears on that day, on the TV's Meals screen,
+   and its ingredients go to Groceries.
+7. **Try what families asked for:** in the web app, Family → TV → **On the TV**, set "Wall calendar after" to
+   **1 min**; leave the TV alone for a minute and the wall calendar appears. A reminder card shows on the TV 15
+   minutes before each event (see [Fixes from family feedback](#fixes-from-family-feedback)).
+8. **Check our numbers:** with the API's Python environment from [Run it locally](#run-it-locally), run
+   `python eval/run_agent_evals.py` in `services/family-agent`. It needs no AWS account and prints the numbers in
+   [Evals](#evals) in about 40 seconds.
 
 ## Screenshots
 
@@ -105,12 +170,13 @@ Filmed with a camera on a Fire TV Stick running Vega OS, with the real remote (n
 - **Approvals:** voice requests, photo-checked chores and reward requests wait on the TV for a parent, confirmed
   with a four-digit parent code on the remote.
 - **Home:** a family briefing, today's timeline, who's free, and what's next, including when to leave.
-- **Wall calendar:** after 5 idle minutes the TV shows the day in large type (clock, next up, dinner, chores
+- **Wall calendar:** after 5 idle minutes (a parent can change this in the phone app) the TV shows the day in large type (clock, next up, dinner, chores
   left, a family photo) on glass over a looping landscape that follows the live U.S. National Weather Service
   forecast and the time of day: rain, storms, snow, blizzards, heat or clear skies, by day and by night, with a
   different constellation on each clear night. A Hometide note joins the forecast with the family's day ("Rain from
   about 3 PM. Emma's soccer is at 4:00 PM, so pack rain jackets."). After 10 pm it dims to a quiet clock over the
   night scene, and it shifts a few pixels each minute to protect the screen.
+- **Reminders:** a card 15 minutes before each event while Hometide is on screen (the lead time is set in the phone app).
 - **Calendar:** day, week, and month views, with all-day items in their own row and conflicts flagged.
 - Chores with a star celebration, rewards, meals, lists, a photo slideshow, movement breaks, family night voting.
 - **Pair by QR code:** the TV shows a QR code; scan it with the phone and tap Approve TV.
@@ -280,6 +346,7 @@ the code for every decision, even when a session is already unlocked.
 | photo-verified chore approval | code each time | submit photo (own) | code each time | code each time | no |
 | rewards and reward settings | yes | request (own) | no | mark fulfilled | balance only |
 | reward approval / star correction | code each time | no | code each time | code each time | no |
+| TV settings (when the wall calendar starts, reminders) | yes | no | no | no | no |
 | household members and roles | yes | no | no | no | no |
 | imports | yes | no | no | no | no |
 | photos | yes | no | view | view | no |
@@ -477,7 +544,7 @@ exact-match accuracy was 45%. A parent approves every photo either way, and the 
 | TV app on Fire OS | The Fire OS build of the same screens ([`apps/expo-multi-tv`](./apps/expo-multi-tv)) installed and ran on an emulator |
 | Companion web app | Built from the phone app's code and served by the API at `/app`; live at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) |
 | Phone app (Expo, iOS) | Typecheck and browser previews pass; the iPhone checklist is in [apps/companion](./apps/companion/README.md) |
-| Real-world use | Used informally by the developer's family and friends. No public release yet |
+| Real-world use | Tried by three households of family and friends (8 people) on 2026-10-15; [both of their requests are built](#fixes-from-family-feedback). No public release yet |
 
 ### Fire TV device test record
 
@@ -498,7 +565,7 @@ device evidence yet and are not claimed.
 | Vega SDK / CLI | 0.24.12112 (pinned in `apps/vega/vega-sdk-requirements.json`) / 1.4.2, target OS 1.2 |
 | Built from | Commit `eab78c2` (2026-10-07) |
 | API the build points to | `https://hometide.up.railway.app` (the hosted Hometide API on Railway) |
-| Install | Sideloaded over Wi-Fi with `.\familyos.ps1 tv`: Developer Mode on the Stick ([friction log](#friction-log-and-feature-requests) entries 20 and 21), then `vega exec vda connect <tv-ip>:5555`, `vega device install-app` and `vega device launch-app --appName com.hometide.tv.main` |
+| Install | Sideloaded over Wi-Fi with `.\familyos.ps1 tv`: Developer Mode on the Stick ([friction log](./docs/FRICTION_LOG.md) entries 20 and 21), then `vega exec vda connect <tv-ip>:5555`, `vega device install-app` and `vega device launch-app --appName com.hometide.tv.main` |
 | Dates | First install 2026-10-03. Demo footage filmed on the Stick 2026-10-07 |
 
 #### The demo path on the device
@@ -742,8 +809,9 @@ What is real today, and what isn't yet:
 - **AgentCore Memory:** used when the API has a memory ID configured (`HOMETIDE_AGENTCORE_MEMORY_ID`). Without one,
   the routines the family confirmed still live in the household's own record, and "what has Hometide learned" reads
   them from there.
-- **Families:** used informally by the developer's family and friends. There has been no pilot with outside
-  families, and no hallway test with numbers.
+- **Families:** three households of family and friends (8 people) tried it on 2026-10-15 and gave the
+  [feedback above](#what-families-said). That's informal feedback, not a pilot with usage numbers, and there's no
+  hallway test with timings.
 - **The evals use generated households**, not real families' calendars (see [known limits](#known-limits)).
 
 ## How Hometide maps to the judging criteria
@@ -752,33 +820,10 @@ What is real today, and what isn't yet:
 |---|---|
 | Technical implementation | A native Vega OS app on a real Stick ([device test record](#fire-tv-device-test-record)); one write path with permissions and audit; a Strands agent on Bedrock over our MCP server (2025-11-25); AgentCore Memory; CDK with tests; 200+ API tests and [reproducible evals](#evals) |
 | Design and user experience | Remote-only screens with focus on the likely action, QR pairing, one voice → TV → remote → phone flow, the living wall calendar ([screenshots](#screenshots)) |
-| Potential impact | Most families with kids have two working parents ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)); $0 in new hardware against $380–$785 for a wall calendar's first year; AI at $0.13–$0.51 per household per month ([measurements](#measurements)) |
+| Potential impact | Most families with kids have two working parents ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)); $0 in new hardware against $380–$785 for a wall calendar's first year; AI at $0.13–$0.51 per household per month ([measurements](#measurements)); three households tried it and both of their requests are built ([what families said](#what-families-said)) |
 | Quality of the idea | "Hometide noticed" learns routines from the family's own fixes and asks before changing anything; the rules' two Fire TV creative examples (adapts to household patterns; voice, D-pad and visuals in one flow) are both on screen |
-| Product feedback and AWS services (AWS Builder) | [Product feedback](#product-feedback) for each of the 10 tools, and [AWS services used](#aws-services-used) |
-| Friction log and feature requests | [21 entries and 2 feature requests](#friction-log-and-feature-requests), each in the full format |
-
-## Testing it as a judge
-
-The quickest way is the hosted demo family; nothing to install.
-
-1. Open the web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) (a phone or a desktop
-   browser) and sign in with the judge login from the Devpost form. The parent code for approvals is **2468**.
-   The family's week is ready: every Tuesday and Thursday, Jordan's meeting clashes with Emma's pickup.
-2. **Open the TV app:** on a Fire TV (Vega OS), or in a browser on your computer (step 4 of
-   [Run it locally](#run-it-locally), with `EXPO_PUBLIC_FAMILYOS_API_URL=https://hometide.up.railway.app` in
-   `apps/expo-multi-tv/.env`). Arrow keys and Enter act as the remote.
-3. **Pair it:** on the TV, Settings → **Show pairing code**. Scan the QR code with the phone, or in the web app go to
-   Family → TV → **Pair a TV**, type the code and tap **Approve TV**.
-4. **Fix a clash by voice:** in the web app, tap the mic (or Family → Voice) and say or type "Swap Tuesday's Emma
-   pickup to Lindsey". Confirm it on the TV with code 2468.
-5. **Watch it learn:** the TV shows *Hometide noticed* with the reason. Confirm it, and every later Tuesday and
-   Thursday pickup moves to Lindsey. Then ask "What has Hometide learned about us?".
-6. **Create a recipe:** open Meals (Lists → Meals; on a phone, Chores → Lists & meals), pick a day, describe a meal
-   ("easy salmon dinner, 25 minutes") and tap **Create recipe**. It appears on that day, on the TV's Meals screen,
-   and its ingredients go to Groceries.
-7. **Check our numbers:** with the API's Python environment from [Run it locally](#run-it-locally), run
-   `python eval/run_agent_evals.py` in `services/family-agent`. It needs no AWS account and prints the numbers in
-   [Evals](#evals) in about 40 seconds.
+| Product feedback and AWS services (AWS Builder) | [Product feedback](./docs/PRODUCT_FEEDBACK.md) for each of the 10 tools, and [AWS services used](#aws-services-used) |
+| Friction log and feature requests | [21 entries and 2 feature requests](./docs/FRICTION_LOG.md), each in the full format |
 
 ## Run it locally
 
@@ -916,274 +961,12 @@ forwards bind to `127.0.0.1`. Without nested virtualization it installs the buil
 changes Hyper-V or Windows security settings. Regression checks for the bootstrap scripts:
 `powershell.exe -NoProfile -File .\setup\tests\windows-bootstrap.tests.ps1`.
 
-## Product feedback
-
-Feedback on each Amazon and AWS tool used to build Hometide (the same text goes in the Devpost Product Feedback
-field). Numbers in brackets are [friction log](#friction-log-and-feature-requests) entries; FR-1 and FR-2 are the
-feature requests.
-
-### Vega SDK, Vega OS, and the Vega Virtual Device
-
-**What was used and why?** The Vega SDK 0.24.12112 and CLI 1.4.2 (OS 1.2 target) to build the Hometide TV app in
-React Native for Fire TV. We used `react-native-kepler` (`TVEventHandler` for remote keys), the Vega AsyncStorage
-port, and `react-tv-space-navigation` for D-pad focus. The Vega Virtual Device (VVD) was used for remote-only
-regression runs on an EC2 host.
-
-**What worked well?**
-- One set of React Native TV screens runs on Vega OS and on the web for fast iteration. The same screens build
-  for Fire OS / Android TV (Expo), which we have run on an emulator.
-- Builds for armv7, aarch64, and x86_64 passed manifest validation.
-- `vega run-app` and `launch-app` were reliable, and cold start to a rendered Home took about 2–3 s even with
-  software GL on the VVD.
-- On the VVD, every screen was reachable with the remote alone after the fixes in the
-  [VVD report](#vega-virtual-device-regression-2026-09-28).
-- The AsyncStorage port made it straightforward to keep pairing and state across restarts, which Amazon recommends
-  now that apps can be closed when the display sleeps.
-- On a physical Fire TV Stick (Vega OS, 3 October 2026), the same release `.vpkg` installed and launched from our
-  Linux build VM, and the app ran with the real remote. Alexa from the remote didn't reach our in-development skill
-  there; the skill works in the Alexa developer console's simulator.
-
-**What needs work?**
-- **No way to keep the display on for a non-media app [14].** This is the biggest gap for a Skylight-style family
-  display, and FR-2 proposes a user-granted permission.
-- **No way to show a timed reminder during another app's playback [FR-1].**
-- The sample and docs lagged the SDK: `build-kepler` naming, a missing `[os.version]` block, an unavailable
-  documented SDK version, and a required generated OS module [1, 6, 7].
-- The JS engine pads weekday-only `Intl` date labels with date fields [10].
-- Remote input configured after the first render left the D-pad dead [11].
-- Focus did not move into overlays without a manual lock-and-root pattern [13].
-- The VVD needs KVM, so a Windows laptop with virtualization-based security can't run it [5]. We used an EC2
-  `c8i.2xlarge` with nested virtualization.
-- Enabling Developer Mode on hardware: the docs call it a "6-digit code", but the TV showed letters and numbers
-  [20], and `vega devmode login` couldn't save its token on a headless Linux host without a desktop keyring [21].
-
-**How was onboarding?** The CLI installed cleanly, but Windows is not a native SDK host, so we automated an Ubuntu VM
-and later moved VVD runs to EC2. Pinning the SDK version from `vega sdk list-remote` was necessary. Device
-automation needed `inputd-cli` for input and host-side screenshots [12].
-
-**Would we use it again, and why?** Yes. Sharing React Native code across Vega and the web, with Fire OS next, let
-one small team build the TV app from one codebase. For always-on dashboards, a keep-awake option (FR-2) is the one change that
-would matter most.
-
-### Alexa+ and the Model Context Protocol
-
-**What was used and why?** A Hometide MCP server using Streamable HTTP and protocol 2025-11-25. It is built with the
-official Python SDK, publishes RFC 9728 protected-resource metadata, and exposes 13 tools plus an MCP Apps card
-(`ui://hometide/today.html`). A custom Alexa skill ("home tide") with account linking through Cognito reaches the
-same tools as an MCP client, and adds an APL card on Echo Show. Through that skill (tested in the developer console's
-simulator), Alexa+ can read the family schedule and chores and *propose* changes; a person confirms each one on the TV or phone.
-
-**What worked well?** MCP maps cleanly onto a safe "propose, then confirm" design. The official MCP client negotiated
-`2025-11-25`, listed all tools, and ran read and propose calls end to end. The same tools also drive a labelled
-"Simulated Alexa+" through Bedrock tool use.
-
-**What needs work?** Alexa+ add-on access for MCP servers isn't open to us yet, so a custom skill stands in for it.
-For that skill, account linking works with a Cognito confidential client, the authorization-code grant, and the
-three regional redirect URLs the console lists. For MCP, it isn't documented whether Cognito's OIDC discovery document is enough or RFC 8414 metadata is required, and
-there is no static-token option for development. The SDK's Streamable
-HTTP app mounts at the root and its session manager can't restart, which needed a small wrapper [8].
-
-**How was onboarding?** The Alexa+ MCP QuickStart was clear about the protocol, but less clear about which
-authorization-server setups are accepted.
-
-**Would we use it again, and why?** Yes. One MCP server can serve Alexa+ once access opens, and any other
-assistant today, and the permission model stays on our server.
-
-### Alexa Skills Kit (custom skill "home tide")
-
-**What was used and why?** A custom skill with the invocation name "home tide", account linking through Amazon
-Cognito (authorization-code grant), and APL for a Hometide card on Echo Show. Its endpoint (`/alexa` on our API)
-verifies Alexa's signed requests and reaches the household through our MCP server with the parent's linked token.
-It works in the Alexa developer console's simulator. From our Fire TV remote it didn't reach the in-development
-skill, so the Hometide phone app is how a family talks to Hometide today.
-
-**What worked well?** Account linking worked with a Cognito confidential client and the three regional redirect URLs
-the console lists. The developer console's simulator made it quick to test utterances, and APL gave Echo Show a
-visual card from the same response.
-
-**What needs work?** The build waits on an easy-to-miss confirmation, and the simulator silently keeps the old model
-if it's missed [18]. With Alexa+, a one-shot "ask home tide…" was sometimes answered by Alexa's own calendar and
-never reached the skill [19]; opening the skill first works.
-
-**How was onboarding?** Clear for a basic custom skill. Account linking took longer: the redirect URLs and the
-authorization-code settings had to match the Cognito client exactly.
-
-**Would we use it again, and why?** Yes. Once published, it would put Hometide on every Echo and Fire TV remote in the house,
-and it is the bridge until Alexa+ add-ons for MCP servers open up.
-
-### Amazon Devices Builder Tools
-
-**What was used and why?** `init-context`, to give our coding agent current Amazon device and Vega context at the
-start of the project.
-
-**What worked well?** It installed the Amazon device skills in one command.
-
-**What needs work?** In Other/Custom mode it printed the context instead of saving it to the path we gave, and it
-installed skills at the user level without asking [2].
-
-**How was onboarding?** One command to start, but the Other/Custom mode didn't behave as documented, so we kept
-current Amazon docs in [References](#references) instead.
-
-**Would we use it again, and why?** Yes, once Other/Custom mode honors the output path, because current Vega context
-saves a lot of searching.
-
-### Amazon Bedrock (Nova Lite)
-
-**What was used and why?** The Converse API with `us.amazon.nova-lite-v1:0` powers four features: the TV family
-briefing, flyer/PDF photo imports (image and document input), chore photo checks (image input), and the voice
-agent (tool use, through the Strands Agents SDK).
-
-**What worked well?**
-- One API covered text, images, PDFs, and tool use.
-- Bedrock API keys made setup a single environment variable.
-- Measured cost is about $0.0001–$0.0002 per request, or $0.13–$0.51 per household per month, with 1.2–2.0 s median
-  model latency.
-- The model ignored an instruction planted in a test flyer during import.
-
-**What needs work?** On simple drawn test photos, the model was cautious: 45% exact accuracy, 55% "unclear", and
-0% false "done" [9]. Schema-constrained (JSON schema) output for image inputs would remove our parsing fallbacks.
-
-**How was onboarding?** Quick: one API key and one model ID (`us.amazon.nova-lite-v1:0`, a cross-region inference
-profile).
-
-**Would we use it again, and why?** Yes. The cost is low enough to include AI in a free family product, and the
-Converse API kept all four features on one code path with deterministic fallbacks.
-
-### Strands Agents SDK
-
-**What was used and why?** The voice agent (`services/family-agent/app/agent.py`) is a Strands `Agent` with a
-`BedrockModel`. Its tools are wrapped from our MCP server's tool list, so the agent, the Alexa skill and any Alexa+
-client use the same tools and permission checks.
-
-**What worked well?** Replacing our hand-written Converse loop took one small module. `PythonAgentTool` let us
-wrap tools discovered at runtime (over MCP or in-process) instead of decorating Python functions, and Bedrock API
-keys (`AWS_BEARER_TOKEN_BEDROCK`) worked without extra configuration.
-
-**What needs work?** Given every tool, Nova Lite sometimes proposed a change when the user had only asked a
-question, despite the system prompt. We now pass only read tools for questions. A per-call option to restrict the
-tool set, and a documented maximum number of model-tool cycles, would help.
-
-**How was onboarding?** Straightforward: install `strands-agents`, create a `BedrockModel` with the model ID we
-already used, and hand it our MCP tool list wrapped as tools. Most of the work was choosing which tools each request
-may see [16].
-
-**Would we use it again, and why?** Yes. It removed our own loop code and keeps the agent provider-neutral.
-
-### Amazon Bedrock AgentCore Memory
-
-**What was used and why?** One memory (`hometide_family_memory`) with a semantic strategy and the namespace
-`/households/{actorId}/routines`. When Hometide notices a routine, and when the family says yes or no, an event is
-written under a hashed household id. The voice tool `get_learned_routines` recalls from it with a search query.
-
-**What worked well?** The data-plane API (`CreateEvent`, `RetrieveMemoryRecords`) maps directly onto "remember what
-we noticed" and "what has Hometide learned?", and namespaces per actor keep each family separate.
-
-**What needs work?** Long-term records are extracted asynchronously, so a routine confirmed a moment ago is not
-searchable yet; we read recent events as a fallback and keep a local copy of confirmed routines. A synchronous
-"write a record" call for facts the app already knows would avoid that.
-
-**How was onboarding?** The memory itself is one CDK resource (`AWS::BedrockAgentCore::Memory`), and the app talks
-to it through boto3's `bedrock-agentcore` client. The part that took time was learning that long-term records appear
-asynchronously [17].
-
-**Would we use it again, and why?** Yes, as long-term memory that outlives a single voice session.
-
-### AWS CDK (CloudFormation)
-
-**What was used and why?** `infra/` defines the AgentCore Memory, the API's IAM user (Nova models and one memory
-only) with its key in Secrets Manager, and the Cognito user pool, domain and app clients, with Jest assertion tests.
-
-**What worked well?** The L1 `AWS::BedrockAgentCore::Memory` resource was available in aws-cdk-lib, and assertion
-tests caught a wrong auth-flow order before anything was deployed.
-
-**What needs work?** Adopting an existing Cognito pool needs `cdk import` with each physical id typed in by hand.
-
-**How was onboarding?** Quick for new resources: `npx cdk deploy` from AWS CloudShell, with no local AWS setup.
-Importing the Cognito pool we had created by hand earlier was the slow part.
-
-**Would we use it again, and why?** Yes. The AWS pieces are reviewable, tested code instead of console clicks.
-
-### Amazon Cognito
-
-**What was used and why?** A user pool (us-west-2) holds parent accounts for the hosted service. The Expo phone app
-signs up and signs in directly with Cognito (`USER_AUTH` with the `PASSWORD` challenge), then exchanges the ID token
-for a revocable Hometide session. The API verifies tokens against the pool's JWKS. The MCP server can also accept
-Cognito access tokens.
-
-**What worked well?** Standard JWTs verified with PyJWT, email verification without our own mail service, and
-choice-based sign-in that works in Expo Go without a custom native build or OAuth callback.
-
-**What needs work?** A Cognito password reset doesn't give us a hook to revoke Hometide sessions on other devices,
-so we track that as our own follow-up. Alexa+ compatibility of Cognito's metadata is unverified (see above).
-
-**How was onboarding?** A user pool and one public client (no secret) covered the Expo app, which uses direct
-`USER_AUTH`. A second, confidential client handles Alexa account linking.
-
-**Would we use it again, and why?** Yes, for managed, verified accounts without storing passwords.
-
-### Amazon EC2 (test host)
-
-**What was used and why?** A `c8i.2xlarge` instance with nested virtualization, Xvfb, and software GL ran the Vega
-Virtual Device, because the development laptop couldn't expose KVM.
-
-**What worked well?** Nested virtualization on c8i ran the VVD reliably for a full remote-only regression.
-
-**What needs work?** Software rendering is slow, and screen capture and input needed custom scripts [12].
-
-**How was onboarding?** One user-data script installs the Vega SDK, a virtual display and a browser-based desktop
-unattended, and the instance shuts itself down after 8 hours to cap the cost. Finding that the VVD needs OpenGL
-through Mesa's software renderer (not `--no-gl-accel`) took some trial and error.
-
-**Would we use it again, and why?** Yes, as a shared VVD host until physical-device testing.
-
-### How AWS services are used (AWS Builder mini-challenge)
-
-- **Amazon Bedrock (Nova Lite):** the voice agent's tool use, the family briefing, flyer and PDF import, and chore
-  photo checks. Every AI result is a suggestion that a person confirms, and each feature has a deterministic
-  fallback.
-- **Strands Agents SDK:** the voice agent's model-tool loop, over the same tools the MCP server exposes.
-- **Amazon Bedrock AgentCore Memory:** the routines Hometide notices and the family's decisions, recalled in later
-  sessions ("What has Hometide learned?").
-- **Amazon Cognito:** parent accounts, email verification, Alexa account linking, and bearer tokens for MCP.
-- **AWS IAM, Secrets Manager and CloudFormation (CDK):** a least-privilege identity for the API and all of the above
-  as tested code in `infra/`.
-- **Amazon EC2:** the Vega Virtual Device test host.
-
-The API itself is hosted on Railway (Docker and Postgres). The architecture is described in [Architecture](#architecture).
-
-## Friction log and feature requests
-
-Tool, SDK, API, simulator and device friction, written down while it happened: 21 entries and 2 feature requests,
-each with the task, steps, expected and actual results, severity, workaround and suggested improvement. Hometide was
-called FamilyOS during early development, so older entries use that name.
-
-| # | Friction | Tool or API | Severity |
-|---|---|---|---|
-| 1 | [The multi-TV sample lags the current Vega SDK](./docs/FRICTION_LOG.md#entry-1--the-multi-tv-sample-lags-the-current-vega-sdk) | Amazon React Native multi-TV sample | Medium |
-| 2 | [Builder Tools `init-context` ignores the output path in Other/Custom mode](./docs/FRICTION_LOG.md#entry-2--builder-tools-init-context-ignores-the-output-path-in-othercustom-mode) | Amazon Devices Builder Tools `init-context` | Medium |
-| 3 | [The multi-TV sample's own checks don't pass](./docs/FRICTION_LOG.md#entry-3--the-multi-tv-samples-own-checks-dont-pass) | Official multi-TV starter dependency/tooling baseline | Medium |
-| 4 | [Windows bootstrap recovery](./docs/FRICTION_LOG.md#entry-4--windows-bootstrap-recovery) | Vega SDK host setup on Windows: Windows PowerShell 5.1, OpenSSH, VirtualBox 7.2.20, an Ubuntu VM | High |
-| 5 | [Nested virtualization unavailable](./docs/FRICTION_LOG.md#entry-5--nested-virtualization-unavailable) | Vega Virtual Device (VVD) host requirements; VirtualBox NEM, Windows hypervisor, Ubuntu KVM | High |
-| 6 | [Documentation SDK version unavailable](./docs/FRICTION_LOG.md#entry-6--documentation-sdk-version-unavailable) | Vega CLI 1.4.2, the official SDK installer, and the getting-started docs | Medium |
-| 7 | [SDK-generated OS module required](./docs/FRICTION_LOG.md#entry-7--sdk-generated-os-module-required) | Vega SDK 0.24.12112 manifest validation and packaging | Medium |
-| 8 | [Alexa+ MCP account linking needs a full OAuth 2.1 authorization server](./docs/FRICTION_LOG.md#entry-8--alexa-mcp-account-linking-needs-a-full-oauth-21-authorization-server) | Alexa+ MCP Toolkit, MCP Python SDK 1.27.1 (FastMCP), Amazon Cognito | High |
-| 9 | [Bedrock vision on synthetic chore photos is cautious](./docs/FRICTION_LOG.md#entry-9--bedrock-vision-on-synthetic-chore-photos-is-cautious) | Amazon Bedrock Converse | Low |
-| 10 | [Vega JS engine pads weekday-only date labels](./docs/FRICTION_LOG.md#entry-10--vega-js-engine-pads-weekday-only-date-labels) | Vega OS 1.2 JavaScript engine (`Date.prototype.toLocaleDateString`) on the Vega Virtual Device | Medium |
-| 11 | [Remote configured after the first render left the D-pad dead](./docs/FRICTION_LOG.md#entry-11--remote-configured-after-the-first-render-left-the-d-pad-dead) | `react-tv-space-navigation` 5.2.0 with the Vega `TVEventHandler` remote bridge | High |
-| 12 | [VVD automation needs device-side input and host-side screenshots](./docs/FRICTION_LOG.md#entry-12--vvd-automation-needs-device-side-input-and-host-side-screenshots) | Vega CLI 1.4.2, SDK 0.24.12112, Vega Virtual Device on EC2 | Medium |
-| 13 | [Overlays inside a screen did not receive remote focus](./docs/FRICTION_LOG.md#entry-13--overlays-inside-a-screen-did-not-receive-remote-focus) | `react-tv-space-navigation` `DefaultFocus` inside an already-focused root | High |
-| 14 | [Vega OS cannot keep the display on for a non-media app](./docs/FRICTION_LOG.md#entry-14--vega-os-cannot-keep-the-display-on-for-a-non-media-app) | Vega OS display power and screensaver | High |
-| 15 | [Nova Lite can answer a tool call with only hidden reasoning](./docs/FRICTION_LOG.md#entry-15--nova-lite-can-answer-a-tool-call-with-only-hidden-reasoning) | Amazon Bedrock Converse API, `us.amazon.nova-lite-v1:0`, tool use | High |
-| 16 | [Given every tool, the agent proposes changes nobody asked for](./docs/FRICTION_LOG.md#entry-16--given-every-tool-the-agent-proposes-changes-nobody-asked-for) | Strands Agents SDK 1.57 with `BedrockModel` | Medium |
-| 17 | [AgentCore Memory records are not searchable right after they are written](./docs/FRICTION_LOG.md#entry-17--agentcore-memory-records-are-not-searchable-right-after-they-are-written) | Amazon Bedrock AgentCore Memory, `CreateEvent` and `RetrieveMemoryRecords` | Low |
-| 18 | [The skill build waits on an easy-to-miss confirmation](./docs/FRICTION_LOG.md#entry-18--the-skill-build-waits-on-an-easy-to-miss-confirmation) | Alexa Skills Kit developer console | Low |
-| 19 | [Alexa+ answers "ask home tide what's on today" from its own empty calendar](./docs/FRICTION_LOG.md#entry-19--alexa-answers-ask-home-tide-whats-on-today-from-its-own-empty-calendar) | Alexa+ (developer console simulator), Alexa Skills Kit custom skill invocation | High |
-| 20 | [The Developer Mode code is letters and numbers, but the docs say "6-digit code"](./docs/FRICTION_LOG.md#entry-20--the-developer-mode-code-is-letters-and-numbers-but-the-docs-say-6-digit-code) | Vega Developer Mode on a physical Fire TV Stick (Vega OS), Vega CLI documentation | Low |
-| 21 | [`vega devmode login` can't save its token on a headless Linux host](./docs/FRICTION_LOG.md#entry-21--vega-devmode-login-cant-save-its-token-on-a-headless-linux-host) | Vega CLI (`vega devmode login`, `vega devmode enable-device`) on Ubuntu over SSH | High |
-| FR-1 | [Timed household notifications during other apps' playback](./docs/FRICTION_LOG.md#fr-1--timed-household-notifications-during-other-apps-playback) (feature request) | Vega OS | Priority: Important |
-| FR-2 | [Let a user keep a dashboard app on screen](./docs/FRICTION_LOG.md#fr-2--let-a-user-keep-a-dashboard-app-on-screen) (feature request) | Vega OS | Priority: Important |
-
-Every entry in full, with its evidence: [docs/FRICTION_LOG.md](./docs/FRICTION_LOG.md).
+## Product feedback and friction log
+
+- [Product feedback](./docs/PRODUCT_FEEDBACK.md): what we used, what worked and what needs work for each of the
+  10 Amazon and AWS tools behind Hometide (the same text is in the Devpost form), and how AWS services are used.
+- [Friction log and feature requests](./docs/FRICTION_LOG.md): 21 entries and 2 feature requests, each with the task,
+  steps, expected and actual results, severity, workaround and suggested improvement.
 
 ## References
 

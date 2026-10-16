@@ -1,7 +1,35 @@
 # Development friction log
 
 Record tool, SDK, API, simulator, and device friction while it happens. Hometide was called FamilyOS during early
-development, so older entries use that name.
+development, so older entries use that name. Back to the [README](../README.md).
+
+The 21 entries and 2 feature requests at a glance:
+
+| # | Friction | Tool or API | Severity |
+|---|---|---|---|
+| 1 | [The multi-TV sample lags the current Vega SDK](#entry-1--the-multi-tv-sample-lags-the-current-vega-sdk) | Amazon React Native multi-TV sample | Medium |
+| 2 | [Builder Tools `init-context` ignores the output path in Other/Custom mode](#entry-2--builder-tools-init-context-ignores-the-output-path-in-othercustom-mode) | Amazon Devices Builder Tools `init-context` | Medium |
+| 3 | [The multi-TV sample's own checks don't pass](#entry-3--the-multi-tv-samples-own-checks-dont-pass) | Official multi-TV starter dependency/tooling baseline | Medium |
+| 4 | [Windows bootstrap recovery](#entry-4--windows-bootstrap-recovery) | Vega SDK host setup on Windows: Windows PowerShell 5.1, OpenSSH, VirtualBox 7.2.20, an Ubuntu VM | High |
+| 5 | [Nested virtualization unavailable](#entry-5--nested-virtualization-unavailable) | Vega Virtual Device (VVD) host requirements; VirtualBox NEM, Windows hypervisor, Ubuntu KVM | High |
+| 6 | [Documentation SDK version unavailable](#entry-6--documentation-sdk-version-unavailable) | Vega CLI 1.4.2, the official SDK installer, and the getting-started docs | Medium |
+| 7 | [SDK-generated OS module required](#entry-7--sdk-generated-os-module-required) | Vega SDK 0.24.12112 manifest validation and packaging | Medium |
+| 8 | [Alexa+ MCP account linking needs a full OAuth 2.1 authorization server](#entry-8--alexa-mcp-account-linking-needs-a-full-oauth-21-authorization-server) | Alexa+ MCP Toolkit, MCP Python SDK 1.27.1 (FastMCP), Amazon Cognito | High |
+| 9 | [Bedrock vision on synthetic chore photos is cautious](#entry-9--bedrock-vision-on-synthetic-chore-photos-is-cautious) | Amazon Bedrock Converse | Low |
+| 10 | [Vega JS engine pads weekday-only date labels](#entry-10--vega-js-engine-pads-weekday-only-date-labels) | Vega OS 1.2 JavaScript engine (`Date.prototype.toLocaleDateString`) on the Vega Virtual Device | Medium |
+| 11 | [Remote configured after the first render left the D-pad dead](#entry-11--remote-configured-after-the-first-render-left-the-d-pad-dead) | `react-tv-space-navigation` 5.2.0 with the Vega `TVEventHandler` remote bridge | High |
+| 12 | [VVD automation needs device-side input and host-side screenshots](#entry-12--vvd-automation-needs-device-side-input-and-host-side-screenshots) | Vega CLI 1.4.2, SDK 0.24.12112, Vega Virtual Device on EC2 | Medium |
+| 13 | [Overlays inside a screen did not receive remote focus](#entry-13--overlays-inside-a-screen-did-not-receive-remote-focus) | `react-tv-space-navigation` `DefaultFocus` inside an already-focused root | High |
+| 14 | [Vega OS cannot keep the display on for a non-media app](#entry-14--vega-os-cannot-keep-the-display-on-for-a-non-media-app) | Vega OS display power and screensaver | High |
+| 15 | [Nova Lite can answer a tool call with only hidden reasoning](#entry-15--nova-lite-can-answer-a-tool-call-with-only-hidden-reasoning) | Amazon Bedrock Converse API, `us.amazon.nova-lite-v1:0`, tool use | High |
+| 16 | [Given every tool, the agent proposes changes nobody asked for](#entry-16--given-every-tool-the-agent-proposes-changes-nobody-asked-for) | Strands Agents SDK 1.57 with `BedrockModel` | Medium |
+| 17 | [AgentCore Memory records are not searchable right after they are written](#entry-17--agentcore-memory-records-are-not-searchable-right-after-they-are-written) | Amazon Bedrock AgentCore Memory, `CreateEvent` and `RetrieveMemoryRecords` | Low |
+| 18 | [The skill build waits on an easy-to-miss confirmation](#entry-18--the-skill-build-waits-on-an-easy-to-miss-confirmation) | Alexa Skills Kit developer console | Low |
+| 19 | [Alexa+ answers "ask home tide what's on today" from its own empty calendar](#entry-19--alexa-answers-ask-home-tide-whats-on-today-from-its-own-empty-calendar) | Alexa+ (developer console simulator), Alexa Skills Kit custom skill invocation | High |
+| 20 | [The Developer Mode code is letters and numbers, but the docs say "6-digit code"](#entry-20--the-developer-mode-code-is-letters-and-numbers-but-the-docs-say-6-digit-code) | Vega Developer Mode on a physical Fire TV Stick (Vega OS), Vega CLI documentation | Low |
+| 21 | [`vega devmode login` can't save its token on a headless Linux host](#entry-21--vega-devmode-login-cant-save-its-token-on-a-headless-linux-host) | Vega CLI (`vega devmode login`, `vega devmode enable-device`) on Ubuntu over SSH | High |
+| FR-1 | [Timed household notifications during other apps' playback](#fr-1--timed-household-notifications-during-other-apps-playback) (feature request) | Vega OS | Priority: Important |
+| FR-2 | [Let a user keep a dashboard app on screen](#fr-2--let-a-user-keep-a-dashboard-app-on-screen) (feature request) | Vega OS | Priority: Important |
 
 ## Entry 1 — The multi-TV sample lags the current Vega SDK
 

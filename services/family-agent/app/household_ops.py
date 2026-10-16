@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from .demo import demo_now
 from .domain import DomainError, is_available, parse
 from .models import (
-    CalendarEvent, CalendarSubscriptionMeta, ChoreVerification, HouseholdLocation, FamilyNightPoll, FamilyNightSettings, FamilyNightSuggestion,
+    CalendarEvent, CalendarSubscriptionMeta, ChoreVerification, HouseholdLocation, TvSettings, FamilyNightPoll, FamilyNightSettings, FamilyNightSuggestion,
     HouseholdSnapshot, PhotoMeta, Proposal, StarTransaction, Team,
 )
 from .move import MOVE_ROUTINES
@@ -31,7 +31,7 @@ OPERATION_KINDS = frozenset({
     "starAdjustment", "team", "deleteTeam", "familyNightSettings", "familyNightSuggest", "familyNightVote",
     "familyNightClose", "familyNightPick", "proposalCreate", "proposalDecide", "choreVerificationCreate",
     "choreVerificationDecide", "moveComplete", "photoCreate", "photoMeta", "photoDelete", "householdLocation",
-    "calendarAdd", "calendarMeta", "calendarRemove",
+    "tvSettings", "calendarAdd", "calendarMeta", "calendarRemove",
 })
 
 MAX_CALENDARS = 10
@@ -564,6 +564,25 @@ def _op_photoMeta(snapshot, value, _actor):
 
 def _op_photoDelete(snapshot, value, _actor):
     _delete(snapshot, "photos", value, "That photo was already removed.")
+
+
+# TV settings ---------------------------------------------------------------------------------------
+
+WALL_IDLE_CHOICES = (0, 1, 2, 5, 10, 15, 30)
+REMINDER_CHOICES = (0, 5, 10, 15, 30)
+
+
+def _op_tvSettings(snapshot, value, _actor):
+    """When the wall calendar starts, and how early the TV shows a reminder, for every TV in the household."""
+    _exact_fields(value, {"id", "wallIdleMinutes", "reminderMinutes"})
+    current = snapshot.tvSettings or TvSettings()
+    wall = value.get("wallIdleMinutes", current.wallIdleMinutes)
+    reminders = value.get("reminderMinutes", current.reminderMinutes)
+    if type(wall) is not int or wall not in WALL_IDLE_CHOICES:
+        raise DomainError(422, "INVALID_TV_SETTINGS", "Choose when the wall calendar starts: off, or 1, 2, 5, 10, 15 or 30 minutes.")
+    if type(reminders) is not int or reminders not in REMINDER_CHOICES:
+        raise DomainError(422, "INVALID_TV_SETTINGS", "Choose reminders off, or 5, 10, 15 or 30 minutes before.")
+    snapshot.tvSettings = TvSettings(wallIdleMinutes=wall, reminderMinutes=reminders)
 
 
 # Household location (weather) ------------------------------------------------------------------------

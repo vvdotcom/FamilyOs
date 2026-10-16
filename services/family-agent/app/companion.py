@@ -23,7 +23,7 @@ class CompanionMutation(StrictModel):
         "starAdjustment", "team", "deleteTeam", "familyNightSettings", "familyNightSuggest", "familyNightVote",
         "familyNightClose", "familyNightPick", "proposalCreate", "proposalDecide", "choreVerificationCreate",
         "choreVerificationDecide", "moveComplete", "photoCreate", "photoMeta", "photoDelete", "householdLocation",
-        "calendarAdd", "calendarMeta", "calendarRemove",
+        "tvSettings", "calendarAdd", "calendarMeta", "calendarRemove",
     ]
     value: dict = Field(max_length=30)
 

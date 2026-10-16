@@ -410,6 +410,10 @@ function HouseholdScreens({
     setData(household);
     setLastSync(new Date());
   };
+  // When the TV's wall calendar starts and how early it reminds the family (asked for by families, 2026-10-15).
+  const saveTVSettings = async (change: { wallIdleMinutes?: number; reminderMinutes?: number }) => {
+    if (await mutate('tvSettings', { id: 'tv', ...change })) setNotice('Saved. Your TV updates within a few seconds.');
+  };
   const savePlace = async (find: () => Promise<WeatherPlace>) => {
     const place = await run(find);
     if (!place) return;
@@ -1771,6 +1775,31 @@ function HouseholdScreens({
                 )}
               </Card>
             )}
+            <Card style={{ padding: 16, gap: 12 }}>
+              <Copy weight={700}>On the TV</Copy>
+              <View style={{ gap: 6 }}>
+                <Copy size={14} color={t.muted}>Wall calendar after this long without the remote</Copy>
+                <Segmented
+                  options={[
+                    { id: '1', label: '1 min' }, { id: '5', label: '5 min' }, { id: '10', label: '10 min' },
+                    { id: '30', label: '30 min' }, { id: '0', label: 'Off' },
+                  ]}
+                  value={String(data?.tvSettings?.wallIdleMinutes ?? 5) as '1' | '5' | '10' | '30' | '0'}
+                  onChange={(id) => void saveTVSettings({ wallIdleMinutes: Number(id) })}
+                />
+              </View>
+              <View style={{ gap: 6 }}>
+                <Copy size={14} color={t.muted}>Reminder on the TV before each event</Copy>
+                <Segmented
+                  options={[{ id: '10', label: '10 min' }, { id: '15', label: '15 min' }, { id: '30', label: '30 min' }, { id: '0', label: 'Off' }]}
+                  value={String(data?.tvSettings?.reminderMinutes ?? 15) as '10' | '15' | '30' | '0'}
+                  onChange={(id) => void saveTVSettings({ reminderMinutes: Number(id) })}
+                />
+              </View>
+              <Copy size={13} color={t.muted}>
+                Applies to every TV in your household within a few seconds. Reminders show while Hometide is on the TV screen.
+              </Copy>
+            </Card>
             <Card style={{ padding: 16, gap: 6 }}>
               <Copy weight={700}>What the TV shows</Copy>
               <Copy size={14} color={t.muted}>

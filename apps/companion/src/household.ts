@@ -205,6 +205,8 @@ export type Household = {
   photos?: PhotoMeta[];
   location?: { latitude: number; longitude: number; label: string; source: 'device' | 'search'; updatedAt: string } | null;
   calendars?: ConnectedCalendar[];
+  /** When the TV's wall calendar starts and how early it shows reminders (0 = off). Missing: 5 and 15 minutes. */
+  tvSettings?: { wallIdleMinutes: number; reminderMinutes: number } | null;
 };
 export type Edit = {
   expectedRevision: number;
@@ -213,7 +215,7 @@ export type Edit = {
     | 'recipe' | 'mealSeries' | 'importConfirm' | 'importCancel' | 'reward' | 'completeChore' | 'deleteListItem'
     | 'deleteChore' | 'deleteRecipe' | 'listItemToggle' | 'prepToggle' | 'redemptionFulfill' | 'team' | 'deleteTeam'
     | 'familyNightSettings' | 'familyNightSuggest' | 'familyNightVote' | 'familyNightClose' | 'familyNightPick'
-    | 'proposalDecide' | 'photoMeta' | 'householdLocation' | 'calendarMeta';
+    | 'proposalDecide' | 'photoMeta' | 'householdLocation' | 'calendarMeta' | 'tvSettings';
   value: object;
 };
 export type AccessContext = { accessMode: 'parent' | 'child' | null; memberId: string | null; memberName?: string; elevated?: boolean };

@@ -179,7 +179,13 @@ export default function FamilySettingsScreen({
                 <SwitchPill on={wallCalendar.enabled} />
               </DButton>
               <DText size={22} color={p.muted}>
-                {`After ${idleLabel(wallCalendar.idleSeconds)} without the remote, show today in large type. For longer, raise the Fire TV screensaver wait: Settings → Display & Sounds → Ambient Experience.`}
+                {wallCalendar.idleSeconds > 0
+                  ? `After ${idleLabel(wallCalendar.idleSeconds)} without the remote, show today in large type.`
+                  : 'The wall calendar opens only when you choose it.'}
+                {wallCalendar.reminderMinutes === 0
+                  ? ' Reminders are off.'
+                  : ` Reminders appear ${wallCalendar.reminderMinutes ?? 15} minutes before each event.`}
+                {' Change both in the Hometide phone app: Family → TV.'}
               </DText>
               <DAction label="Show wall calendar now" onPress={wallCalendar.onShowNow} active={focusActive && !confirmUnpair} style={{ alignSelf: 'flex-start' }} />
             </>

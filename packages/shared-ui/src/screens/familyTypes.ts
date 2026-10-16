@@ -55,5 +55,5 @@ export interface FamilyScreenProps {
   onUnlockParentMode?: (code: string) => Promise<void>;
   onLockParentMode?: () => Promise<void>;
   /** The idle wall calendar: whether it turns on by itself, and a way to show it now. */
-  wallCalendar?: { enabled: boolean; idleSeconds: number; onToggle: () => void; onShowNow: () => void };
+  wallCalendar?: { enabled: boolean; idleSeconds: number; reminderMinutes?: number; onToggle: () => void; onShowNow: () => void };
 }

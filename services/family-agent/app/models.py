@@ -308,6 +308,13 @@ class AuditEntry(StrictModel):
     itemId: str = Field(default="", max_length=160)
 
 
+class TvSettings(StrictModel):
+    """How the household's TVs behave, set by a parent in the phone app (Family → TV)."""
+
+    wallIdleMinutes: int = Field(default=5, ge=0, le=60)  # 0: the wall calendar opens only when someone chooses it
+    reminderMinutes: int = Field(default=15, ge=0, le=60)  # 0: no reminders on the TV
+
+
 class HouseholdLocation(StrictModel):
     """Where the household is, for weather. Stored rounded to about 1 km; never a street address."""
 
@@ -355,6 +362,7 @@ class HouseholdSnapshot(StrictModel):
     photos: list[PhotoMeta] = Field(default_factory=list, max_length=300)
     auditLog: list[AuditEntry] = Field(default_factory=list, max_length=600)
     location: HouseholdLocation | None = None
+    tvSettings: TvSettings | None = None
     calendars: list[CalendarSubscriptionMeta] = Field(default_factory=list, max_length=10)
 
 

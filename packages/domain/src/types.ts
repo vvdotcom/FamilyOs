@@ -258,6 +258,15 @@ export interface HouseholdSnapshot {
   location?: { latitude: number; longitude: number; label: string } | null;
   /** Connected read-only calendars. The private links stay on the server. */
   calendars?: ConnectedCalendar[];
+  /** Set by a parent in the phone app (Family → TV). Missing means the TV's defaults: 5 minutes and 15 minutes. */
+  tvSettings?: TVSettings | null;
+}
+
+export interface TVSettings {
+  /** Minutes without the remote before the wall calendar; 0 means it opens only when someone chooses it. */
+  wallIdleMinutes: number;
+  /** How many minutes before an event the TV shows a reminder; 0 turns reminders off. */
+  reminderMinutes: number;
 }
 
 export interface ConnectedCalendar {

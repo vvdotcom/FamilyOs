@@ -66,6 +66,7 @@ MATRIX: dict[str, dict[str, str]] = {
     "photo-verified chore approval": {"parent": "code each time", "child": "submit photo (own)", "tv": "code each time", "tv+code": "code each time", "voice": "no"},
     "rewards and reward settings": {"parent": "yes", "child": "request (own)", "tv": "no", "tv+code": "mark fulfilled", "voice": "balance only"},
     "reward approval / star correction": {"parent": "code each time", "child": "no", "tv": "code each time", "tv+code": "code each time", "voice": "no"},
+    "TV settings (when the wall calendar starts, reminders)": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},
     "household members and roles": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},
     "AI recipes (describe a meal; saved and planned straight away)": {"parent": "yes", "child": "no", "tv": "yes", "tv+code": "yes", "voice": "no"},
     "imports": {"parent": "yes", "child": "no", "tv": "no", "tv+code": "no", "voice": "no"},

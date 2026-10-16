@@ -49,6 +49,7 @@ import {
 import { usePlannerData } from './plannerData';
 import { voiceTVAction } from '../navigation/voiceCommands';
 import FamilyWallScreen, { WALL_IDLE_SECONDS } from './FamilyWallScreen';
+import { dueReminder, Reminder, ReminderToast } from '../components/ReminderToast';
 import RemoteControlManager from '../app/remote-control/RemoteControlManager';
 import { SupportedKeys } from '../app/remote-control/SupportedKeys';
 import { nativeStore } from '../storage/nativeStore';
@@ -179,6 +180,11 @@ function FamilyOsShellContent() {
   const seenApprovals = useRef<Set<string> | null>(null);
   const [approvalQueue, setApprovalQueue] = useState<string[]>([]);
   const [wallEnabled, setWallEnabled] = useState(true);
+  // Set by a parent in the phone app (Family → TV); without it the TV uses its own defaults.
+  const wallIdleSeconds = household.tvSettings ? household.tvSettings.wallIdleMinutes * 60 : WALL_IDLE_SECONDS;
+  const reminderMinutes = household.tvSettings ? household.tvSettings.reminderMinutes : 15;
+  const [reminder, setReminder] = useState<Reminder | null>(null);
+  const remindedRef = useRef(new Set<string>());
   const [wallMode, setWallMode] = useState(false);
   const lastInputRef = useRef(Date.now());
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
@@ -600,14 +606,26 @@ function FamilyOsShellContent() {
   // A pairing code must stay readable for its whole 10 minutes, so the wall never covers it.
   const pairingOnScreen = tvPairing.status === 'creating' || tvPairing.status === 'waiting';
   useEffect(() => {
-    if (!wallEnabled || wallMode) return;
+    if (!wallEnabled || wallMode || wallIdleSeconds <= 0) return;
     const timer = setInterval(() => {
-      if (Date.now() - lastInputRef.current >= WALL_IDLE_SECONDS * 1000 && !WALL_EXEMPT.includes(route) && !menuOpen && !celebration && !pairingOnScreen) {
+      if (Date.now() - lastInputRef.current >= wallIdleSeconds * 1000 && !WALL_EXEMPT.includes(route) && !menuOpen && !celebration && !pairingOnScreen) {
         setWallMode(true);
       }
-    }, WALL_IDLE_SECONDS <= 60 ? 2_000 : 10_000);
+    }, wallIdleSeconds <= 60 ? 2_000 : 10_000);
     return () => clearInterval(timer);
-  }, [wallEnabled, wallMode, route, menuOpen, celebration, pairingOnScreen]);
+  }, [wallEnabled, wallMode, wallIdleSeconds, route, menuOpen, celebration, pairingOnScreen]);
+  // A reminder before each timed event, once, while Hometide is on screen (family feedback, 2026-10-15).
+  useEffect(() => {
+    const next = dueReminder(household.events, household.members, now, reminderMinutes, remindedRef.current);
+    if (!next) return;
+    remindedRef.current.add(next.key);
+    setReminder(next);
+  }, [now, household.events, household.members, reminderMinutes]);
+  useEffect(() => {
+    if (!reminder) return;
+    const timer = setTimeout(() => setReminder(null), 20_000);
+    return () => clearTimeout(timer);
+  }, [reminder]);
   const leaveWall = () => {
     lastInputRef.current = Date.now();
     setWallMode(false);
@@ -723,7 +741,8 @@ function FamilyOsShellContent() {
     onLockParentMode: lockTVParentMode,
     wallCalendar: {
       enabled: wallEnabled,
-      idleSeconds: WALL_IDLE_SECONDS,
+      idleSeconds: wallIdleSeconds,
+      reminderMinutes,
       onToggle: toggleWall,
       onShowNow: () => {
         setMenuOpen(false);
@@ -985,6 +1004,7 @@ function FamilyOsShellContent() {
             <DText size={26} weight={700} color={p.onSelected}>{toast}</DText>
           </View>
         ) : null}
+        {reminder ? <ReminderToast reminder={reminder} timezone={household.family.timezone} /> : null}
         {celebration ? (
           <StarCelebration
             member={household.members.find((member) => member.id === celebration.memberId)}
