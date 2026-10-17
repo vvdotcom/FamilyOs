@@ -256,6 +256,8 @@ export interface HouseholdAPI {
   returnToParentMode?(code: string): Promise<void>;
   lockParentMode?(): Promise<boolean>;
   revokeAllSessions?(): Promise<void>;
+  /** Demo account only: put the demo family back to its saved starting point. */
+  resetDemo?(): Promise<void>;
   /** Permanently delete the parent account and the household (local servers check the password, hosted ones a fresh ID token). */
   deleteAccount?(password: string, idToken?: string): Promise<void>;
   decideProposal?(id: string, action: 'confirm' | 'reject'): Promise<{ proposal: Proposal; household: Household }>;
@@ -281,7 +283,7 @@ export class APIRequestError extends Error {
   }
 }
 export type Appearance = 'system' | 'light' | 'dark';
-export type ParentAccount = { accountId: string; parentName: string; householdName: string; email: string };
+export type ParentAccount = { accountId: string; parentName: string; householdName: string; email: string; demo?: boolean };
 export type PairedTV = {
   deviceId: string;
   deviceName: string;

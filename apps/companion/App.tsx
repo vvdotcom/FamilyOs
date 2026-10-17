@@ -49,6 +49,7 @@ type Account = {
   emailVerified: boolean;
   householdId: string;
   householdName: string;
+  demo?: boolean;
 };
 
 const APPEARANCE_KEY = 'familyos.appearance';

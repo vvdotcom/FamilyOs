@@ -744,6 +744,48 @@ class PostgresHouseholdStore:
     def cancel(self, owner_sub: str, action_id: str):
         return self._mutate(owner_sub, lambda repository: repository.cancel(action_id))
 
+    # The shared demo account (see demo_reset.py) ----------------------------------------------------
+    def save_demo_baseline(self, owner_sub: str) -> str:
+        """Keep the household as it is now as the demo account's reset point."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT snapshot, actions, history FROM familyos_households WHERE owner_sub = %s", (owner_sub,)
+            ).fetchone()
+            if row is None:
+                raise DomainError(404, "HOUSEHOLD_NOT_FOUND", "That household could not be found.")
+            saved = connection.execute(
+                """INSERT INTO familyos_demo_baselines(owner_sub, snapshot, actions, history, saved_at)
+                   VALUES (%s, %s, %s, %s, now())
+                   ON CONFLICT (owner_sub) DO UPDATE SET snapshot = EXCLUDED.snapshot, actions = EXCLUDED.actions,
+                       history = EXCLUDED.history, saved_at = now()
+                   RETURNING saved_at""",
+                (owner_sub, Jsonb(row["snapshot"]), Jsonb(row["actions"] or {}), Jsonb(row["history"] or [])),
+            ).fetchone()
+        return saved["saved_at"].isoformat()
+
+    def restore_demo_baseline(self, owner_sub: str) -> HouseholdSnapshot:
+        """Put the demo household back to its saved reset point (the account, TVs and parent code stay)."""
+        from .demo_reset import restored_snapshot
+        with self._connect() as connection:
+            baseline = connection.execute(
+                "SELECT snapshot, actions, history FROM familyos_demo_baselines WHERE owner_sub = %s", (owner_sub,)
+            ).fetchone()
+            if baseline is None:
+                raise DomainError(409, "DEMO_BASELINE_MISSING", "The demo family has no saved starting point yet.")
+            repository = self._load_repository(connection, owner_sub)  # locks the household row
+            photo_ids = {row["photo_id"] for row in connection.execute(
+                "SELECT DISTINCT photo_id FROM familyos_photo_blobs WHERE owner_sub = %s", (owner_sub,)).fetchall()}
+            calendar_ids = {row["calendar_id"] for row in connection.execute(
+                "SELECT calendar_id FROM familyos_calendar_links WHERE owner_sub = %s", (owner_sub,)).fetchall()}
+            repository._data = restored_snapshot(baseline["snapshot"], repository._data.revision, photo_ids, calendar_ids)
+            repository._actions = {
+                action_id: ProposedAction.model_validate(value)
+                for action_id, value in (baseline["actions"] or {}).items()
+            }
+            repository._history = list(baseline["history"] or [])
+            self._save_repository(connection, owner_sub, repository)
+            return repository.snapshot()
+
 
 class CognitoSessionService:
     def __init__(self, verifier: CognitoTokenVerifier, store: PostgresHouseholdStore) -> None:

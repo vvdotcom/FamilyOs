@@ -1887,6 +1887,36 @@ function HouseholdScreens({
               <Copy weight={700}>{account.householdName}</Copy>
               <Copy size={14} color={t.muted}>{account.email}</Copy>
             </Card>
+            {account.demo && api.resetDemo && accessMode === 'parent' && !preview ? (
+              <>
+                <Label>DEMO FAMILY</Label>
+                <Card style={{ padding: 16, gap: 10 }}>
+                  <Copy size={13} color={t.muted}>
+                    This is the shared demo account. Reset puts the demo family back to its starting point, with
+                    Tuesday’s pickup clash waiting to be fixed, so the next person sees the whole story. Paired TVs stay
+                    connected and update on their own.
+                  </Copy>
+                  <Button
+                    icon="refresh"
+                    disabled={busy}
+                    onPress={() =>
+                      setConfirm({
+                        title: 'Reset the demo family?',
+                        detail: 'Every change made in this demo account is undone. Paired TVs stay connected.',
+                        actionLabel: 'Reset demo family',
+                        action: async () => {
+                          if (await run(async () => { await api.resetDemo!(); return true; }, 'Demo family reset')) {
+                            await refresh(true);
+                          }
+                        },
+                      })
+                    }
+                  >
+                    Reset the demo family
+                  </Button>
+                </Card>
+              </>
+            ) : null}
             <Label>WEATHER ON THE TV</Label>
             <Card style={{ padding: 16, gap: 10 }}>
               <View style={s.spread}>

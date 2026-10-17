@@ -23,6 +23,7 @@ from .briefing import SafeBriefingService
 from .wall_note import SafeWallNoteService
 from .companion import CompanionMutation
 from .demo import demo_now
+from .demo_reset import DEMO_ADMIN_HEADER, admin_token_ok, is_demo_email, with_demo_flag
 from .domain import DemoRepository, DomainError, snapshot_context, sports_reminders
 from .household_ops import FAMILY_NIGHT_RULE, current_picker, household_today
 from .imports import ImportContext, ImportRequest, configured_import_provider, make_import_drafts
@@ -295,7 +296,7 @@ def session_token(request: Request) -> str | None:
 
 def authenticated_session(request: Request, response: Response, token: str, account):
     response.headers["Cache-Control"] = "no-store"
-    data = {"authenticated": True, "account": account}
+    data = {"authenticated": True, "account": with_demo_flag(account)}
     if request.headers.get("X-FamilyOS-Session-Transport") == "bearer":
         data["sessionToken"] = token
     else:
@@ -457,12 +458,12 @@ async def get_auth_session(request: Request, response: Response):
                    else auth_store.account_for_id(actor.owner))
         member = next((item for item in service().snapshot(actor.owner).members if item.id == actor.member_id), None)
         return success(request, {"authenticated": True, "accessMode": "child", "memberId": actor.member_id,
-                                 "account": {**account, "parentName": "Parent", "email": ""},
+                                 "account": {**with_demo_flag(account), "parentName": "Parent", "email": ""},
                                  "memberName": member.name if member else "Child"})
     token = session_token(request)
     account = production_auth.session(token) if IS_PRODUCTION else auth_store.session(token)
     return success(request, {"authenticated": account is not None, "accessMode": "parent" if account else None,
-                             "memberId": None, "account": account,
+                             "memberId": None, "account": with_demo_flag(account),
                              "elevated": bool(account and account.get("elevated"))})
 
 
@@ -979,7 +980,7 @@ async def return_to_parent_mode(body: ParentAccessCodeBody, request: Request, re
     parent_token = accounts.create_parent_session(actor.owner, True)
     account = production_store.account_for_owner(actor.owner) if IS_PRODUCTION else auth_store.account_for_id(actor.owner)
     response.headers["Cache-Control"] = "no-store"
-    return success(request, {"accessMode": "parent", "sessionToken": parent_token, "account": account,
+    return success(request, {"accessMode": "parent", "sessionToken": parent_token, "account": with_demo_flag(account),
                              "elevated": True, "idleMinutes": 15})
 
 
@@ -1337,11 +1338,33 @@ async def protected_resource_metadata():
     return JSONResponse(voice_server.protected_resource_metadata())
 
 
+def require_demo_parent(request: Request) -> Actor:
+    """A parent signed in to the shared demo account (FAMILYOS_DEMO_ACCOUNTS). Everyone else gets a 404."""
+    actor = require_parent(request)
+    account = production_store.account_for_owner(actor.owner) if IS_PRODUCTION else auth_store.account_for_id(actor.owner)
+    if not account or not is_demo_email(account.get("email")):
+        raise DomainError(404, "NOT_FOUND", "That resource could not be found.")
+    return actor
+
+
 @app.post("/v1/demo/reset", response_model=APIEnvelope)
 async def reset_demo(request: Request):
+    """Hosted: put the demo account's family back to its saved starting point. Local: reset the demo household."""
     if IS_PRODUCTION:
-        raise DomainError(404, "NOT_FOUND", "That resource could not be found.")
+        actor = require_demo_parent(request)
+        return success(request, production_store.restore_demo_baseline(actor.owner))
     return success(request, repository.reset())
+
+
+@app.post("/v1/demo/baseline", response_model=APIEnvelope)
+async def save_demo_baseline(request: Request):
+    """Hosted, owner only: save the demo account's family as it is now as the point a reset returns to."""
+    if not IS_PRODUCTION:
+        raise DomainError(404, "NOT_FOUND", "That resource could not be found.")
+    if not admin_token_ok(request.headers.get(DEMO_ADMIN_HEADER)):
+        raise DomainError(403, "PERMISSION_DENIED", "Saving the demo's starting point needs the demo admin token.")
+    actor = require_demo_parent(request)
+    return success(request, {"savedAt": production_store.save_demo_baseline(actor.owner)})
 
 
 app.router.routes.append(Route("/mcp", endpoint=voice_server, methods=["GET", "POST", "DELETE"]))

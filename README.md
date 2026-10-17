@@ -1,14 +1,11 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/readme/mark-dark.png">
-  <img src="./docs/images/readme/mark-light.png" alt="Hometide logo" width="88">
-</picture>
-
 # Hometide
 
-**The family TV that learns your family's rhythm.**<br>
-It catches the clash nobody spotted, learns from your fixes, and changes nothing until a parent says yes.
+**The family TV that learns your family's routines.**
+
+It catches the pickup clash nobody spotted, learns the fix your family makes, and offers once to make it the
+routine. Nothing changes until a parent says yes.
 
 Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track · AWS Builder mini-challenge
 
@@ -28,33 +25,32 @@ Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track �
 
 ## The problem, and who it's for
 
-**What Hometide is:** a household agent that learns how your family actually runs, and the living-room TV is where
-the family says yes. Calendars are what it reads, not what it is. A change to the week affects everyone in the house,
-so a phone or a voice proposes it, and a parent confirms it on the shared screen everyone can see (or on their phone).
+**Tuesday, 2:58.** Jordan's team meeting is running long, and it's Jordan's turn to pick up Emma (9) from school at
+3:15. Nobody has noticed, and the same overlap comes back every Tuesday and Thursday. A missed pickup is a missed
+shift: about 1 in 3 parents of school-age kids have missed work getting them to and from school (4 in 10 in homes
+earning under $100k), and 11% say it cost them a job ([AP-NORC with HopSkipDrive, 2025](https://apnorc.org/projects/2025-state-of-school-transportation/)).
 
-**Who it's for:** two working parents with school-age kids, splitting pickups, practices and appointments between
-them. That's most families with kids: in 2025, both parents had jobs in 66.3% of U.S. married-couple families with
-children under 18 ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)). The clashes cost them: about 1 in 3 parents of school-age kids have
-missed work over getting them to and from school (4 in 10 in homes earning under $100k), and 11% say it cost them a
-job ([AP-NORC with HopSkipDrive, 2025](https://apnorc.org/projects/2025-state-of-school-transportation/)). Parents spend 30.4
-hours a week coordinating schedules and household tasks, and 61% say it cut their time with their partner
-([The Harris Poll for Skylight, 2024](https://myskylight.com/mental-load-report/); paid for by Skylight, the product
-we compare against below). The clash Hometide catches is the one that costs a parent a missed shift.
+**Skylight shows the schedule. Hometide spots this clash, learns the fix your family made, and offers once to make it
+the routine, on the Fire TV you already own.**
 
-**Who else it serves:** the same loop (spot the clash, propose a fix, a parent says yes) fits co-parents in two
-homes swapping custody days, families caring for a grandparent (appointments, pharmacy pickups), and shift-working
-parents whose schedules change every week. That's where Hometide goes next.
-
-**A week with the Rivera family** (the demo family a judge can open): every Tuesday and Thursday, Jordan's team
-meeting runs from 2:45 to 4:00, and it's Jordan's turn to pick up Emma (9) from school at 3:15. Nobody has spotted
-the overlap. On the living-room TV, the family briefing flags it and says Lindsey is free. Lindsey says "Swap
-Tuesday's Emma pickup to Lindsey" into the phone, and the swap waits on the TV until a parent confirms it with the
-remote. Because the same clash comes back every week, the TV then says *Hometide noticed*: make Lindsey the usual
+**In the demo family** (a judge can open it): the living-room TV flags the clash and says Lindsey is free. Lindsey says
+"Swap Tuesday's Emma pickup to Lindsey" into the phone, and the swap waits on the TV until a parent confirms it with
+the remote. Because the clash comes back every week, the TV then says *Hometide noticed*: make Lindsey the usual
 Tuesday and Thursday pickup? One press fixes every later week, and Hometide remembers the answer.
 
-**What's new:** Skylight shows the schedule; Fire TV's Ambient Experience and Alexa+ can show a linked calendar and
-add events from emails or photos. Hometide learns the fixes your family keeps making and offers to turn them into
-routines, and nothing changes without a parent's yes.
+**The learning is measured, not scripted.** In 60 generated households, *Hometide noticed* found **181 of 181** planted
+patterns and stayed quiet on **177 of 177** look-alikes, like a clash the family hasn't fixed yet or one that happened
+only once. It asks about **0.8 questions per family per week**, never the same one twice ([evals](#evals)).
+
+**Who it's for:** two working parents with school-age kids, splitting pickups and practices; in 2025, both parents had
+jobs in 66.3% of U.S. married-couple families with children under 18 ([BLS](https://www.bls.gov/opub/ted/2026/among-married-couple-families-with-children-97-4-percent-had-at-least-one-employed-parent-in-2025.htm)). Parents spend 30.4 hours a week
+coordinating schedules and household tasks ([The Harris Poll for Skylight, 2024](https://myskylight.com/mental-load-report/), paid for by Skylight). The
+same loop (spot the clash, propose a fix, a parent says yes) fits co-parents in two homes, families caring for a
+grandparent, and shift-working parents next.
+
+**What Hometide is:** a household agent that learns how your family actually runs; the living-room TV is where the
+family says yes. Fire TV's Ambient Experience and Alexa+ can show a linked calendar and add events; Hometide learns the
+fixes your family keeps making.
 
 **Built on Amazon:** a native Vega OS app on a real Fire TV Stick; a Strands agent on Amazon Bedrock that works
 through Hometide's own 13-tool MCP server, which any MCP host can use (Alexa+ access for MCP servers wasn't open to us
@@ -132,7 +128,8 @@ The quickest way is the hosted demo family; nothing to install.
 
 1. Open the web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/) (a phone or a desktop
    browser) and sign in with the judge login from the Devpost form. The parent code for approvals is **2468**.
-   The family's week is ready: every Tuesday and Thursday, Jordan's meeting clashes with Emma's pickup.
+   The family's week is ready: every Tuesday and Thursday, Jordan's meeting clashes with Emma's pickup. If another
+   judge already fixed it, tap Family → Settings → **Reset the demo family** (only the demo account has it).
 2. **Open the TV app:** on a Fire TV (Vega OS; [install the release build](./docs/DEVELOPMENT.md#install-the-release-build)), or in a browser on your computer (step 4 of
    [Run it locally](#run-it-locally), with `EXPO_PUBLIC_FAMILYOS_API_URL=https://hometide.up.railway.app` in
    `apps/expo-multi-tv/.env`). Arrow keys and Enter act as the remote.
@@ -309,7 +306,9 @@ Every row, with its evidence, is in [docs/DEVICE_TESTING.md](./docs/DEVICE_TESTI
 
 The patterns themselves are found deterministically (recurring conflicts, the usual driver for an activity, and
 events added by hand at the same time every week), so each suggestion comes with a plain reason and is covered by
-tests (`tests/test_rhythm.py`). Bedrock is used for language, never for deciding what changes.
+tests (`tests/test_rhythm.py`). Bedrock is used for language, never for deciding what changes. Measured: 181 of 181
+patterns found, 177 of 177 look-alikes left alone, 0.8 questions per family per week. Until the family fixes a clash
+by hand, Hometide stays quiet about it; you can see that in the demo, where Tuesday's clash shows with no prompt.
 
 ### Trust rules
 

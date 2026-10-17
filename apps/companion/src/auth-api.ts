@@ -32,6 +32,8 @@ type Account = {
   emailVerified: boolean;
   householdId: string;
   householdName: string;
+  /** The shared demo (judge) account: the app offers "Reset the demo family". */
+  demo?: boolean;
 };
 type SessionReply = { authenticated: boolean; account: Account | null; sessionToken?: string; accessMode?: 'parent' | 'child' | null; memberId?: string | null; memberName?: string; elevated?: boolean };
 type SignUpReply = { verificationRequired: boolean; email: string; householdName: string };
@@ -130,6 +132,11 @@ export class FamilyOSAPI {
 
   adjustStars(memberId: string, delta: number, code: string): Promise<Household> {
     return this.post('v1/stars/adjust', { memberId, delta, code }, false, true);
+  }
+
+  /** Demo account only: put the demo family back to its saved starting point. */
+  async resetDemo(): Promise<void> {
+    await this.post('v1/demo/reset', {}, false, true);
   }
 
   async revokeAllSessions(): Promise<void> {

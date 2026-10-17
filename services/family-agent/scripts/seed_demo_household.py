@@ -5,6 +5,10 @@ Hosted server (Amazon Cognito accounts):
     2. python scripts/seed_demo_household.py signup           # Cognito emails a 6-digit code
     3. python scripts/seed_demo_household.py confirm 123456
     4. python scripts/seed_demo_household.py seed             # add --reset to clear an earlier demo first
+    5. Check the demo family in the app (Tuesday's clash showing), then save it as the reset point judges return to:
+       python scripts/seed_demo_household.py baseline         # needs FAMILYOS_DEMO_ADMIN_TOKEN in .env, the same
+                                                              # value as on the server, and this email in the server's
+                                                              # FAMILYOS_DEMO_ACCOUNTS
 
 Local API (demo mode, http://127.0.0.1:8787):
     python scripts/seed_demo_household.py seed --local
@@ -358,7 +362,7 @@ def seed(family: Family, local: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=("signup", "confirm", "seed"))
+    parser.add_argument("command", choices=("signup", "confirm", "seed", "baseline"))
     parser.add_argument("code", nargs="?", help="the 6-digit code from the confirmation email (confirm only)")
     parser.add_argument("--local", action="store_true", help=f"use the local demo API at {LOCAL_API}")
     parser.add_argument("--api", help="override the API address")
@@ -384,6 +388,20 @@ def main() -> None:
     started = time.perf_counter()
     token = local_session(api, email, password) if args.local else cognito_session(api, email, password, client_id)
     family = Family(api, token)
+    if args.command == "baseline":
+        admin = env.get("FAMILYOS_DEMO_ADMIN_TOKEN")
+        if not admin:
+            raise SystemExit("Add FAMILYOS_DEMO_ADMIN_TOKEN to the repo-root .env (the same value as on the server) first.")
+        reply = family.http.post("/v1/demo/baseline", json={}, headers={"X-Hometide-Demo-Admin": admin})
+        if reply.status_code != 200:
+            error = (reply.json() if reply.content else {}).get("error", {})
+            raise SystemExit(f"Saving the reset point failed: {reply.status_code} {error.get('code')}: {error.get('message')}")
+        household = family.household()
+        conflicts = family.call("GET", "/v1/conflicts") or []
+        print(f"Saved the demo family as the reset point ({reply.json()['data']['savedAt']}): "
+              f"{len(household['events'])} calendar items, {len(conflicts)} clashes flagged. "
+              "Judges' 'Reset the demo family' button returns here.")
+        return
     if args.reset:
         reset(family)
     seed(family, args.local)
