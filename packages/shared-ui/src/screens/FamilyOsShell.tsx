@@ -285,6 +285,8 @@ function FamilyOsShellContent() {
         const background = state === 'background';
         const returning = backgroundRef.current && !background;
         backgroundRef.current = background;
+        // The Fire TV screensaver (or another app) took over: leave the wall, so its video player is released.
+        if (background) setWallMode(false);
         if (returning) pollWakers.current.forEach((wake) => wake());
       });
     } catch {
