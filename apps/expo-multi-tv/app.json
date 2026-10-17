@@ -57,7 +57,7 @@
     "scheme": "com.hometide.tv",
     "android": {
       "package": "com.hometide.tv",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "INTERNET"
       ]
@@ -66,6 +66,6 @@
       "bundleIdentifier": "com.hometide.tv"
     },
     "newArchEnabled": false,
-    "version": "1.0.1"
+    "version": "1.0.2"
   }
 }

@@ -258,7 +258,7 @@ export interface HouseholdSnapshot {
   location?: { latitude: number; longitude: number; label: string } | null;
   /** Connected read-only calendars. The private links stay on the server. */
   calendars?: ConnectedCalendar[];
-  /** Set by a parent in the phone app (Family → TV). Missing means the TV's defaults: 5 minutes and 15 minutes. */
+  /** Set by a parent in the phone app (Family → TV). Missing means the TV's defaults: 4 minutes and 15 minutes. */
   tvSettings?: TVSettings | null;
 }
 

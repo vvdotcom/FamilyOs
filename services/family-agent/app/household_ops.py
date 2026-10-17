@@ -568,7 +568,7 @@ def _op_photoDelete(snapshot, value, _actor):
 
 # TV settings ---------------------------------------------------------------------------------------
 
-WALL_IDLE_CHOICES = (0, 1, 2, 5, 10, 15, 30)
+WALL_IDLE_CHOICES = (0, 1, 2, 4, 5, 10, 15, 30)  # 5+ kept for settings saved before 4 became the default
 REMINDER_CHOICES = (0, 5, 10, 15, 30)
 
 
@@ -579,7 +579,7 @@ def _op_tvSettings(snapshot, value, _actor):
     wall = value.get("wallIdleMinutes", current.wallIdleMinutes)
     reminders = value.get("reminderMinutes", current.reminderMinutes)
     if type(wall) is not int or wall not in WALL_IDLE_CHOICES:
-        raise DomainError(422, "INVALID_TV_SETTINGS", "Choose when the wall calendar starts: off, or 1, 2, 5, 10, 15 or 30 minutes.")
+        raise DomainError(422, "INVALID_TV_SETTINGS", "Choose when the wall calendar starts: off, or 1, 2, 4, 5, 10, 15 or 30 minutes.")
     if type(reminders) is not int or reminders not in REMINDER_CHOICES:
         raise DomainError(422, "INVALID_TV_SETTINGS", "Choose reminders off, or 5, 10, 15 or 30 minutes before.")
     snapshot.tvSettings = TvSettings(wallIdleMinutes=wall, reminderMinutes=reminders)

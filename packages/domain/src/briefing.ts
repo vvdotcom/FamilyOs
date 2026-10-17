@@ -4,8 +4,32 @@ import { Conflict, FamilyBriefing, FamilyMember, CalendarEvent, Chore, Household
 const MAX_HIGHLIGHTS = 3;
 const RECENT_HOURS = 6;
 
-const dayKey = (value: Date, timezone: string) =>
-  new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: timezone }).format(value);
+/**
+ * Building an Intl.DateTimeFormat loads ICU locale data, which is slow on a Fire TV (Vega). The briefing runs on every
+ * clock tick over every event in the household, and building formatters per event froze the app until Vega's thread
+ * watchdog ended it (AppNotResponding in ICU, 17 Oct). So formatters are built once and day keys are remembered.
+ */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let result = formatters.get(key);
+  if (!result) {
+    result = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, result);
+  }
+  return result;
+}
+const dayKeys = new Map<string, string>();
+const dayKey = (value: Date, timezone: string) => {
+  const cacheKey = `${timezone}|${value.getTime()}`;
+  const cached = dayKeys.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const result = formatter('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: timezone }).format(value);
+  if (dayKeys.size > 20_000) dayKeys.clear();
+  dayKeys.set(cacheKey, result);
+  return result;
+};
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * What the briefing talks about: today's plans that haven't ended (all-day ones included), or, once today is
@@ -14,7 +38,11 @@ const dayKey = (value: Date, timezone: string) =>
 export function briefingEvents(events: CalendarEvent[], now: Date, timezone = 'UTC'): CalendarEvent[] {
   const today = dayKey(now, timezone);
   const tomorrow = dayKey(new Date(now.getTime() + 24 * 60 * 60 * 1000), timezone);
-  const byStart = [...events].sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt));
+  // Only events that touch the next two days (with room for any time zone) can be today's or tomorrow's.
+  const from = now.getTime() - 2 * DAY_MS;
+  const until = now.getTime() + 3 * DAY_MS;
+  const near = events.filter((event) => Date.parse(event.startAt) < until && Date.parse(event.endAt) > from);
+  const byStart = near.sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt));
   const onToday = (event: CalendarEvent) =>
     dayKey(new Date(event.startAt), timezone) <= today && today <= dayKey(new Date(Date.parse(event.endAt) - 1), timezone);
   const remaining = byStart.filter((event) => onToday(event) && (event.allDay || Date.parse(event.endAt) > now.getTime()));
@@ -68,7 +96,7 @@ export function createDeterministicBriefing(
   // A school day is the backdrop, not news; birthdays, appointments and pickups are.
   const glance = briefingEvents(events, now, timezone).filter((event) => event.category !== 'school');
   const leftToday = glance.filter((event) => dayKey(new Date(event.startAt), timezone) <= today);
-  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: timezone }).format(now);
+  const weekday = formatter('en-US', { weekday: 'long', timeZone: timezone }).format(now);
   let headline: string;
   let summary: string;
   if (primaryConflict) {
@@ -106,5 +134,5 @@ export function createDeterministicBriefing(
 }
 
 function formatTime(value: string, timezone: string): string {
-  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }).format(new Date(value));
+  return formatter('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }).format(new Date(value));
 }

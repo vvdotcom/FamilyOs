@@ -6,9 +6,9 @@ param(
     # tv / package: the API the TV app talks to (baked into the build).
     [string]$ApiUrl = 'https://hometide.up.railway.app',
     # tv / package: seconds without the remote before the wall calendar appears (baked into the build).
-    # 300 (5 minutes) for families; 30 for filming the demo: .\familyos.ps1 tv -IdleSeconds 30
+    # 240 (4 minutes, so the wall is up before the Fire TV screensaver's 5) for families; 30 for filming: .\familyos.ps1 tv -IdleSeconds 30
     [ValidateRange(10, 3600)]
-    [int]$IdleSeconds = 300,
+    [int]$IdleSeconds = 240,
     # tv / package: show the wall calendar's still posters instead of the looping weather videos.
     [switch]$NoWallVideo
 )
@@ -227,7 +227,7 @@ fi
         if (-not (Test-FamilyVmReady)) { throw 'The build VM is not set up yet. Run .\familyos.ps1 setup first.' }
         Start-FamilyVm
         & (Join-Path $root 'setup\sync-repo.ps1')
-        if ($IdleSeconds -ne 300) { Write-Warning "This store package shows the wall calendar after $IdleSeconds seconds, not the usual 5 minutes." }
+        if ($IdleSeconds -ne 240) { Write-Warning "This store package shows the wall calendar after $IdleSeconds seconds, not the usual 4 minutes." }
         $wallVideo = if ($NoWallVideo) { '0' } else { '1' }
         Write-Host "Building the store package for $ApiUrl (wall calendar after $IdleSeconds seconds, wall video $(if ($NoWallVideo) { 'off' } else { 'on' })) ..." -ForegroundColor Cyan
         Invoke-Guest ("cd ~/projects/familyos && [ ! -f ~/vega/env ] || . ~/vega/env; yarn install --immutable && rm -rf apps/vega/build /tmp/metro-* /tmp/haste-map-* && EXPO_PUBLIC_FAMILYOS_API_URL=$ApiUrl EXPO_PUBLIC_FAMILYOS_WALL_IDLE_SECONDS=$IdleSeconds EXPO_PUBLIC_FAMILYOS_WALL_VIDEO=$wallVideo yarn build:vega")

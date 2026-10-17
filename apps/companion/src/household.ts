@@ -205,7 +205,7 @@ export type Household = {
   photos?: PhotoMeta[];
   location?: { latitude: number; longitude: number; label: string; source: 'device' | 'search'; updatedAt: string } | null;
   calendars?: ConnectedCalendar[];
-  /** When the TV's wall calendar starts and how early it shows reminders (0 = off). Missing: 5 and 15 minutes. */
+  /** When the TV's wall calendar starts and how early it shows reminders (0 = off). Missing: 4 and 15 minutes. */
   tvSettings?: { wallIdleMinutes: number; reminderMinutes: number } | null;
 };
 export type Edit = {

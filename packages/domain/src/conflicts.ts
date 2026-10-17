@@ -26,7 +26,7 @@ export function detectConflicts(
     startOf.set(item, Date.parse(item.startAt));
     endOf.set(item, Date.parse(item.endAt));
   }
-  const ordered = events.filter((item) => !item.allDay).sort((a, b) => startOf.get(a)! - startOf.get(b)! || a.id.localeCompare(b.id));
+  const ordered = events.filter((item) => !item.allDay).sort((a, b) => startOf.get(a)! - startOf.get(b)! || byId(a.id, b.id));
   for (let i = 0; i < ordered.length; i += 1) {
     const first = ordered[i];
     const firstEnd = endOf.get(first)!;
@@ -93,7 +93,12 @@ export function detectConflicts(
   }
 
   const unique = [...new Map(conflicts.map((item) => [item.id, item])).values()];
-  return unique.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.id.localeCompare(b.id));
+  return unique.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || byId(a.id, b.id));
+}
+
+/** Ids are plain ASCII: compare them directly. localeCompare goes through ICU, which is slow on a Fire TV. */
+function byId(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export function suggestReassignment(

@@ -311,7 +311,7 @@ class AuditEntry(StrictModel):
 class TvSettings(StrictModel):
     """How the household's TVs behave, set by a parent in the phone app (Family → TV)."""
 
-    wallIdleMinutes: int = Field(default=5, ge=0, le=60)  # 0: the wall calendar opens only when someone chooses it
+    wallIdleMinutes: int = Field(default=4, ge=0, le=60)  # 0: the wall calendar opens only when someone chooses it
     reminderMinutes: int = Field(default=15, ge=0, le=60)  # 0: no reminders on the TV
 
 

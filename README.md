@@ -73,8 +73,8 @@ calendars. Both requests are now built:
 
 ### Fixes from family feedback
 
-1. **Choose when the wall calendar starts** (the Tammy family). In the phone app, Family → TV: after 1, 5, 10 or 30
-   minutes without the remote, or off. Every TV in the household picks up the change within a few seconds.
+1. **Choose when the wall calendar starts** (the Tammy family). In the phone app, Family → TV: after 1, 4, 10 or 30
+   minutes without the remote, or off (4 by default, so it is up before the Fire TV screensaver). Every TV in the household picks up the change within a few seconds.
 2. **A reminder before each event** (the Johnny family). A card on the TV 15 minutes before each timed event (10 or
    30 minutes, or off, in the same setting), whenever Hometide is open, including the wall calendar. Vega OS has no
    supported way for a household app to show it over another app

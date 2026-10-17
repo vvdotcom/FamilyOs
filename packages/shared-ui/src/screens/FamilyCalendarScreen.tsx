@@ -80,7 +80,7 @@ export default function FamilyCalendarScreen(props: FamilyScreenProps) {
     } else date.setUTCDate(date.getUTCDate() + direction * (view === 'Week' ? 7 : 1));
     setAnchor(date.toISOString().slice(0, 10));
   };
-  const monthName = (date: Date) => date.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
+  const monthName = (date: Date) => dateTimeFormat('en-US', { month: 'long', timeZone: 'UTC' }).format(date);
   const title =
     view === 'Month'
       ? `${monthName(new Date(`${anchor}T12:00:00Z`))} ${anchor.slice(0, 4)}`

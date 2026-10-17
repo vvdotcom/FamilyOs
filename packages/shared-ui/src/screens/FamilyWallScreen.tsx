@@ -9,12 +9,14 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { ForcedFamilyTheme } from '../theme/FamilyTheme';
 
 /**
- * Seconds without remote input before the TV turns into the wall calendar: 5 minutes, unless the build sets
+ * Seconds without remote input before the TV turns into the wall calendar: 4 minutes, so it is up (and its video
+ * loop keeps the Fire TV screensaver away) before the screensaver's default 5 minutes. A tie let the screensaver start
+ * while the wall's player was starting, and Vega ended the app (ReclaimMediaResource). The build can set
  * EXPO_PUBLIC_FAMILYOS_WALL_IDLE_SECONDS (10–3600), for example 30 for filming: .\familyos.ps1 tv -IdleSeconds 30
  */
 export function wallIdleSeconds(value: string | undefined): number {
   const seconds = Number(value);
-  return Number.isInteger(seconds) && seconds >= 10 && seconds <= 3600 ? seconds : 300;
+  return Number.isInteger(seconds) && seconds >= 10 && seconds <= 3600 ? seconds : 240;
 }
 export const WALL_IDLE_SECONDS = wallIdleSeconds(process.env.EXPO_PUBLIC_FAMILYOS_WALL_IDLE_SECONDS);
 

@@ -270,10 +270,10 @@ describe('Wall calendar and TV settings', () => {
   });
 
   it('waits 5 minutes before the wall, unless the build sets a demo idle time', () => {
-    expect(wallIdleSeconds(undefined)).toBe(300);
+    expect(wallIdleSeconds(undefined)).toBe(240);
     expect(wallIdleSeconds('30')).toBe(30);
-    expect(wallIdleSeconds('5')).toBe(300);
-    expect(wallIdleSeconds('forever')).toBe(300);
+    expect(wallIdleSeconds('5')).toBe(240);
+    expect(wallIdleSeconds('forever')).toBe(240);
     expect([30, 60, 90, 300].map(idleLabel)).toEqual(['30 seconds', '1 minute', '1 minute 30 seconds', '5 minutes']);
   });
 

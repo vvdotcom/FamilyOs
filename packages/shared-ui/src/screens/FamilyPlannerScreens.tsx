@@ -15,6 +15,7 @@ import {
   DPanel,
   DRow,
   DText,
+  dateTimeFormat,
   designFont,
   formatDate,
   localDateKey,
@@ -382,7 +383,7 @@ export function FamilyMealsScreen({ planner, now, household, focusActive, onNavi
         <View style={{ flex: 1, gap: 10 }}>
           <DText size={24} weight={700} color={p.muted} style={{ letterSpacing: 1.2 }}>
             WEEK OF{' '}
-            {days[0].date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).toUpperCase()}
+            {dateTimeFormat('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).format(days[0].date).toUpperCase()}
           </DText>
           <DText size={68} heading weight={800} style={{ letterSpacing: -1.36 }}>
             What’s for dinner

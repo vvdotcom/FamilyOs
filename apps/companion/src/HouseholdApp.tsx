@@ -1781,10 +1781,10 @@ function HouseholdScreens({
                 <Copy size={14} color={t.muted}>Wall calendar after this long without the remote</Copy>
                 <Segmented
                   options={[
-                    { id: '1', label: '1 min' }, { id: '5', label: '5 min' }, { id: '10', label: '10 min' },
+                    { id: '1', label: '1 min' }, { id: '4', label: '4 min' }, { id: '10', label: '10 min' },
                     { id: '30', label: '30 min' }, { id: '0', label: 'Off' },
                   ]}
-                  value={String(data?.tvSettings?.wallIdleMinutes ?? 5) as '1' | '5' | '10' | '30' | '0'}
+                  value={String(data?.tvSettings?.wallIdleMinutes ?? 4) as '1' | '4' | '10' | '30' | '0'}
                   onChange={(id) => void saveTVSettings({ wallIdleMinutes: Number(id) })}
                 />
               </View>

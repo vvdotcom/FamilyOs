@@ -131,6 +131,16 @@ export default function FamilyOsShell() {
   );
 }
 
+/**
+ * The family's choice in seconds. The Fire TV screensaver waits 5, 10, 15 or 30 minutes; a wall set to the same time
+ * would tie with it, and a screensaver that starts while the wall's video player is starting ends the app
+ * (ReclaimMediaResource). So those values start the wall a minute early; 0 means only when someone chooses it.
+ */
+export function wallSecondsFor(minutes: number): number {
+  if (minutes <= 0) return 0;
+  return minutes % 5 === 0 ? (minutes - 1) * 60 : minutes * 60;
+}
+
 function FamilyOsShellContent() {
   const { width, height } = useWindowDimensions();
   const scale = Math.min(width / 1920, height / 1080);
@@ -181,7 +191,7 @@ function FamilyOsShellContent() {
   const [approvalQueue, setApprovalQueue] = useState<string[]>([]);
   const [wallEnabled, setWallEnabled] = useState(true);
   // Set by a parent in the phone app (Family → TV); without it the TV uses its own defaults.
-  const wallIdleSeconds = household.tvSettings ? household.tvSettings.wallIdleMinutes * 60 : WALL_IDLE_SECONDS;
+  const wallIdleSeconds = household.tvSettings ? wallSecondsFor(household.tvSettings.wallIdleMinutes) : WALL_IDLE_SECONDS;
   const reminderMinutes = household.tvSettings ? household.tvSettings.reminderMinutes : 15;
   const [reminder, setReminder] = useState<Reminder | null>(null);
   const remindedRef = useRef(new Set<string>());

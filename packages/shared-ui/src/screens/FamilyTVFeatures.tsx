@@ -713,7 +713,7 @@ export function FamilyNightTVScreen({ household, now }: FamilyScreenProps) {
     );
   }
   const today = localDateKey(now, household.family.timezone);
-  const poll = (household.familyNightPolls || []).filter((item) => item.id >= today).sort((a, b) => a.id.localeCompare(b.id))[0];
+  const poll = (household.familyNightPolls || []).filter((item) => item.id >= today).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
   const order = settings.pickerOrder.length ? settings.pickerOrder : household.members.map((member) => member.id);
   const picker = order[settings.pickerIndex % order.length];
   const counts = poll ? familyNightTally(poll) : {};
