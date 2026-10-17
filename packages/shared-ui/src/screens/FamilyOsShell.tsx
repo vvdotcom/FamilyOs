@@ -918,7 +918,8 @@ function FamilyOsShellContent() {
           paddingBottom: 40,
         }}>
         {showWall ? (
-          <FamilyWallScreen household={household} now={now} weatherState={weatherState} paired={paired} onExit={leaveWall} conflicts={conflicts} />
+          <FamilyWallScreen household={household} now={now} weatherState={weatherState} paired={paired} onExit={leaveWall} conflicts={conflicts}
+            reminderMinutes={reminderMinutes} />
         ) : null}
         {showWall ? null : (
         <>
@@ -1004,7 +1005,7 @@ function FamilyOsShellContent() {
             <DText size={26} weight={700} color={p.onSelected}>{toast}</DText>
           </View>
         ) : null}
-        {reminder ? <ReminderToast reminder={reminder} timezone={household.family.timezone} /> : null}
+        {reminder && !showWall ? <ReminderToast reminder={reminder} timezone={household.family.timezone} /> : null}
         {celebration ? (
           <StarCelebration
             member={household.members.find((member) => member.id === celebration.memberId)}

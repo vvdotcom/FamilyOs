@@ -236,19 +236,28 @@ describe('Connected calendars on the TV', () => {
 });
 
 describe('Wall calendar and TV settings', () => {
-  it('shows the day at a glance and leaves on any press', () => {
+  it('shows the time, the next plan and a due reminder, and leaves on any press', () => {
     const onExit = jest.fn();
     const conflicts = detectConflicts(household.members, household.events, {now});
     const screen = themed(<FamilyWallScreen household={household} now={now} weatherState={weatherState} paired={false}
       onExit={onExit} conflicts={conflicts} />);
     expect(screen.getByTestId('wall-calendar')).toBeTruthy();
-    expect(screen.getAllByText('Needs a driver').length).toBeGreaterThan(0);
-    expect(screen.getByText('TODAY')).toBeTruthy();
-    expect(screen.getByTestId('wall-next-up')).toBeTruthy();
-    expect(screen.getByText(/H 94° L 68°/)).toBeTruthy();
-    expect(screen.getByText('Press any button on the remote to use Hometide')).toBeTruthy();
+    // 2:30 PM: Jordan's 2:45 dentist is the reminder, so the next plan is Emma's 3:15 pickup, which needs a driver.
+    expect(screen.getByTestId('wall-reminder')).toBeTruthy();
+    expect(screen.getByText('Dentist')).toBeTruthy();
+    expect(screen.getByText('IN 15 MINUTES')).toBeTruthy();
+    expect(screen.getByText(/^Next · 3:15 PM · Emma pickup/)).toBeTruthy();
+    expect(screen.getByText(/needs a driver/)).toBeTruthy();
+    expect(screen.queryByText('TODAY')).toBeNull();
     fireEvent.press(screen.getByTestId('wall-calendar'));
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the reminder off when the family turned reminders off', () => {
+    const screen = themed(<FamilyWallScreen household={household} now={now} weatherState={weatherState} paired={false}
+      onExit={jest.fn()} reminderMinutes={0} />);
+    expect(screen.queryByTestId('wall-reminder')).toBeNull();
+    expect(screen.getByText(/^Next · 2:45 PM · Dentist/)).toBeTruthy();
   });
 
   it('dims to a quiet clock at night', () => {

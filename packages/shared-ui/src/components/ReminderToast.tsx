@@ -16,7 +16,8 @@ export type Reminder = {
 /**
  * The next event to remind the family about: timed (not all-day), starting within `leadMinutes`, and not reminded
  * yet. Asked for by a family who wanted a heads-up before important appointments. Vega OS has no supported way to
- * show this over another app (FR-1), so it appears while Hometide is on screen, including on the wall calendar.
+ * show this over another app (FR-1), so it appears while Hometide is on screen: as a card on the app's screens, and
+ * under Hometide's note on the wall calendar (WallReminder).
  */
 export function dueReminder(
   events: CalendarEvent[],
@@ -84,6 +85,46 @@ export function ReminderToast({ reminder, timezone }: { reminder: Reminder; time
         <DText size={24} color="#C3C0B8" numberOfLines={2}>
           {detail}
         </DText>
+      </View>
+    </View>
+  );
+}
+
+/** The reminder on the wall calendar: a calm card under Hometide's note, shown for the whole lead time. */
+export function WallReminder({ reminder, timezone }: { reminder: Reminder; timezone: string }) {
+  const accent = memberColor(reminder.colorId, true).accent;
+  const detail = [formatTime(reminder.startAt, timezone), reminder.who, reminder.location].filter(Boolean).join(' · ');
+  return (
+    <View
+      testID="wall-reminder"
+      accessibilityLabel={`Reminder: ${reminder.title} in ${reminder.minutes} minutes. ${detail}`}
+      style={{
+        marginTop: 26,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 22,
+        paddingVertical: 18,
+        paddingHorizontal: 34,
+        borderRadius: 34,
+        backgroundColor: 'rgba(12, 14, 22, 0.66)',
+        borderWidth: 3,
+        borderColor: accent,
+      }}>
+      <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
+        <DIcon name="calendar" size={32} color="#10161E" />
+      </View>
+      <View style={{ gap: 2 }}>
+        <DText size={22} weight={800} color="#F2A65A">
+          {`IN ${reminder.minutes} ${reminder.minutes === 1 ? 'MINUTE' : 'MINUTES'}`}
+        </DText>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 22 }}>
+          <DText size={34} weight={800} color="#F8F5EE" numberOfLines={1}>
+            {reminder.title}
+          </DText>
+          <DText size={26} color="#D6D2CA" numberOfLines={1} style={{ maxWidth: 820 }}>
+            {detail}
+          </DText>
+        </View>
       </View>
     </View>
   );

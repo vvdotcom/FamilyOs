@@ -1,19 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { CalendarEvent, Conflict, HouseholdSnapshot, ProviderState, WeatherForecast, weatherSceneName } from '@familyos/domain';
-import {
-  DText,
-  dateTimeFormat,
-  eventOnDay,
-  formatDate,
-  formatTime,
-  localDateKey,
-  memberColor,
-  useDesignPalette,
-} from '../design/DesignSystem';
-import { WeatherIcon } from '../design/WeatherIcon';
+import { DText, dateTimeFormat, eventOnDay, formatDate, formatTime, localDateKey } from '../design/DesignSystem';
 import { familyAgentClient } from '../api/familyAgentClient';
 import WeatherScene from '../components/WeatherScene';
+import { dueReminder, WallReminder } from '../components/ReminderToast';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { ForcedFamilyTheme } from '../theme/FamilyTheme';
 
@@ -42,14 +33,9 @@ const NIGHT_FROM = 22;
 const NIGHT_UNTIL = 6;
 /** How often the wall asks Hometide for a fresh note (the service caches it for 15 minutes too). */
 const NOTE_REFRESH_MS = 15 * 60_000;
-/** Plans shown in the bottom strip; the full calendar is one button press away. */
-const STRIP_PLANS = 3;
-/** Dark glass cards over the landscape: readable from the couch, with the scene showing around them. */
-const GLASS = 'rgba(12, 14, 22, 0.58)';
-const GLASS_STRONG = 'rgba(12, 14, 22, 0.70)';
-const GLASS_EDGE = 'rgba(255, 255, 255, 0.14)';
-const LABEL = '#F2C98A';
-const SOFT = 'rgba(255, 255, 255, 0.78)';
+/** A due event warns in the house's warm accent. */
+const WARN = '#F2C98A';
+const NONE_SHOWN: ReadonlySet<string> = new Set();
 // Text drawn straight on the landscape gets a soft shadow so it reads on bright skies too.
 const ON_SCENE = { textShadowColor: 'rgba(0, 0, 0, 0.45)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 14 };
 // Nudge everything a few pixels each minute so a static layout never burns into the screen.
@@ -78,20 +64,6 @@ function shiftDay(dayKey: string, days: number) {
 const byTime = (a: CalendarEvent, b: CalendarEvent) =>
   Number(!a.allDay) - Number(!b.allDay) || Date.parse(a.startAt) - Date.parse(b.startAt);
 
-/** The same event for two kids (School for Emma, School for Leo) shows once, with both of them. */
-function mergeSame(events: CalendarEvent[]) {
-  const groups = new Map<string, { event: CalendarEvent; memberIds: string[]; ids: string[] }>();
-  for (const event of events) {
-    const key = `${event.title}|${event.startAt}|${event.endAt}|${event.allDay ? 1 : 0}`;
-    const group = groups.get(key);
-    if (group) {
-      group.ids.push(event.id);
-      for (const id of event.memberIds) if (!group.memberIds.includes(id)) group.memberIds.push(id);
-    } else groups.set(key, { event, memberIds: [...event.memberIds], ids: [event.id] });
-  }
-  return [...groups.values()];
-}
-
 export interface FamilyWallScreenProps {
   household: HouseholdSnapshot;
   now: Date;
@@ -100,11 +72,14 @@ export interface FamilyWallScreenProps {
   onExit: () => void;
   /** Events in a conflict get a warning, so the wall shows what needs fixing. */
   conflicts?: Conflict[];
+  /** Minutes before a timed event that its reminder shows on the wall (the phone app's TV setting); 0 is off. */
+  reminderMinutes?: number;
 }
 
 /**
- * The idle TV as a living wall: a looping landscape that follows the real weather and the time of day, with
- * the time, the forecast, Hometide's note and the next plans on top. Any button returns to Hometide.
+ * The idle TV as a living wall: a looping landscape that follows the real weather and the time of day, with one
+ * calm, centred stack on top: the time, the date, the next plan, Hometide's note, and a reminder when an event is
+ * close. At night (10 PM to 6 AM) the same stack dims. Any button returns to Hometide.
  */
 export default function FamilyWallScreen(props: FamilyWallScreenProps) {
   return (
@@ -139,8 +114,7 @@ function useWallNote(paired: boolean) {
   return note;
 }
 
-function WallContent({ household, now, weatherState, paired, onExit, conflicts = [] }: FamilyWallScreenProps) {
-  const p = useDesignPalette(true);
+function WallContent({ household, now, weatherState, paired, onExit, conflicts = [], reminderMinutes = 15 }: FamilyWallScreenProps) {
   const timezone = household.family.timezone;
   const todayKey = localDateKey(now, timezone);
   const clock = localClock(now, timezone);
@@ -148,14 +122,10 @@ function WallContent({ household, now, weatherState, paired, onExit, conflicts =
   const [dx, dy] = SHIFTS[now.getMinutes() % SHIFTS.length];
   const today = household.events.filter((event) => eventOnDay(event, todayKey, timezone)).sort(byTime);
   const tomorrow = household.events.filter((event) => eventOnDay(event, shiftDay(todayKey, 1), timezone)).sort(byTime);
-  const upcoming = today.filter((event) => !event.allDay && Date.parse(event.endAt) > now.getTime());
-  const next = upcoming.find((event) => Date.parse(event.startAt) >= now.getTime()) ?? upcoming[0];
   const flagged = new Set(conflicts.filter((item) => item.type === 'responsibility_overlap').flatMap((item) => item.eventIds));
-  const dinner = (household.meals || []).find((meal) => meal.date === todayKey && meal.category === 'Dinner');
   const name = (id?: string | null) => household.members.find((member) => member.id === id)?.name ?? 'Family';
   const everyone = (ids: string[]) => ids.length === household.members.length && household.members.length > 1;
   const who = (ids: string[]) => (everyone(ids) ? 'Everyone' : ids.map(name).join(', '));
-  const needsDriver = (event: CalendarEvent, ids = [event.id]) => ids.some((id) => flagged.has(id)) && !!event.responsibilityType;
   const weather = weatherState.data;
   const note = useWallNote(paired);
   const reduceMotion = useReducedMotion();
@@ -166,178 +136,54 @@ function WallContent({ household, now, weatherState, paired, onExit, conflicts =
     isDaytime: weather?.isDaytime,
     dayIndex: Math.floor(Date.parse(`${todayKey}T12:00:00Z`) / 86_400_000),
   });
-
-  if (night) {
-    const morning = tomorrow.find((event) => !event.allDay) ?? tomorrow[0];
-    const dim = '#C9C2B6';
-    return (
-      <Pressable
-        testID="wall-calendar-night"
-        accessibilityLabel="Wall calendar, night mode. Press any button to use Hometide."
-        onPress={onExit}
-        style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, backgroundColor: '#05070F', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-        <WeatherScene scene={scene} animate={!reduceMotion} dim={0.35} />
-        <View style={{ alignItems: 'center', gap: 18, transform: [{ translateX: dx }, { translateY: dy }] }}>
-          <DText heading size={220} weight={700} color={dim} style={[{ letterSpacing: -4 }, ON_SCENE]}>
-            {formatTime(now, timezone, false)}
-          </DText>
-          <DText size={40} color={dim} style={ON_SCENE}>
-            {formatDate(now, timezone)}
-          </DText>
-          {morning ? (
-            <DText size={32} color="#B5AEA2" style={[{ marginTop: 24 }, ON_SCENE]}>
-              Tomorrow · {morning.allDay ? 'All day' : formatTime(morning.startAt, timezone)} · {morning.title} · {who(morning.memberIds)}
-            </DText>
-          ) : null}
-          {note ? (
-            <DText testID="wall-note" size={28} color="#B5AEA2" numberOfLines={2} style={[{ maxWidth: 1200, textAlign: 'center' }, ON_SCENE]}>
-              {note}
-            </DText>
-          ) : null}
-        </View>
-      </Pressable>
-    );
-  }
-
-  const time = formatTime(now, timezone, false);
-  const meridiem = formatTime(now, timezone).slice(time.length).trim();
-  const minutesAway = next ? Math.round((Date.parse(next.startAt) - now.getTime()) / 60_000) : 0;
-  const leaveBy = next && (next.travelMinutes || next.arrivalMinutes)
-    ? formatTime(new Date(Date.parse(next.startAt) - ((next.travelMinutes || 0) + (next.arrivalMinutes || 0)) * 60_000), timezone)
-    : null;
-  // The bottom strip: the plans after "next up", so nothing shows twice.
-  const strip = mergeSame(upcoming).filter(({ event }) => event.id !== next?.id).slice(0, STRIP_PLANS);
+  // A reminder shows for the whole lead time (not only when it first fires), since nobody watches an idle TV.
+  const reminder = dueReminder(household.events, household.members, now, reminderMinutes, NONE_SHOWN);
+  // The next plan today (not the one the reminder already shows); at night, or when today is done, tomorrow's first.
+  const nextToday = night
+    ? undefined
+    : today.find((event) => !event.allDay && Date.parse(event.startAt) >= now.getTime() && `${event.id}|${event.startAt}` !== reminder?.key);
+  const morning = tomorrow.find((event) => !event.allDay) ?? tomorrow[0];
+  const plan = nextToday ?? morning;
+  const planLabel = nextToday ? 'Next' : 'Tomorrow';
+  const needsDriver = !!nextToday && flagged.has(nextToday.id) && !!nextToday.responsibilityType;
+  const ink = night ? '#C9C2B6' : '#FFFFFF';
+  const soft = night ? '#B5AEA2' : 'rgba(255, 255, 255, 0.92)';
 
   return (
     <Pressable
-      testID="wall-calendar"
-      accessibilityLabel="Wall calendar. Press any button to use Hometide."
+      testID={night ? 'wall-calendar-night' : 'wall-calendar'}
+      accessibilityLabel={`Wall calendar${night ? ', night mode' : ''}. Press any button to use Hometide.`}
       onPress={onExit}
-      style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, backgroundColor: '#11141C' }}>
-      <WeatherScene scene={scene} animate={!reduceMotion} />
-      <View style={{ flex: 1, paddingHorizontal: 96, paddingTop: 60, paddingBottom: 54, justifyContent: 'space-between',
-        transform: [{ translateX: dx }, { translateY: dy }] }}>
-        {/* The time and the weather, straight on the sky. */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={{ gap: 4 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 14 }}>
-              <DText heading size={168} weight={700} color="#FFFFFF" style={[{ letterSpacing: -4, lineHeight: 172 }, ON_SCENE]}>
-                {time}
-              </DText>
-              <DText size={42} weight={700} color={SOFT} style={[{ marginBottom: 30 }, ON_SCENE]}>
-                {meridiem}
-              </DText>
-            </View>
-            <DText size={38} weight={700} color={SOFT} style={ON_SCENE}>
-              {formatDate(now, timezone)}
+      style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, backgroundColor: night ? '#05070F' : '#11141C',
+        alignItems: 'center', justifyContent: 'center' }}>
+      <WeatherScene scene={scene} animate={!reduceMotion} dim={night ? 0.35 : 0} />
+      <View style={{ alignItems: 'center', gap: 18, transform: [{ translateX: dx }, { translateY: dy }] }}>
+        <DText heading size={220} weight={700} color={ink} style={[{ letterSpacing: -4 }, ON_SCENE]}>
+          {formatTime(now, timezone, false)}
+        </DText>
+        <DText size={40} weight={night ? 400 : 700} color={ink} style={ON_SCENE}>
+          {formatDate(now, timezone)}
+        </DText>
+        {plan ? (
+          <View testID="wall-next-up" style={{ flexDirection: 'row', marginTop: 24 }}>
+            <DText size={32} weight={night ? 400 : 600} color={soft} style={ON_SCENE}>
+              {`${planLabel} · ${plan.allDay ? 'All day' : formatTime(plan.startAt, timezone)} · ${plan.title} · ${who(plan.memberIds)}`}
             </DText>
-          </View>
-          {weather ? (
-            <View style={{ alignItems: 'flex-end', gap: 4 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-                <WeatherIcon condition={weather.condition} size={64} color="#FFFFFF" />
-                <DText heading size={136} weight={700} color="#FFFFFF" style={[{ lineHeight: 140 }, ON_SCENE]}>
-                  {weather.temperatureF}°
-                </DText>
-              </View>
-              <DText size={38} weight={800} color="#FFFFFF" numberOfLines={1} style={[{ maxWidth: 640, textAlign: 'right' }, ON_SCENE]}>
-                {weather.condition}
-              </DText>
-              <DText size={30} color={SOFT} style={ON_SCENE}>
-                H {weather.highF}° L {weather.lowF}°
-              </DText>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Hometide's note and the next plan. */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'stretch', gap: 32 }}>
-          {note ? (
-            <View testID="wall-note" style={{ width: 1000, padding: 32, borderRadius: 30, gap: 10, backgroundColor: GLASS }}>
-              <DText size={22} weight={800} color={LABEL} style={{ letterSpacing: 3 }}>
-                HOMETIDE · TODAY
-              </DText>
-              <DText size={36} weight={600} color="#FFFFFF" numberOfLines={3} style={{ lineHeight: 46 }}>
-                {note}
-              </DText>
-            </View>
-          ) : (
-            <View style={{ width: 1000 }} />
-          )}
-          {next ? (
-            <View testID="wall-next-up" style={{ width: 600, padding: 30, borderRadius: 30, gap: 6, backgroundColor: GLASS_STRONG,
-              borderWidth: 2, borderColor: GLASS_EDGE }}>
-              <DText size={22} weight={800} color={LABEL} style={{ letterSpacing: 3 }}>
-                {`NEXT UP · ${formatTime(next.startAt, timezone)}${minutesAway > 0 && minutesAway < 120 ? ` · IN ${minutesAway} MIN` : ''}`}
-              </DText>
-              <DText heading size={46} weight={700} color="#FFFFFF" numberOfLines={1}>
-                {next.title}
-              </DText>
-              <DText size={28} color={SOFT} numberOfLines={1}>
-                {who(next.memberIds)}
-                {leaveBy ? ` · leave by ${leaveBy}` : next.location ? ` · ${next.location}` : ''}
-              </DText>
-              {needsDriver(next) ? <DriverBadge warning={p.warning} ink={p.warningInk} /> : null}
-            </View>
-          ) : (
-            <View testID="wall-next-up" style={{ width: 600, padding: 30, borderRadius: 30, backgroundColor: GLASS_STRONG, justifyContent: 'center' }}>
-              <DText size={34} weight={700} color="#FFFFFF">
-                Nothing else today
-              </DText>
-            </View>
-          )}
-        </View>
-
-        {/* One slim strip: the rest of today, and dinner. */}
-        <View style={{ gap: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 26, paddingVertical: 18, borderRadius: 26,
-            backgroundColor: GLASS }}>
-            <DText size={20} weight={800} color={LABEL} style={{ letterSpacing: 3, marginRight: 8 }}>
-              TODAY
-            </DText>
-            {strip.length ? (
-              strip.map(({ event, memberIds, ids }) => {
-                const color = memberColor(everyone(memberIds) ? 'family' : event.ownerMemberId, true);
-                return (
-                  <View key={event.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 420 }}>
-                    <View style={{ width: 10, height: 34, borderRadius: 5, backgroundColor: color.accent }} />
-                    <DText size={24} weight={700} color={SOFT}>
-                      {formatTime(event.startAt, timezone)}
-                    </DText>
-                    <DText size={26} weight={800} color="#FFFFFF" numberOfLines={1} style={{ flexShrink: 1 }}>
-                      {event.title}
-                    </DText>
-                    {needsDriver(event, ids) ? <DriverBadge warning={p.warning} ink={p.warningInk} /> : null}
-                  </View>
-                );
-              })
-            ) : (
-              <DText size={26} weight={700} color={SOFT}>
-                Nothing else on the calendar
-              </DText>
-            )}
-            <View style={{ flex: 1 }} />
-            {dinner ? (
-              <DText size={24} color={SOFT} numberOfLines={1} style={{ maxWidth: 420 }}>
-                Dinner · <DText size={24} weight={800} color="#FFFFFF">{dinner.title}</DText>
+            {needsDriver ? (
+              <DText size={32} weight={700} color={WARN} style={ON_SCENE}>
+                {' · needs a driver'}
               </DText>
             ) : null}
           </View>
-          <DText size={20} color="rgba(255, 255, 255, 0.6)" style={[{ textAlign: 'right' }, ON_SCENE]}>
-            Press any button on the remote to use Hometide
+        ) : null}
+        {note ? (
+          <DText testID="wall-note" size={28} weight={night ? 400 : 600} color={soft} numberOfLines={2}
+            style={[{ maxWidth: 1200, textAlign: 'center' }, ON_SCENE]}>
+            {note}
           </DText>
-        </View>
+        ) : null}
+        {reminder ? <WallReminder reminder={reminder} timezone={timezone} /> : null}
       </View>
     </Pressable>
-  );
-}
-
-function DriverBadge({ warning, ink }: { warning: string; ink: string }) {
-  return (
-    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: warning }}>
-      <DText size={20} weight={800} color={ink}>
-        Needs a driver
-      </DText>
-    </View>
   );
 }
