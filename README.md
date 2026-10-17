@@ -5,7 +5,7 @@
 **The family TV that learns your family's routines.**
 
 It catches the pickup clash nobody spotted, learns the fix your family makes, and offers once to make it the
-routine. Nothing changes until a parent says yes.
+routine. Nothing changes until a parent says yes on the TV.
 
 Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track · AWS Builder mini-challenge
 
@@ -31,7 +31,7 @@ shift: about 1 in 3 parents of school-age kids have missed work getting them to 
 earning under $100k), and 11% say it cost them a job ([AP-NORC with HopSkipDrive, 2025](https://apnorc.org/projects/2025-state-of-school-transportation/)).
 
 **Skylight shows the schedule. Hometide spots this clash, learns the fix your family made, and offers once to make it
-the routine, on the Fire TV you already own.**
+the routine, and a parent confirms it on the Fire TV with the remote.**
 
 **In the demo family** (a judge can open it): the living-room TV flags the clash and says Lindsey is free. Lindsey says
 "Swap Tuesday's Emma pickup to Lindsey" into the phone, and the swap waits on the TV until a parent confirms it with
@@ -53,7 +53,7 @@ family says yes. Fire TV's Ambient Experience and Alexa+ can show a linked calen
 fixes your family keeps making.
 
 **Built on Amazon:** a native Vega OS app on a real Fire TV Stick; a Strands agent on Amazon Bedrock that works
-through Hometide's own 13-tool MCP server, which any MCP host can use (Alexa+ access for MCP servers wasn't open to us
+through Hometide's own 13-tool MCP server, which [any MCP host can use](#hometides-routines-from-any-mcp-host) (Alexa+ access for MCP servers wasn't open to us
 yet); AgentCore Memory for what the family confirmed; and an Alexa skill that answers "what has Hometide learned about
 us?" in the Alexa developer console's simulator.
 
@@ -195,19 +195,21 @@ Filmed with a camera on a Fire TV Stick running Vega OS, with the real remote (n
 - Chores with photo verification, rewards, lists, groceries, sports teams and carpools, and a child mode.
 
 **By voice**
-- Tap the mic in the phone or web app and ask; any change waits for a parent to confirm on the TV or phone. The demo
-  video plays a real request spoken into the phone app.
-- The voice agent runs on the Strands Agents SDK and Amazon Bedrock over our MCP server (Streamable HTTP,
-  2025-11-25). An Alexa skill ("home tide") reaches the same agent in the simulator ([limits](#honest-scope)).
+- Tap the mic in the phone or web app and ask; any change waits for a parent to confirm on the TV or phone.
+- The voice agent runs on the Strands Agents SDK and Amazon Bedrock over the MCP server below. An Alexa skill
+  ("home tide") reaches the same agent in the simulator ([limits](#honest-scope)).
 
-Every feature in more detail: [docs/FEATURES.md](./docs/FEATURES.md).
+### Hometide's routines from any MCP host
 
-**The 13 tools our MCP server defines** (`services/family-agent/app/voice.py`), used by the Strands voice agent and
-open to any MCP host:
+The learned routines and the TV's confirm step are also an MCP server (Streamable HTTP, 2025-11-25) at
+`https://hometide.up.railway.app/mcp`, with Hometide as its reference TV client. Any MCP client that sends a bearer
+token can use it: create a key in the phone app (Family → Voice · Alexa+), then in `services/family-agent` run
+`python scripts/mcp_host_check.py --propose`. It asks what Hometide has learned and proposes a pickup swap, which waits
+on the Fire TV until a parent confirms it. The 13 tools (`app/voice.py`):
 
 | Tool | What it does | Changes anything? |
 |---|---|---|
-| `get_today` | What's happening today or on a given day: events, conflicts, sports reminders, family night | No |
+| `get_today` | Today's (or a day's) events, conflicts, reminders and family night | No |
 | `get_week` | The family's week, day by day | No |
 | `get_member_schedule` | One family member's schedule for a day | No |
 | `list_conflicts` | Clashes to resolve, like double-booked drivers or tight travel time | No |
@@ -215,11 +217,11 @@ open to any MCP host:
 | `get_chores` | Chores still to do, for everyone or one person | No |
 | `get_reward_balance` | Star balance for a child, or every child | No |
 | `get_weather` | Today's weather where the family lives | No |
-| `show_on_tv` | Switches the family's TV to a screen (home, calendar, chores, meals, lists, photos, family night) | Only what the TV shows |
+| `show_on_tv` | Switches the TV to a screen (home, calendar, chores, meals, lists, photos) | Only what the TV shows |
 | `propose_pickup_swap` | Proposes a different adult for a pickup or drive | No: a parent confirms it |
 | `propose_event` | Proposes a new calendar event | No: a parent confirms it |
 | `propose_reschedule` | Proposes moving an event to a new time | No: a parent confirms it |
-| `mark_chore_done_request` | Tells the family a chore is finished | No: a family member confirms; stars follow the family's rules |
+| `mark_chore_done_request` | Tells the family a chore is finished | No: a family member confirms it |
 
 ## Fire TV integration
 
@@ -232,11 +234,11 @@ physical Fire TV Stick 4K Select ([on a real Fire TV](#on-a-real-fire-tv)).
 |---|---|---|
 | React Native for Vega (`@amazon-devices/react-native-kepler`) and `react-native build-kepler` | A release `.vpkg` for the Stick (armv7) and for the Vega Virtual Device (x86_64) | [`apps/vega`](./apps/vega) |
 | Home screen launcher | Registered as the main interactive component (`com.amazon.category.main`) with its own icon, so it opens from the Fire TV Home screen | [`manifest.toml`](./apps/vega/manifest.toml) |
-| Remote input (`com.amazon.inputd.service`, `TVEventHandler`) | D-pad, Select, Back, Play/Pause, Rewind, Fast-forward and Menu drive Hometide's focus system. Focus starts on the likely action (Confirm, Pair this TV), and Back never traps | [`RemoteControlManager.kepler.ts`](./packages/shared-ui/src/app/remote-control/RemoteControlManager.kepler.ts) |
-| Accessibility settings (`com.amazon.devconf.privilege.accessibility`) | Reads the system reduce-motion setting for celebrations, focus animation and movement breaks. Buttons, the pairing QR code and the wall calendar have screen-reader labels | [`useReducedMotion.ts`](./packages/shared-ui/src/hooks/useReducedMotion.ts) |
+| Remote input (`com.amazon.inputd.service`, `TVEventHandler`) | Remote keys drive Hometide's focus system; focus starts on the likely action (Confirm, Pair this TV) and Back never traps | [`RemoteControlManager.kepler.ts`](./packages/shared-ui/src/app/remote-control/RemoteControlManager.kepler.ts) |
+| Accessibility settings (`com.amazon.devconf.privilege.accessibility`) | Follows the system reduce-motion setting; buttons, the pairing QR code and the wall have screen-reader labels | [`useReducedMotion.ts`](./packages/shared-ui/src/hooks/useReducedMotion.ts) |
 | Vega ports of React Navigation, AsyncStorage, Gesture Handler and Reanimated | Screen navigation, and a TV that keeps its pairing, theme and offline household across restarts | [`apps/vega/src`](./apps/vega/src), [`nativeStore.vega.ts`](./packages/shared-ui/src/storage/nativeStore.vega.ts) |
-| Vega media player (`@amazon-devices/react-native-w3cmedia`: `VideoPlayer` on a `KeplerVideoSurfaceView`) | The wall calendar's weather landscapes: muted 8-second 1080p loops, decoded by the Stick's video hardware so they stay smooth, with a bundled poster until the first frame and when reduce-motion is on | [`WeatherScene.vega.tsx`](./packages/shared-ui/src/components/WeatherScene.vega.tsx), [`brand/wall-scenes`](./brand/wall-scenes) |
-| Voice to the TV | A voice request (from the phone app's mic, or the "home tide" Alexa skill in the simulator) goes through Hometide's MCP server, and the TV picks up the result: it opens the calendar, or shows the change to confirm with focus already on Confirm | [`alexa-skill`](./alexa-skill), [`services/family-agent`](./services/family-agent) |
+| Vega media player (`@amazon-devices/react-native-w3cmedia`: `VideoPlayer` on a `KeplerVideoSurfaceView`) | The wall's weather loops: muted 8-second 1080p clips decoded in hardware, with a poster until the first frame | [`WeatherScene.vega.tsx`](./packages/shared-ui/src/components/WeatherScene.vega.tsx), [`brand/wall-scenes`](./brand/wall-scenes) |
+| Voice to the TV | A voice request (phone mic, or the Alexa skill in the simulator) goes through the MCP server; the TV opens the screen asked for, or shows the change with focus on Confirm | [`alexa-skill`](./alexa-skill), [`services/family-agent`](./services/family-agent) |
 
 Hometide plays only its own artwork, so streaming features (Content Launcher, DRM) aren't used; the sample's
 declarations for them were removed.

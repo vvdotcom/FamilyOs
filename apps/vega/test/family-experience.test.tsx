@@ -300,7 +300,7 @@ describe('Wall calendar and TV settings', () => {
     });
     expect(spy).toHaveBeenCalled();
     expect(screen.getByText(note)).toBeTruthy();
-    expect(screen.getByText('HOMETIDE · TODAY')).toBeTruthy();
+    expect(screen.getByTestId('wall-note')).toBeTruthy();
     screen.unmount();
     spy.mockRestore();
   });
