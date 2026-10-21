@@ -11,11 +11,11 @@ Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track �
 
 [![CI](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml/badge.svg)](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml) [![runs on](https://img.shields.io/badge/runs%20on-Fire%20TV%20Stick%20%C2%B7%20Vega%20OS-2F7F7A)](#on-a-real-fire-tv) [![AI](https://img.shields.io/badge/AI-Amazon%20Bedrock%20%C2%B7%20Strands%20%C2%B7%20AgentCore-F2A65A)](#aws-services-used) [![evals](https://img.shields.io/badge/evals-reproducible-2F7F7A)](#evals) [![price](https://img.shields.io/badge/price-free%20%C2%B7%20Premium%20%241.99%2Fmo-2F7F7A)](#why-the-tv) [![licence](https://img.shields.io/badge/licence-MIT-1D2B36)](./LICENSE)
 
-[▶️ Demo video (2:57)](https://www.youtube.com/watch?v=3_nuN0lfFT0) · [Live demo](https://hometide.up.railway.app/app/) · [Install on a Fire TV](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) · [Test it as a judge](#testing-it-as-a-judge) · [What families said](#what-families-said) · [On a real Fire TV](#on-a-real-fire-tv) · [Evals](#evals) · [Run it locally](#run-it-locally) · [Honest scope](#honest-scope)
+[▶️ Demo video (2:59)](https://www.youtube.com/watch?v=qVUTSU2Ip6w) · [Live demo](https://hometide.up.railway.app/app/) · [Install on a Fire TV](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) · [Test it as a judge](#testing-it-as-a-judge) · [What families said](#what-families-said) · [On a real Fire TV](#on-a-real-fire-tv) · [Evals](#evals) · [Run it locally](#run-it-locally) · [Honest scope](#honest-scope)
 
-<a href="https://www.youtube.com/watch?v=3_nuN0lfFT0"><img src="./docs/images/readme/banner.jpg" alt="Hometide on a real Fire TV Stick: a pickup conflict, and 'Hometide noticed: make Lindsey the usual Emma pickup?'" width="100%"></a>
+<a href="https://www.youtube.com/watch?v=qVUTSU2Ip6w"><img src="./docs/images/readme/banner.jpg" alt="Hometide on a real Fire TV Stick: a pickup conflict, and 'Hometide noticed: make Lindsey the usual Emma pickup?'" width="100%"></a>
 
-[**Watch the three-minute demo**](https://www.youtube.com/watch?v=3_nuN0lfFT0)
+[**Watch the three-minute demo**](https://www.youtube.com/watch?v=qVUTSU2Ip6w)
 
 </div>
 
