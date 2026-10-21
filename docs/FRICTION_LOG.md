@@ -576,7 +576,7 @@ instead. The demo video shows the result of the Entry 14 workaround in its "A li
 ## Screen recording
 
 - Full session: not recorded.
-- Demo video, filmed on the physical Fire TV Stick: [Hometide demo (2:57)](https://www.youtube.com/watch?v=3_nuN0lfFT0)
+- Demo video, filmed on the physical Fire TV Stick: [Hometide demo (2:59)](https://www.youtube.com/watch?v=qVUTSU2Ip6w)
 
 ## Test environment
 
