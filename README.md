@@ -9,9 +9,9 @@ routine. Nothing changes until a parent says yes on the TV.
 
 Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track · AWS Builder mini-challenge
 
-[![CI](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml/badge.svg)](https://github.com/vvdotcom/FamilyOs/actions/workflows/ci.yml) [![runs on](https://img.shields.io/badge/runs%20on-Fire%20TV%20Stick%20%C2%B7%20Vega%20OS-2F7F7A)](#on-a-real-fire-tv) [![AI](https://img.shields.io/badge/AI-Amazon%20Bedrock%20%C2%B7%20Strands%20%C2%B7%20AgentCore-F2A65A)](#aws-services-used) [![evals](https://img.shields.io/badge/evals-reproducible-2F7F7A)](#evals) [![price](https://img.shields.io/badge/price-free%20%C2%B7%20Premium%20%241.99%2Fmo-2F7F7A)](#why-the-tv) [![licence](https://img.shields.io/badge/licence-MIT-1D2B36)](./LICENSE)
+[![CI](https://github.com/vvdotcom/Hometide/actions/workflows/ci.yml/badge.svg)](https://github.com/vvdotcom/Hometide/actions/workflows/ci.yml) [![runs on](https://img.shields.io/badge/runs%20on-Fire%20TV%20Stick%20%C2%B7%20Vega%20OS-2F7F7A)](#on-a-real-fire-tv) [![AI](https://img.shields.io/badge/AI-Amazon%20Bedrock%20%C2%B7%20Strands%20%C2%B7%20AgentCore-F2A65A)](#aws-services-used) [![evals](https://img.shields.io/badge/evals-reproducible-2F7F7A)](#evals) [![price](https://img.shields.io/badge/price-free%20%C2%B7%20Premium%20%241.99%2Fmo-2F7F7A)](#why-the-tv) [![licence](https://img.shields.io/badge/licence-MIT-1D2B36)](./LICENSE)
 
-[▶️ Demo video (2:59)](https://www.youtube.com/watch?v=qVUTSU2Ip6w) · [Live demo](https://hometide.up.railway.app/app/) · [Install on a Fire TV](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) · [Test it as a judge](#testing-it-as-a-judge) · [What families said](#what-families-said) · [On a real Fire TV](#on-a-real-fire-tv) · [Evals](#evals) · [Run it locally](#run-it-locally) · [Honest scope](#honest-scope)
+[▶️ Demo video (2:59)](https://www.youtube.com/watch?v=qVUTSU2Ip6w) · [Live demo](https://hometide.up.railway.app/app/) · [Install on a Fire TV](https://github.com/vvdotcom/Hometide/releases/tag/v1.0.1) · [Test it as a judge](#testing-it-as-a-judge) · [What families said](#what-families-said) · [On a real Fire TV](#on-a-real-fire-tv) · [Evals](#evals) · [Run it locally](#run-it-locally) · [Honest scope](#honest-scope)
 
 <a href="https://www.youtube.com/watch?v=qVUTSU2Ip6w"><img src="./docs/images/readme/banner.jpg" alt="Hometide on a real Fire TV Stick: a pickup conflict, and 'Hometide noticed: make Lindsey the usual Emma pickup?'" width="100%"></a>
 
@@ -20,7 +20,7 @@ Build, Ship, Shape: Amazon Developer Hackathon 2026 · Fire TV (Vega OS) track �
 </div>
 
 - **Live demo:** the hosted web app at [hometide.up.railway.app/app](https://hometide.up.railway.app/app/), with a demo family's week already loaded (judge login on the Devpost form).
-- **Install it on a Fire TV:** [hometide_armv7.vpkg](https://github.com/vvdotcom/FamilyOs/releases/download/v1.0.0/hometide_armv7.vpkg) from the [v1.0.0 release](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0), for a Fire TV Stick on Vega OS, sideloaded in Developer Mode ([install steps](./docs/DEVELOPMENT.md#install-the-release-build)).
+- **Install it on a Fire TV:** [hometide_v1.0.1_armv7.vpkg](https://github.com/vvdotcom/Hometide/releases/download/v1.0.1/hometide_v1.0.1_armv7.vpkg) from the [v1.0.1 release](https://github.com/vvdotcom/Hometide/releases/tag/v1.0.1), for a Fire TV Stick on Vega OS, sideloaded in Developer Mode ([install steps](./docs/DEVELOPMENT.md#install-the-release-build)).
 - **Tried by real families:** three households of family and friends (8 people) tried Hometide on 2026-10-15, both of their requests are now built, and two of the households now use it on their own calendars. [What they said, and the fixes](#what-families-said).
 
 ## The problem, and who it's for
@@ -254,7 +254,7 @@ declarations for them were removed.
 ### On a real Fire TV
 
 A Fire TV Stick 4K Select with Vega OS 2.0 and its own remote, running the release `armv7` build
-([download v1.0.0](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0)), sideloaded in Developer Mode. Checked by filming the TV with a camera while using the
+([download v1.0.1](https://github.com/vvdotcom/Hometide/releases/tag/v1.0.1)), sideloaded in Developer Mode. Checked by filming the TV with a camera while using the
 real remote, with the phone app alongside.
 
 | On the Stick | Result | Evidence |
@@ -425,7 +425,7 @@ the demo family in memory and resets it on restart.
 1. **Get the code and install the JavaScript packages**
 
    ```bash
-   git clone https://github.com/vvdotcom/FamilyOs.git
+   git clone https://github.com/vvdotcom/Hometide.git
    cd FamilyOs
    npx -y corepack@0.34.0 yarn install
    ```

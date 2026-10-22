@@ -62,18 +62,18 @@ Amazon documentation used for the Vega build (checked 2026-09-22):
 
 ### Install the release build
 
-The [v1.0.0 release](https://github.com/vvdotcom/FamilyOs/releases/tag/v1.0.0) has `hometide_armv7.vpkg`, a release build for a Fire TV Stick on Vega OS that talks
+The [v1.0.1 release](https://github.com/vvdotcom/Hometide/releases/tag/v1.0.1) has `hometide_v1.0.1_armv7.vpkg`, a release build for a Fire TV Stick on Vega OS that talks
 to the hosted demo service (`https://hometide.up.railway.app`). It isn't on the Appstore yet, so it is sideloaded:
 
 1. Turn on Developer Mode on the Fire TV Stick (what we ran into is in [friction log](./FRICTION_LOG.md) entries 20
    and 21).
 2. On a computer on the same Wi-Fi, install the [Vega SDK](https://developer.amazon.com/docs/vega/0.24/install-vega-sdk)
-   and download [`hometide_armv7.vpkg`](https://github.com/vvdotcom/FamilyOs/releases/download/v1.0.0/hometide_armv7.vpkg).
+   and download [`hometide_v1.0.1_armv7.vpkg`](https://github.com/vvdotcom/Hometide/releases/download/v1.0.1/hometide_v1.0.1_armv7.vpkg).
 3. Install and launch it:
 
    ```bash
    vega exec vda connect <tv-ip>:5555
-   vega device install-app --packagePath hometide_armv7.vpkg
+   vega device install-app --packagePath hometide_v1.0.1_armv7.vpkg
    vega device launch-app --appName com.hometide.tv.main
    ```
 
