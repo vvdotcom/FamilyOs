@@ -33,15 +33,26 @@ filmed on a real Fire TV Stick 4K Select with its remote. Try the [live demo fam
 
 ## The problem, and who it's for
 
-**Tuesday, 2:58.** Jordan's team meeting is running long, and it's Jordan's turn to pick up Emma (9) from school at
-3:15. Nobody has noticed, and the same overlap comes back every Tuesday and Thursday. A missed pickup is a missed
-shift: about 1 in 3 parents of school-age kids have missed work getting them to and from school (4 in 10 in homes
+**Why I built it.** I'm a working parent, and school pickup is the part of the week that breaks. One Tuesday my
+meeting ran long, I looked at the clock at 3:10, and realised nobody was on the way to school. My partner thought I
+had it; I thought it was their day. My kid was the last one waiting at the school office when I got there.
+
+The worst part was that it wasn't new. That meeting landed on that pickup most weeks, and we fixed it by hand every
+time: a "can you grab them today?" text at lunch, sometimes too late. Our shared calendar showed the clash if anyone
+opened it, but nobody opens a calendar app at 2:58, and it never learned that we always solved it the same way.
+
+The one screen everyone in our house walks past is the living-room TV. So I built what I wanted that afternoon: a TV
+that flags the clash in the morning and says who's free, and, once it has watched us make the same swap a few times,
+asks once whether to make it the usual pickup. One press of the remote, and it sticks.
+
+It isn't just us. A missed pickup is a missed shift: about 1 in 3 parents of school-age kids have missed work getting them to and from school (4 in 10 in homes
 earning under $100k), and 11% say it cost them a job ([AP-NORC with HopSkipDrive, 2025](https://apnorc.org/projects/2025-state-of-school-transportation/)).
 
 A shared calendar can show that clash. It can't notice that your family fixes the same clash by hand every week, or
 offer to make the fix stick. That's what Hometide does.
 
-**In the demo family** (a judge can open it): the living-room TV flags the clash and says Lindsey is free. Lindsey says
+**In the demo family** (a judge can open it), it's Jordan's Tuesday team meeting against Emma's (9) 3:15 pickup,
+the same overlap every Tuesday and Thursday. The living-room TV flags the clash and says Lindsey is free. Lindsey says
 "Swap Tuesday's Emma pickup to Lindsey" into the phone, and the swap waits on the TV until a parent confirms it with
 the remote. Because the clash comes back every week, the TV then says *Hometide noticed*: make Lindsey the usual
 Tuesday and Thursday pickup? One press fixes every later week, and Hometide remembers the answer.
